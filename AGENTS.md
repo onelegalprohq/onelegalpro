@@ -9,8 +9,17 @@ Every AI coding assistant must read this file before changing the repository.
 - `docs/implementation/03_Engineering_Backlog.md`
 - `docs/domain/06_Laravel_Module_Blueprint.md`
 - `docs/PROJECT_STATUS.md`
+- `docs/architecture/` (all files, including the Constitution, AI Architecture, Roadmap, and Legal Intelligence Architecture)
+- `docs/adr/` (all Architecture Decision Records)
 
 If a request conflicts with approved architecture, stop, explain the conflict, and request human approval.
+
+## Legal Intelligence rules
+
+- Official Thai-language text is the authoritative legal source for Thai law. Translations are never authoritative.
+- Translated legal text is non-authoritative reference material and must always carry the mandatory disclaimer.
+- AI-generated content must never be presented as official law.
+- Platform-global legal sources and firm-owned legal work must not be conflated — see `docs/architecture/01_OneLegalPro_Constitution.md` and `docs/architecture/09_Legal_Intelligence_Architecture.md`.
 
 ## Architecture
 

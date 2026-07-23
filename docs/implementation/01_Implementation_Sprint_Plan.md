@@ -59,9 +59,15 @@ Every sprint must preserve module boundaries, Firm isolation, authorization, aud
 - PF-093 Consumer foundation
 - PF-100 through PF-104 Testing Infrastructure
 
+## Architecture track (parallel to sprint numbering)
+
+**ARCH-001 — Thailand-First Legal Intelligence Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/05_AI_Architecture.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/09_Legal_Intelligence_Architecture.md`, and `docs/adr/ADR-002-Thailand-First-Legal-Intelligence.md`.
+
+Architecture approval does not schedule implementation. No `PF-*` story numbering is affected. Any Legal Intelligence implementation stories (see EPIC-002 staging in `docs/architecture/08_Roadmap.md`) are **proposed only** and must be added to this Sprint Plan and to `docs/implementation/03_Engineering_Backlog.md` as their own approved entries before implementation begins.
+
 ## Later phases
 
-Platform Core; Legal Practice Core; Documents; Commercial Operations; Legal Intelligence; Digital Presence; Client Portal; Workflow; Integrations; Reporting; Academic Edition.
+Platform Core; Legal Practice Core; Documents; Commercial Operations; **Legal Intelligence (EPIC-002, proposed — staged in `docs/architecture/08_Roadmap.md`, not yet scheduled)**; Digital Presence; Client Portal; Workflow; Integrations; Reporting; Academic Edition.
 
 ## Human approval gates
 
