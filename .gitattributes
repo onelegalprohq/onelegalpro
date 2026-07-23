@@ -6,6 +6,46 @@
 *.md diff=markdown
 *.php diff=php
 
+### Binary file handling ###
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+
+# Documents
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+
+# Archives
+*.zip binary
+*.gz binary
+*.tar binary
+*.rar binary
+*.7z binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+
+### Export-ignore (excluded from git archive) ###
 /.github export-ignore
+/tests export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+.editorconfig export-ignore
+CONTRIBUTING.md export-ignore
 CHANGELOG.md export-ignore
+phpunit.xml export-ignore
 .styleci.yml export-ignore

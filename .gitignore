@@ -1,27 +1,79 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
-/node_modules
+### Laravel ###
+/bootstrap/ssr
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
 _ide_helper.php
 Homestead.json
 Homestead.yaml
+.phpactor.json
+
+### Composer ###
+/vendor
+/auth.json
+composer.phar
+
+### Node ###
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+
+### Environment files and secrets ###
+.env
+.env.*
+!.env.example
+
+### Docker local data ###
+# Only machine-local Compose overrides are ignored. docker-compose.override.yml
+# and other shared Compose files introduced in PF-010 remain tracked.
+docker-compose.local.yml
+docker-compose.override.local.yml
+compose.local.yml
+
+### IDE files ###
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.vscode
+/.zed
+/.fleet
+*.sublime-project
+*.sublime-workspace
+
+### macOS artifacts ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+### Windows artifacts ###
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+### Logs ###
+*.log
+storage/logs/*.log
+
+### Test coverage ###
+/coverage
+/.phpunit.cache
+.phpunit.result.cache
+clover.xml
+coverage.xml
+.nyc_output
+
+### Temporary build files ###
+*.tmp
+*.temp
+*.bak
+*.orig
+.cache/

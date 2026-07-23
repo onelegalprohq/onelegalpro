@@ -5,23 +5,27 @@
 
 ## Current objective
 
-Install approved governance and architecture files into the repository so Claude Code has a real source of truth.
+Establish Git and repository governance standards (PF-002) on top of the completed source-of-truth bootstrap.
 
 ## Current Epic
 
 EPIC-001 — Platform Foundation
 
-## Next story
+## Current story
 
 PF-002 — Git & Repository Standards
 
+## Next story
+
+PF-003 — Repository Documentation
+
 ## Then
 
-PF-003 Repository Documentation → PF-010 Docker Development Environment → PF-011 Local Environment → PF-012 Development Tooling → quality and CI → Foundation Library.
+PF-010 Docker Development Environment → PF-011 Local Environment → PF-012 Development Tooling → quality and CI → Foundation Library.
 
-## Blocker resolved by this package
+## Completed
 
-Claude Code previously found the source-of-truth files missing or empty.
+- Source-of-truth governance and architecture files installed (`AGENTS.md`, `docs/implementation/*`, `docs/domain/06_Laravel_Module_Blueprint.md`, `docs/PROJECT_STATUS.md`).
 
 ## Rules
 
