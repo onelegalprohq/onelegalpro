@@ -58,7 +58,7 @@ They are not separate bounded contexts because they share two categories of comm
 | Official statutes, regulations, court decisions, translations, citations | **Legal Intelligence** | Cited; never duplicated or overridden |
 | `Money`, `Currency` — the platform-wide exact-decimal money primitive | **Foundation Library (PF-045)** | **Consumed, never owned** (§5.1) |
 | Actor identity, permissions, SoD assignments | **Future Identity/Security** | Consumed, never owned |
-| Process orchestration | **Future Workflow** | May orchestrate; owns no financial state |
+| Process orchestration | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) | May orchestrate; owns no financial state |
 
 ## 5. Ubiquitous language
 
@@ -636,7 +636,7 @@ Chart-of-accounts structure, posting rules, recognition policy, rounding, and ta
 ## 60. Cross-context integration — future Identity/Security and Workflow
 
 - A **future Identity/Security context** owns actor identity, authentication, permissions, and segregation-of-duties role assignments. Billing **consumes** these; it defines financial permissions in terms of them but never owns identity.
-- A **future Workflow context** may orchestrate billing processes (approval routing, dunning ladders, month-end sequences) through published contracts. **It owns no financial state and can perform no action Billing's own authorization would refuse.**
+- **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) may orchestrate billing processes (approval routing, dunning ladders, month-end sequences) through published contracts. **It owns no financial state and can perform no action Billing's own authorization would refuse.** Client-money movement, invoice issuance/voiding, rate/tax changes, journal posting, payment allocation, write-offs, and reconciliation remain categorically non-delegable to AI regardless of any Workflow automation policy.
 
 ## 61. Integration rules common to all contexts
 

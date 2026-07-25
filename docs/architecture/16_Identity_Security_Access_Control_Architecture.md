@@ -56,7 +56,7 @@ Firm-scoped principals and actor identifiers · identity-account lifecycle · Fi
 | Domain-specific resource authorization rules | **The resource-owning module** |
 | Client Portal presentation | **Digital Presence** (`docs/architecture/12_Website_Client_Portal_Architecture.md`) |
 | Public API design, versioning, developer portals, webhooks, integration orchestration | **Reserved for ARCH-009** |
-| Workflow state | **Reserved for the future Workflow architecture** |
+| Workflow and AI-run state | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) |
 | AI authority | **Nobody — AI is never an authorization authority** |
 
 ## 5. Ubiquitous language
