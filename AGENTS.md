@@ -40,6 +40,14 @@ If a request conflicts with approved architecture, stop, explain the conflict, a
 - Every embedded widget is one reusable, sandboxed component (Booking, Client Login, Matter Status, AI Chat, Contact, Payment, Document Upload) — never a bespoke per-site or per-Firm reimplementation.
 - The embedded AI receptionist is the Communications Hub's AI, not a separate AI system; it stays bound by the Communications rules above wherever it is embedded.
 
+## Practice Management rules
+
+- Practice Management is the platform's Core Domain — it owns Client, Organization, Contact, Matter, Matter Team, Practice Area, Task, Appointment, Note, and Activity. It never owns Communications, Documents, Billing, Legal Intelligence, or Branding; every other module reaches Practice Management data only through its published contracts. See `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 16–17), `docs/architecture/13_Practice_Management_Architecture.md`, and `docs/adr/ADR-006-Practice-Management-Core.md`.
+- `Matter` is the central aggregate; `Task`, `Appointment`, `Note`, and `EthicalWall` are independent aggregates that reference `Matter`, never entities owned inside it.
+- The Matter Timeline and Matter Dashboard are read-model projections over other bounded contexts' published events and queries — never owned, materialized copies of their data.
+- Ethical Wall access is checked only through Practice Management's published `CheckEthicalWallAccess` query; no other module implements its own wall logic.
+- AI may summarize and suggest tasks, timelines, practice area, lawyer, and deadlines. AI must never change matter status, assign lawyers, close matters, or override Ethical Walls without explicit human authorization.
+
 ## Architecture
 
 OneLegalPro uses Domain-Driven Design, Clean Architecture, a Laravel modular monolith, PostgreSQL, UUIDv7, event-driven integration, REST-first interfaces, and Firm-based multi-tenancy.

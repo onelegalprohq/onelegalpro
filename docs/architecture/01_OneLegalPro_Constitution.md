@@ -91,6 +91,14 @@ Digital Presence (public websites, the Client Portal, embedded widgets, and book
 
 Every content item, client portal identity, availability schedule, booking request, and widget embed is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). Client Portal surfaces (Matters, Documents, Invoices, Payments, Tasks, Appointments) are read/write views over their owning modules' published contracts, never duplicated into Digital Presence's own schema. Firm-published Knowledge Publishing content (articles, FAQs, legal updates) is firm-owned editorial material under Article 7's separation-of-official-law framework and must never be presented as, or conflated with, an official legal source.
 
+## Article 16 — Practice Management as the platform's core domain
+
+`Matter` is the platform's central aggregate. Every bounded context that needs to know about a Client, Matter, Task, or Appointment reaches Practice Management only through its published contracts (extending Article 5's cross-module access principle to this specifically central context) and never duplicates that data into its own schema. Practice Management, in turn, must never absorb ownership of Communications, Documents, Billing, Legal Intelligence, or Branding — those remain separate bounded contexts it integrates with, not modules it subsumes. See `docs/architecture/13_Practice_Management_Architecture.md` and `docs/adr/ADR-006-Practice-Management-Core.md`.
+
+## Article 17 — Ethical Walls and conflict integrity
+
+Restricted-Matter access must be authorized only through Practice Management's published Ethical Wall check; no other bounded context may implement its own wall logic. Any emergency override of an Ethical Wall requires an explicit recorded justification and produces its own auditable event — never a silent bypass. AI may summarize a Matter and suggest tasks, timelines, practice area, lawyer, and deadlines, but must never change matter status, assign lawyers, close matters, or override Ethical Walls without explicit human authorization. This extends Article 6 with the explicit, professional-responsibility-driven prohibitions Practice Management requires.
+
 ## Amendment
 
 Amendments to this Constitution require an approved ADR and explicit human sign-off, consistent with the approval gates in `AGENTS.md`.
