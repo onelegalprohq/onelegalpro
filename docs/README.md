@@ -13,7 +13,7 @@ This is the complete, navigable index of OneLegalPro's documentation. Start with
 
 Repository-wide rules that apply regardless of which module or story is being worked on.
 
-- [`AGENTS.md`](../AGENTS.md) — AI development guide: source-of-truth list, per-module rules (Legal Intelligence, White-Label, Communications, Digital Presence, Practice Management), architecture layering, and approval gates.
+- [`AGENTS.md`](../AGENTS.md) — AI development guide: source-of-truth list, per-module rules (Legal Intelligence, White-Label, Communications, Digital Presence, Practice Management, Document & Knowledge Management), architecture layering, and approval gates.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — branch strategy, GitHub `main` ruleset, Conventional Commits, Semantic Versioning, pull request process, testing/documentation requirements, and security/secret-handling rules.
 
 ## Project tracking
@@ -30,7 +30,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`02_Product_Requirements.md`](architecture/02_Product_Requirements.md) | Empty placeholder, pending its own dedicated story. |
 | [`03_Database_Design.md`](architecture/03_Database_Design.md) | Empty placeholder, pending its own dedicated story. |
 | [`04_Security_Architecture.md`](architecture/04_Security_Architecture.md) | Empty placeholder, pending its own dedicated story. |
-| [`05_AI_Architecture.md`](architecture/05_AI_Architecture.md) | Approved — AI governance for Legal Intelligence and Communications Hub AI. |
+| [`05_AI_Architecture.md`](architecture/05_AI_Architecture.md) | Approved — AI governance for Legal Intelligence, Communications Hub, Document Intelligence, and Knowledge Intelligence/RAG. |
 | [`06_Marketplace.md`](architecture/06_Marketplace.md) | Empty placeholder, pending its own dedicated story. |
 | [`07_API_Standards.md`](architecture/07_API_Standards.md) | Empty placeholder, pending its own dedicated story. |
 | [`08_Roadmap.md`](architecture/08_Roadmap.md) | Approved (epic sequencing) — proposed, not-yet-scheduled implementation stages for each epic. |
@@ -39,7 +39,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`11_Communications_Hub_Architecture.md`](architecture/11_Communications_Hub_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`12_Website_Client_Portal_Architecture.md`](architecture/12_Website_Client_Portal_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`13_Practice_Management_Architecture.md`](architecture/13_Practice_Management_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
-| [`14_Document_Management_Architecture.md`](architecture/14_Document_Management_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
+| [`14_Document_Knowledge_Management_Architecture.md`](architecture/14_Document_Knowledge_Management_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 
 ## Architecture Decision Records
 
@@ -53,7 +53,7 @@ Records of specific, accepted architecture decisions. Each ADR is referenced fro
 | [`ADR-004-Communications-Hub.md`](adr/ADR-004-Communications-Hub.md) | Accepted. |
 | [`ADR-005-Website-Client-Portal.md`](adr/ADR-005-Website-Client-Portal.md) | Accepted. |
 | [`ADR-006-Practice-Management-Core.md`](adr/ADR-006-Practice-Management-Core.md) | Accepted. |
-| [`ADR-007-Document-Management.md`](adr/ADR-007-Document-Management.md) | Accepted. |
+| [`ADR-007-Document-Knowledge-Management.md`](adr/ADR-007-Document-Knowledge-Management.md) | Accepted. |
 
 ## Domain design
 
