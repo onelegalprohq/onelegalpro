@@ -68,9 +68,9 @@ External API contract registration and lifecycle · external representation mapp
 | **Service principal** | The IdentityAccess-owned machine identity an installation authenticates as. |
 | **Connector** | A configured, Firm-scoped synchronization relationship with an external system. |
 | **Synchronization cursor** | The durable checkpoint marking how far a connector has progressed. |
-| **Integration event** | A stable, versioned external representation of something that happened, distinct from the internal domain event it may summarize. |
+| **Integration event** | A stable, versioned external representation of something that happened, distinct from the internal domain event it may summarize. Carries one stable event identifier that persists unchanged across every retry. |
 | **Webhook subscription** | An installation's registration to receive a class of integration events at a callback endpoint. |
-| **Delivery attempt** | One recorded try to deliver one integration event to one subscription. |
+| **Delivery attempt** | One recorded try to deliver one integration event to one subscription, carrying its own delivery identifier distinct from the event's stable identifier — retrying an event produces a new delivery attempt, never a new event. |
 | **Inbound webhook envelope** | The verified, replay-checked wrapper around an inbound provider or partner callback, before translation into a command. |
 | **Idempotency key** | A caller-supplied token ensuring a retried external command is applied at most once. |
 | **Import/export job** | An asynchronous, authorized, audited bulk operation. |
@@ -184,6 +184,7 @@ Requested → Pending Firm-Admin Approval → Active ⇄ Suspended → Revoked (
 
 - An installation's **service principal and its credentials are owned by IdentityAccess** (§9; `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §37). Integrations holds only a **secure reference** to the credential relationship — never the secret itself.
 - **Long-lived, non-rotatable API secrets are prohibited.** Where an API key is supported as a compatibility mechanism, it must be: Firm- and purpose-bound; associated with a service principal; stored non-recoverably where possible; displayed only at issuance; rotatable; revocable; expiring where practical; scope-limited; audited; and prohibited from human interactive login.
+- **Outbound webhook signing material and provider credentials are a distinct case from a verification-only API key.** A narrowly authorized signing or provider adapter may need to retrieve the actual material at runtime to sign an outbound delivery or call a provider — that operational need never permits storing the material in plaintext in Integrations' own tables, logs, events, analytics, or audit payloads. The material itself lives in an approved encrypted secret-management boundary with tightly restricted runtime access; Integrations and its ordinary configuration hold only an opaque reference and safe metadata. No secret-management product is selected here.
 - **Rotation supports overlap without indefinite dual validity** — the same bound-overlap discipline `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §37 already requires for service credentials generally.
 
 ## 17. API standards (summary)
@@ -201,17 +202,26 @@ Full normative detail lives in `docs/architecture/07_API_Standards.md`; this sec
 ## 18. Versioning and compatibility
 
 - **Major-version namespaces** (for example `/v1/...`) are the unit of breaking change; a new major version is a new, coexisting contract, not a replacement that silently changes behavior underneath existing callers.
-- **Additive changes** (new optional field, new endpoint, new enum value where the consumer is expected to tolerate unknown values) do not require a version bump.
-- **Breaking changes** (removing or renaming a field, changing a field's type or meaning, tightening validation) require a new major version and an explicit, published deprecation notice for the prior version.
+- **Additive changes** (new optional field, new endpoint) do not require a version bump.
+- **Enums are closed unless a field's contract explicitly declares it open/extensible**, with consumers contractually required to preserve or tolerate unknown values for that specific field. Whether an enum is open or closed is a declared contract property, never inferred from how well a consumer is assumed to behave. Adding a value to an explicitly declared open enum is additive; adding a value to a closed (or undeclared) enum, removing or renaming any enum value, and changing an enum value's meaning are **all breaking changes**, regardless of the enum's openness.
+- **Breaking changes** (removing or renaming a field, changing a field's type or meaning, tightening validation, removing/renaming an enum value, changing an enum value's meaning, or adding a value to a closed enum) require a new major version and an explicit, published deprecation notice for the prior version.
 - **Deprecation carries a supported migration window** — a stated period during which both versions are live — communicated in the developer documentation and, where practical, in response metadata.
 - **Sunset is a scheduled, communicated event**, never a silent removal.
 - **Public API breaking changes require explicit human approval**, per the existing `AGENTS.md` approval gate.
 
 ## 19. Idempotency
 
-- **Every retryable external command accepts an idempotency key.** A retried request with the same key against the same resource produces the same recorded outcome exactly once, never a duplicate side effect.
-- Idempotency records are Firm- and installation-scoped, with a bounded retention window sufficient to cover realistic retry behavior.
-- Idempotency applies uniformly to inbound webhook processing (§30) and outbound command initiation.
+**Idempotency prevents a duplicate side effect within its defined boundary; it is not a general exactly-once execution or delivery guarantee.** Delivery and distributed execution across this architecture remain at-least-once (§26); idempotency is the mechanism that makes retrying a request under that reality safe.
+
+- **`IdempotencyRecord` is scoped by, at minimum:** Firm; integration installation; API contract/version and operation; target resource, where applicable; and the idempotency key itself.
+- **A canonical request fingerprint** covers the relevant method/action, target, and normalized request content, and **never stores secrets or unnecessary confidential content.**
+- **Same scoped key, same fingerprint** — the previously recorded result, or a safe reference to it, is returned without repeating the side effect.
+- **Same scoped key, different fingerprint** — rejected as an idempotency conflict. The second request is **never** silently treated as accepted or given the first request's result.
+- **The retention window is bounded and documented**; a key reused after the window has no continuity guarantee, and the caller is expected to use a new key.
+- **A replayed request still authenticates and passes current Firm, installation, scope, and domain authorization checks (§10)** — idempotency short-circuits only the side effect, never authorization.
+- **A previously recorded response must not disclose protected content after revocation** of membership, permission, an Ethical Wall grant, the installation, or resource access — replay re-evaluates current authorization before returning anything.
+- **A safe status or result reference is stored where possible**, rather than an indefinitely retained, potentially confidential full response body.
+- Idempotency applies uniformly to inbound webhook processing (§29) and outbound command initiation.
 
 ## 20. Concurrency
 
@@ -246,7 +256,7 @@ Full normative detail lives in `docs/architecture/07_API_Standards.md`; this sec
 - **`WebhookSubscription`** — a specific installation's registration to receive a class of integration events; independent lifecycle (subscribe/pause/unsubscribe) from the installation's broader activation state.
 - **`WebhookDelivery`** — one integration event's delivery record to one subscription, owning its `DeliveryAttempt` entities. Separate from the event itself because one event may fan out to many subscriptions, each with its own delivery outcome.
 - **`InboundWebhookEnvelope`** — the verified, replay-checked wrapper for one inbound callback, existing independently of any resulting domain command so that verification and intake are auditable even when translation fails.
-- **`IdempotencyRecord`** — an independent, short-lived aggregate recording the outcome of one idempotency-keyed command, deliberately separate from the command's own domain aggregate so idempotency bookkeeping never pollutes domain history.
+- **`IdempotencyRecord`** — an independent, short-lived aggregate scoped by Firm, integration installation, API contract/version and operation, target resource where applicable, and idempotency key (§19), recording the canonical request fingerprint and a safe result reference for one idempotency-keyed command. Deliberately separate from the command's own domain aggregate so idempotency bookkeeping never pollutes domain history and never becomes a substitute for re-checking authorization on replay.
 - **`Connector`** — a Firm-scoped, configured synchronization relationship with an external system, owning its `SyncCursor` and reconciliation state (§31–§35).
 - **`ImportExportJob`** — an asynchronous bulk operation with its own request → validate → execute → deliver lifecycle (§36–§38), independent so its provenance and audit survive regardless of the resources it touches.
 - **`DeveloperSandbox`** — an isolated environment coordination record (§39), independent of any specific application or installation.
@@ -278,7 +288,9 @@ Full normative detail lives in `docs/architecture/07_API_Standards.md`; this sec
 
 ## 26. Outbound webhooks
 
-- **Internal domain events are not exposed directly as the permanent public contract.** A stable **`IntegrationEventEnvelope`** is the only thing ever delivered externally, containing: event identifier; event type; contract version; occurrence time; subject reference; correlation and causation references; integration installation context; a minimal, authorized payload; and delivery-attempt metadata.
+- **Internal domain events are not exposed directly as the permanent public contract.** A stable **`IntegrationEventEnvelope`** is the only thing ever delivered externally. It carries the **stable event identity**, unchanged across every retry: a stable event identifier; event type; contract version; occurrence time; subject reference; correlation and causation references; integration installation context where safe and necessary; and a minimal, authorized payload.
+- **Delivery-attempt metadata is never part of the stable event envelope's identity.** Each `DeliveryAttempt` (§24) carries its own delivery identifier, a reference back to the stable event identifier and the subscription, an attempt number, a delivery timestamp, outcome/status, safe response metadata, and signature/timestamp transport metadata — recorded separately from, and never folded into, the business payload the event represents. A retry redelivers the same stable event identifier under a new delivery identifier; it never mints a new event identity.
+- **Consumers deduplicate the business event using the stable event identifier, not the delivery identifier.** Internal retry history and operational delivery diagnostics are never placed in the stable business-event payload itself.
 - **Confidential fields are never included merely because they exist on the internal event.** Building the envelope is a deliberate authoring act — the same discipline `docs/architecture/15_Billing_Trust_Accounting_Finance_Architecture.md` §81's safe-payload rule already applies to financial events, extended platform-wide.
 - **Publication uses a transactional outbox or equivalent reliable-publication boundary**, so an event is durably recorded before any external delivery attempt (`docs/implementation/01_Implementation_Sprint_Plan.md`, Sprint 0.4).
 - **Delivery is at-least-once; consumers are expected to be idempotent** (§19). **No claim of global ordering** is made; **per-subject ordering is guaranteed only where explicitly stated** for a specific event family.
@@ -304,24 +316,29 @@ Full normative detail lives in `docs/architecture/07_API_Standards.md`; this sec
 
 ## 29. Inbound webhooks and command intake
 
+**Integrations owns the shared ingress envelope and pipeline; it does not own provider-specific verification.** Integrations is responsible for bounded receipt, raw-body preservation within that bound, generic replay/idempotency coordination, registration status, rate limiting, quarantine policy, provenance recording, and dispatch to the owning module. The owning domain's provider adapter — Billing's payment-provider adapter, Communications' channel adapter, IdentityAccess for identity-provider callbacks, and so on — owns the provider-specific verification contract itself: signature algorithm, required headers, canonicalization rules, provider credential/secret lookup, and provider-specific acknowledgement semantics. Integrations invokes that published verification contract as a step in the shared pipeline; it never implements Stripe-, Microsoft-, Google-, LINE-, WhatsApp-, identity-provider-, or any other provider's signature logic itself, and a generic Integrations verification mechanism never weakens a provider's required verification procedure (§30).
+
 The safe inbound boundary, applied uniformly to every provider or partner callback:
 
 ```text
-Receive → Preserve raw body → Authenticate (signature) → Verify timestamp/replay window
-        → Enforce idempotency → Validate schema/content-type → Enforce size limits
-        → Rate-limit source → Reject unregistered/inactive connections
+Receive → Enforce hard body-size limit → Preserve raw body (within the bound)
+        → Invoke owning domain's provider-specific verification contract
+        → Verify timestamp/replay window → Enforce idempotency
+        → Validate schema/content-type → Rate-limit source
+        → Reject unregistered/inactive connections
         → Translate to owning module's command → Acknowledge per provider contract
 ```
 
-- **Preserve the raw body** before any parsing, since signature verification depends on the exact bytes received.
-- **Authenticate before accepting business meaning** — an unverified callback is rejected and recorded as a security event, never processed optimistically.
+- **Enforce a hard transport/body-size limit before an unbounded request body is fully buffered.** Oversized input is rejected before signature processing and before it ever reaches quarantine storage — an attacker cannot force unbounded buffering or unbounded quarantine growth merely by sending a large body.
+- **Preserve the exact raw body, only within that approved bound**, before any parsing, since the owning domain's signature verification depends on the exact bytes received.
+- **No business meaning is attached until the owning domain's adapter reports successful verification.** An unverified callback is rejected and recorded as a security event, never processed optimistically; Integrations relays the verification outcome, it does not decide it.
 - **Verify timestamp and replay window**, rejecting stale or replayed deliveries.
 - **Enforce idempotency** (§19) so redelivery never produces a duplicate business effect.
-- **Validate schema and content type**, and **apply strict size limits**, before any further processing.
+- **Validate schema and content type** before any further processing, within the same size-bounded discipline.
 - **Rate-limit abusive sources** and **reject unregistered or inactive connections** outright.
 - **Prevent SSRF and internal-network callback abuse** — registered callback URLs and any outbound verification calls are validated against an allow-list and never permitted to target internal network ranges, with DNS-rebinding considerations addressed at validation time, not assumed away.
-- **Quarantine malformed or suspicious inputs** rather than discarding them silently, preserving them for investigation.
-- **Record provenance** — source, timestamp, signature outcome, and correlation identifiers — on every envelope, verified or not.
+- **Quarantine malformed, suspicious, or unverified inputs** rather than discarding or indefinitely retaining them silently. Quarantine storage is **size-bounded, access-restricted, encrypted according to data classification, retention-limited, and auditable**; investigation access to quarantined content never bypasses Firm or provider-connection isolation, and operational logs record only safe metadata about a quarantined item, never the quarantined payload itself.
+- **Record provenance** — source, timestamp, verification outcome, and correlation identifiers — on every envelope, verified or not.
 - **Translate valid input into an owning module's application command.** Integrations never writes directly to a domain table.
 - **Never call an external provider inside a domain database transaction.**
 - **Acknowledge only according to the provider's own contract** — some providers require synchronous acknowledgment, others tolerate asynchronous processing; the acknowledgment discipline follows the provider, not a platform-wide assumption.
@@ -329,12 +346,12 @@ Receive → Preserve raw body → Authenticate (signature) → Verify timestamp/
 
 ## 30. Provider-specific semantics stay with the owning domain
 
-- **Payment-provider semantics remain with Billing.** Integrations supplies the shared ingress, verification, and replay pattern; Billing's own adapters interpret what a payment-provider callback means.
-- **Messaging-provider semantics remain with Communications**, behind its own `ChannelAdapter`.
+- **Payment-provider semantics, including payment-provider webhook verification, remain with Billing.** Integrations supplies the shared ingress envelope, bounded receipt, and replay/idempotency pattern (§29); Billing's own payment-provider adapter owns the verification contract itself and interprets what a payment-provider callback means. Integrations never implements payment-provider signature logic.
+- **Messaging-provider semantics, including messaging-provider webhook verification, remain with Communications**, behind its own `ChannelAdapter`. Integrations never implements messaging-provider (for example LINE, WhatsApp) signature logic.
 - **Document/file semantics remain with Documents.**
-- **Identity-provider semantics remain with IdentityAccess.**
+- **Identity-provider semantics, including identity-provider callback verification, remain with IdentityAccess.** Integrations never implements identity-provider signature logic.
 - **Digital Presence retains embedded-surface presentation rules.**
-- Integrations never absorbs a domain's provider-specific business logic; it supplies the reusable safety pattern every provider integration needs, once, instead of once per domain.
+- **Integrations never absorbs a domain's provider-specific verification or business logic.** It supplies the reusable shared-ingress safety pattern every provider integration needs — bounded receipt, raw-body preservation within that bound, replay/idempotency coordination, rate limiting, and quarantine — once, instead of once per domain, and invokes each owning domain's published verification contract as part of that shared pipeline. A shared, generic Integrations mechanism never substitutes for, and never weakens, a provider's actual required verification procedure.
 
 ## 31. Connector lifecycle
 

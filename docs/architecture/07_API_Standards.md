@@ -17,11 +17,13 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 | | Public contract | Internal contract |
 |---|---|---|
 | Consumer | External caller (Firm-authorized third party, Firm-built integration, Client Portal front end where applicable) | Another bounded context inside the platform |
-| Shape | Stable, versioned external DTO, OpenAPI-described | Domain commands, queries, events; may reflect internal model shape directly |
+| Shape | Stable, versioned external DTO, OpenAPI-described | Explicit published commands, queries, DTOs, and events — never a shared Eloquent record, private repository, or mutable aggregate instance |
 | Change discipline | Additive/breaking distinction, deprecation window, sunset policy (§4) | Governed by the owning module's own architecture and tests |
-| Authentication | IdentityAccess-issued, per `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` | Trusted process boundary; no re-authentication between modules |
+| Authentication | IdentityAccess-issued, per `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` | No repeated credential authentication for an already-authenticated request; verified actor/service identity, `FirmContext`, authorization provenance, and correlation context are propagated instead (see below) |
 
 **No Eloquent model, internal domain event, or internal identifier is ever exposed as a public contract.** A public DTO is authored deliberately and evolves on its own schedule, independent of internal refactoring.
+
+**Same-process execution is not permission to bypass domain authorization.** Internal modules do not repeat full credential authentication for a request that has already been authenticated at the edge, but every call still carries the verified actor or service identity, `FirmContext`, authorization provenance, and correlation context forward — the receiving module then performs its own command/query and resource authorization using that carried context. Being in the same process, and not re-authenticating, is never license to skip that check. Published internal contracts are always **explicit commands, queries, DTOs, and events**; they never share Eloquent records, private repositories, or mutable aggregate instances across a module boundary, per `docs/domain/06_Laravel_Module_Blueprint.md`.
 
 ## 3. Naming and resource conventions
 
@@ -33,8 +35,13 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 ## 4. Versioning and compatibility
 
 - **Major-version namespaces** (for example `/v1/...`) are the unit of breaking change. A new major version coexists with the prior one; it never silently replaces it underneath existing callers.
-- **Additive changes** — a new optional field, a new endpoint, a new enum value a well-behaved consumer is expected to tolerate — do **not** require a version bump.
-- **Breaking changes** — removing or renaming a field, changing a field's type or meaning, tightening validation, removing an enum value — **require a new major version.**
+- **Additive changes** — a new optional field, a new endpoint — do **not** require a version bump.
+- **Enums are closed by default.** A field's contract must **explicitly declare** whether it is a closed enum (a fixed, exhaustive set of values) or an **open/extensible enum** (a set that may grow, which consumers are contractually required to preserve or tolerate unknown values for). Open-versus-closed behavior is a property of the published contract, never an assumption about consumer quality.
+  - Adding a value to an **explicitly declared open enum** is additive and does **not** require a version bump.
+  - Adding a value to a **closed enum** (or to any enum whose openness is not explicitly declared) **is a breaking change.**
+  - **Removing or renaming any enum value is breaking**, regardless of open/closed status.
+  - **Changing an enum value's meaning is breaking**, even if the value's name is unchanged.
+- **Breaking changes** — removing or renaming a field, changing a field's type or meaning, tightening validation, removing or renaming an enum value, changing an enum value's meaning, or adding a value to a closed enum — **require a new major version.**
 - **Deprecation notices** are published before a version is sunset, stating the deprecated version, the replacement, and the **supported migration window** during which both remain live.
 - **Sunset policy**: a version is retired only after its published migration window elapses, with the sunset date communicated in developer documentation and, where practical, in response metadata ahead of time. Sunset is a scheduled, communicated event, never a silent removal.
 - **Public API breaking changes require explicit human approval** before merge, per the existing `AGENTS.md` approval gate — this is not optional for any story touching a public contract.
@@ -80,7 +87,16 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 
 ## 10. Idempotency and concurrency
 
-- **Every retryable command accepts an idempotency key.** A retried request with the same key against the same resource produces the recorded outcome exactly once.
+**Idempotency prevents duplicate side effects within its defined boundary; it is not a general exactly-once execution or delivery guarantee.** Distributed execution and delivery remain at-least-once (§12); idempotency is what makes a retry of the same request safe within that reality.
+
+- **Every retryable command accepts an idempotency key.** An idempotency record is scoped by, at minimum: the Firm; the integration installation; the API contract/version and operation; the target resource, where applicable; and the idempotency key itself.
+- **A canonical request fingerprint** covers the relevant method/action, target, and normalized request content — **never secrets or unnecessary confidential content.**
+- **Same scoped key plus the same fingerprint** returns the previously recorded result, or a reference to it, **without repeating the side effect.**
+- **Same scoped key plus a different fingerprint is rejected as an idempotency-conflict error.** It must **never** return the first request's result as if the second, different request had been accepted.
+- **The retention window is bounded and documented.** After it elapses, the caller must use a new key; the platform makes no guarantee for a key reused past its window.
+- **A replayed request still authenticates and passes current Firm, installation, scope, and domain authorization checks** — idempotency short-circuits the side effect, never the authorization composition (§8).
+- **A previously recorded response must not disclose protected content after membership, permission, Ethical Wall, installation, or resource-access revocation.** Replaying an idempotency key re-evaluates current authorization before returning anything; a stale positive result is never served to a now-unauthorized caller.
+- **Store a safe status or result reference where possible**, rather than indefinitely retaining a full, potentially confidential response body.
 - **Optimistic concurrency using version or ETag-style preconditions** governs updates — a caller states the version it last read; a conflicting concurrent update is rejected, never silently overwritten.
 
 ## 11. Async operations
@@ -91,7 +107,16 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 
 ## 12. Webhook rules
 
-- **Internal domain events are never exposed directly as the permanent public contract.** A versioned `IntegrationEventEnvelope` — identifier, event type, contract version, occurrence time, subject reference, correlation/causation references, installation context, a minimal authorized payload, delivery-attempt metadata — is the only thing delivered externally. Confidential fields are never included merely because they exist internally.
+### Stable event versus delivery attempt
+
+- **A stable integration event and a delivery attempt are separate concepts, never conflated.** The **stable integration event** carries: a stable event ID that persists unchanged across every retry; event type; contract version; occurrence time; subject reference; correlation and causation references; installation context where safe and necessary; and a minimal, authorized payload. It **never** carries delivery-attempt or retry-history metadata.
+- The **webhook delivery attempt** is a separate record: its own delivery ID, a reference to the stable event ID and the subscription, an attempt number, a delivery timestamp, outcome/status, safe response metadata, and signature/timestamp transport metadata.
+- **A retry retains the same stable event ID; each attempt receives its own delivery ID.** Consumers deduplicate the business event using the **stable event ID**, never the delivery/attempt ID.
+- **Internal retry history and operational diagnostics never enter the stable event payload.** Full confidential payloads and secrets remain prohibited from delivery logs regardless.
+- **Internal domain events are never exposed directly as the permanent public contract.** The versioned stable integration event described above is the only thing delivered externally, and confidential fields are never included merely because they exist internally.
+
+### Delivery discipline
+
 - **Delivery is at-least-once; consumers must be idempotent.** **No claim of exactly-once delivery or global ordering** is ever made; per-subject ordering is guaranteed only where explicitly documented for a specific event type.
 - **Deliveries are signed with timestamped signatures**, are **replay-resistant**, and support **secret rotation with bounded overlap**.
 - **Bounded retries with backoff**; sustained failure produces visible **dead-letter/suspended-delivery** state; **manual replay is supported and audited**.
@@ -99,7 +124,17 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 - **No continued delivery after installation revocation** — revocation takes effect for webhook delivery immediately.
 - **No secrets or full confidential payloads in delivery logs.**
 - **Webhook event versioning is independent and explicit** from REST API versioning.
-- **Inbound webhooks**: preserve the raw body for signature verification; authenticate before accepting business meaning; verify timestamp and replay window; enforce idempotency; validate schema/content-type; enforce strict size limits; rate-limit abusive sources; reject unregistered/inactive connections; prevent SSRF and internal-network callback abuse (with DNS-rebinding considered); quarantine malformed/suspicious input; record provenance; translate into an owning module's application command — **never write directly to a domain table**; acknowledge only per the provider's own contract; and keep provider delivery status separate from OneLegalPro's own business-truth state.
+
+### Provider-specific verification ownership
+
+- **Integrations owns the shared ingress envelope and pipeline**: bounded receipt, raw-body preservation, generic replay/idempotency coordination, registration status, rate limiting, quarantine policy, provenance recording, and dispatch to the owning module.
+- **The owning domain's provider adapter owns provider-specific verification** — the signature algorithm, required headers, canonicalization rules, provider credential/secret lookup, and provider-specific acknowledgment semantics. Payment-provider callbacks are verified by Billing's own adapter; provider-specific communications callbacks by Communications' own channel adapter; identity-provider callbacks by IdentityAccess. **Integrations does not implement Stripe-, Microsoft-, Google-, LINE-, WhatsApp-, identity-provider-, or other provider-specific signature logic.**
+- **Integrations invokes the owning domain's published verification contract** as one step of the shared pipeline; it never re-implements or approximates that verification itself. **A generic Integrations verification mechanism never weakens a provider's required verification procedure.**
+- **No business meaning is attached until the owning adapter reports successful verification.**
+
+### Inbound handling and quarantine
+
+Inbound webhooks: **enforce a hard transport/body-size limit before an unbounded body is fully buffered**, and **reject oversized input before signature processing or quarantine storage**; preserve the exact raw body, only within that approved bound, for signature verification; authenticate before accepting business meaning (per the owning adapter's verification contract, above); verify timestamp and replay window; enforce idempotency (§10); validate schema/content-type; rate-limit abusive sources; reject unregistered/inactive connections; prevent SSRF and internal-network callback abuse (with DNS-rebinding considered); **quarantine malformed or suspicious input under a policy that is size-bounded, access-restricted, encrypted according to data classification, retention-limited, and auditable** — unverified or malformed content is never stored indefinitely, operational logs carry only safe metadata about a quarantined item and never its payload, and any investigation access to quarantined content still respects Firm and provider-connection isolation; record provenance; translate into an owning module's application command — **never write directly to a domain table**; acknowledge only per the provider's own contract; and keep provider delivery status separate from OneLegalPro's own business-truth state.
 - **External calls are never made inside a domain database transaction.**
 
 ## 13. Import/export rules
@@ -113,7 +148,9 @@ Full conceptual context — bounded-context ownership, the integration lifecycle
 
 ## 14. Security
 
-Input validation and output encoding on every field; injection prevention; SSRF prevention on every outbound call the platform makes; exact callback/redirect allow-listing; DNS-rebinding considered at validation time; request size and complexity limits; rate limits and quotas per caller and per Firm; abuse detection; secrets held only as non-recoverable references with bounded rotation overlap; mandatory encryption in transit; sensitive-field redaction in logs and errors; correlation identifiers on every request; timeouts, circuit breakers, and bulkheads; a defined retry policy; backpressure under load; queue isolation; dead-letter handling; dependency-health checks; safe degradation over cascading failure; sandbox/production isolation with no default copy of production Firm data into a sandbox. **No API, integration, connector, webhook, background worker, or AI path may be less authorized than an equivalent interactive path.** Full detail: `docs/architecture/04_Security_Architecture.md` and `docs/architecture/17_API_Integration_Platform_Architecture.md` §39.
+Input validation and output encoding on every field; injection prevention; SSRF prevention on every outbound call the platform makes; exact callback/redirect allow-listing; DNS-rebinding considered at validation time; request size and complexity limits; rate limits and quotas per caller and per Firm; abuse detection; mandatory encryption in transit; sensitive-field redaction in logs and errors; correlation identifiers on every request; timeouts, circuit breakers, and bulkheads; a defined retry policy; backpressure under load; queue isolation; dead-letter handling; dependency-health checks; safe degradation over cascading failure; sandbox/production isolation with no default copy of production Firm data into a sandbox. **No API, integration, connector, webhook, background worker, or AI path may be less authorized than an equivalent interactive path.** Full detail: `docs/architecture/04_Security_Architecture.md` and `docs/architecture/17_API_Integration_Platform_Architecture.md` §39.
+
+**Secret handling.** Integrations' own domain records and ordinary configuration store only **opaque secret references and safe metadata** — never a secret value. The secret material itself is held in an **approved, encrypted secret-management boundary with tightly restricted runtime access**, never in Integrations' tables, logs, events, analytics, audit payloads, or ordinary configuration. **Verification-only API keys are stored one-way/non-recoverably where possible.** Outbound webhook signing material and provider credentials are a different case: the narrowly authorized signing or provider adapter may need to retrieve them at runtime to sign a delivery or call a provider — **that authorized runtime retrievability never permits plaintext storage anywhere Integrations itself persists data.** Rotation, revocation, and bounded-overlap rules remain mandatory regardless of which secrets are involved. **No secret-management product or vendor is selected here.**
 
 ## 15. Observability
 
@@ -145,6 +182,13 @@ A deprecated version or field is announced with its replacement and a supported 
 - Continuing webhook delivery after an installation has been revoked.
 - Letting a bulk export or import bypass Ethical Walls, co-client restrictions, or any domain's own access rules.
 - Letting internal modules call the platform's own public API to communicate with each other.
+- Sharing an Eloquent record, a private repository, or a mutable aggregate instance across a module boundary, or treating same-process execution as permission to skip domain authorization.
+- Treating a new value added to a closed (or undeclared) enum as additive, or omitting an explicit open/closed declaration from an enum's contract.
+- Honoring an idempotency key reused with a different request fingerprint as if it were the same request, or returning a stale idempotent result to a caller whose authorization has since been revoked.
+- Letting Integrations implement provider-specific signature verification (payment, messaging, identity, or otherwise) instead of invoking the owning domain's published verification contract.
+- Conflating a stable integration event's identity with a delivery attempt's identity, or letting consumers deduplicate on the attempt ID.
+- Storing a secret value in plaintext in an Integrations table, log, event, analytics payload, or ordinary configuration file.
+- Buffering an inbound request body without a hard size bound before signature processing, or retaining unverified/quarantined content indefinitely.
 - Selecting or endorsing a specific API gateway, identity vendor, or hosting product in architecture documentation.
 - Claiming an API is implemented, deployed, or certified/compliant with any standard.
 
