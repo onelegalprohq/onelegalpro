@@ -41,7 +41,7 @@ The three areas answer different questions, obey different rules, and carry diff
 - **A receivable is not cash, and cash is not revenue.** Area A tracks what is owed; a receipt is a cash event; revenue recognition is an Area C accounting-policy determination. Collapsing these is how a payment silently becomes revenue.
 - **A billing subledger is not a general ledger.** Area A's detail (invoice lines, allocations, aging) rolls into Area C's control accounts. They must reconcile precisely because they are separate.
 
-They are not separate bounded contexts because they share `Money`, `Currency`, `ExchangeRate`, jurisdiction policy, actor identity, and audit provenance — and, decisively, because the reconciliations that tie a billing subledger, a trust subledger, and a general-ledger control account together would otherwise live permanently across module boundaries. One context, three enforced areas, keeps the accounting boundaries real and the reconciliation coherent. See `docs/adr/ADR-008-Billing-Trust-Accounting-Finance.md`, Alternatives considered.
+They are not separate bounded contexts because they share two categories of common concept — the **Foundation `Money`/`Currency` contract (PF-045)** that Billing consumes but does not own (§5.1), and **Billing-owned financial-domain concepts** such as `ExchangeRate` provenance, jurisdiction and accounting policy, authorization records, and audit provenance — and, decisively, because the reconciliations that tie a billing subledger, a trust subledger, and a general-ledger control account together would otherwise live permanently across module boundaries. One context, three enforced areas, keeps the accounting boundaries real and the reconciliation coherent. See `docs/adr/ADR-008-Billing-Trust-Accounting-Finance.md`, Alternatives considered.
 
 ## 4. Domain boundaries and ownership
 
@@ -56,6 +56,7 @@ They are not separate bounded contexts because they share `Money`, `Currency`, `
 | Invoice notices, reminders, receipts, payment conversations | **Communications** | Delivery requested; Billing owns the Invoice |
 | `BrandProfile`, `PDFBrandingConfig` | **Branding** | Composed at rendering; presentation only |
 | Official statutes, regulations, court decisions, translations, citations | **Legal Intelligence** | Cited; never duplicated or overridden |
+| `Money`, `Currency` — the platform-wide exact-decimal money primitive | **Foundation Library (PF-045)** | **Consumed, never owned** (§5.1) |
 | Actor identity, permissions, SoD assignments | **Future Identity/Security** | Consumed, never owned |
 | Process orchestration | **Future Workflow** | May orchestrate; owns no financial state |
 
@@ -63,7 +64,7 @@ They are not separate bounded contexts because they share `Money`, `Currency`, `
 
 | Term | Meaning in this architecture |
 |---|---|
-| **Money** | An exact decimal amount plus an explicit `Currency`. Never a float. |
+| **Money** | The Foundation Library's exact-decimal amount plus explicit `Currency` (PF-045). Never a float. **Owned by Foundation, consumed by Billing** (§5.1). |
 | **Billable** | Work eligible to be charged under a `BillingArrangement`; distinct from *billed*. |
 | **Billed** | Included on an issued `Invoice`. |
 | **Receivable** | An amount owed to the Firm arising from an issued invoice. |
@@ -82,6 +83,17 @@ They are not separate bounded contexts because they share `Money`, `Currency`, `
 
 Jurisdiction-neutral terminology is used deliberately: **client money** and **trust accounting**, never a foreign-regime term such as IOLTA, which is a United States construct and does not describe Thai requirements.
 
+## 5.1 The Foundation boundary: `Money` and `Currency` are not Billing's
+
+`AGENTS.md` and `docs/domain/06_Laravel_Module_Blueprint.md` place shared technical primitives in `app/Foundation`, and the approved Sprint Plan and Engineering Backlog already reserve **PF-045 — Money** in Sprint 0.3 (Foundation Library). Money is not a billing concept — Practice Management, Documents, Digital Presence, and any future module that quotes, displays, or reports an amount needs the same representation, and two incompatible money types on one platform is a defect class, not a design choice.
+
+Therefore:
+
+- **The Foundation Library owns `Money` and its explicit `Currency` representation**, governed by PF-045. Exact-decimal representation, mandatory currency, and the prohibition on floating-point money are **platform-wide Foundation guarantees**, not rules this architecture invents.
+- **Billing consumes that Foundation contract and must never define a second, incompatible `Money` or `Currency` type.** Neither may any other module.
+- **Billing owns the financial-domain meaning layered over that primitive** — `ExchangeRate` provenance and application (§28), `TaxTreatment` and `TaxIdentifier` (§24–§26), invoice numbering (§19), allocation instructions (§30.7), authorization records (§41), beneficiary attribution (§33, §33.1), financial classification (§63), and accounting and jurisdiction policy versions (§24, §54). These are Billing's, and the three domain areas share them as Billing-owned concepts.
+- **This document does not schedule, renumber, duplicate, or complete PF-045.** It records a dependency on an existing approved backlog item. PF-010 remains the current repository implementation story and PF-011 remains next.
+
 ## 6. Dependency direction
 
 Per `docs/domain/06_Laravel_Module_Blueprint.md`, unchanged: **Interface → Application → Domain**; Infrastructure depends on Application/Domain contracts; the Domain layer never depends on Laravel, Eloquent, HTTP, provider SDKs, or accounting-system SDKs. Payment, banking, e-tax, and accounting-system integrations live behind Infrastructure-layer adapters. No provider-specific conditional logic appears outside the adapter that owns that provider.
@@ -92,7 +104,7 @@ Other modules reach Billing only through published commands, queries, and events
 
 **Billing owns:** commercial billing records and their lifecycle; client-money/trust ledgers and balances; the Firm's general ledger, chart of accounts, and accounting periods; payment records and allocations; effective-dated Firm financial and tax *configuration*; financial audit trails and reconciliations.
 
-**Billing does not own:** Clients, Matters, `MatterClient`s, Matter teams, or Ethical Wall definitions; document bytes or rendered artifacts; Client Portal identity, session, or presentation; communication threads or messages; branding configuration; official law; actor identity or role definitions; workflow orchestration.
+**Billing does not own:** the platform-wide `Money`/`Currency` primitive (Foundation Library, PF-045 — §5.1); Clients, Matters, `MatterClient`s, Matter teams, or Ethical Wall definitions; document bytes or rendered artifacts; Client Portal identity, session, or presentation; communication threads or messages; branding configuration; official law; actor identity or role definitions; workflow orchestration.
 
 ## 8. Area A — Billing arrangements
 
@@ -292,7 +304,7 @@ Where a jurisdiction operates an electronic tax-invoice or e-invoice regime, int
 
 ## 28. Currency and exchange rates
 
-- `Money` is an **exact decimal amount plus an explicit `Currency`**. Floating-point money is prohibited platform-wide.
+- `Money` is the **Foundation Library contract (PF-045)**: an exact decimal amount plus an explicit `Currency`. Floating-point money is prohibited platform-wide. Billing consumes this contract and defines no money type of its own (§5.1).
 - Every multi-currency transaction records: **transaction currency, transaction amount, Firm/base currency, base amount, the effective exchange rate, the rate source, and the rate timestamp.**
 - **A historical conversion is never silently recalculated with a newer rate.** Reports "as of" a past date reproduce the rates recorded then.
 - Rounding is an explicit, policy-defined rule (§24), applied consistently and recorded; rounding differences are posted, not absorbed silently (§83).
@@ -375,7 +387,9 @@ Provider timeouts, declines, and outages are expected. Failed initiation never c
 
 ## 31. Area B — Client Money / Trust Accounting: purpose
 
-A Firm frequently holds money that is not its own: advance funds for costs, settlement proceeds, funds held pending completion, retainer balances. This money belongs to the client. The Firm holds it subject to fiduciary and professional-conduct obligations, and mishandling it is a professional-discipline matter rather than a bookkeeping error.
+A Firm frequently holds money that is not its own: advance funds for costs, settlement proceeds, funds held pending completion, retainer balances. **Client money means money held by the Firm that is not the Firm's own money.** The Firm holds it subject to fiduciary and professional-conduct obligations, and mishandling it is a professional-discipline matter rather than a bookkeeping error.
+
+**Who is beneficially entitled to a given balance is a separate, explicitly recorded fact.** Held funds may be beneficially owned by the client on the Matter, by an identified third-party beneficiary (a counterparty awaiting completion, a lienholder, a person entitled to settlement proceeds), or by a party not yet determined pending an authorized entitlement decision. **This architecture does not assume that every balance is beneficially owned by the client named on the Matter** — see §33.1. What is invariant is the negative: it is not the Firm's money, and it does not become the Firm's money except through the authorized transfer in §40.
 
 **Jurisdiction-neutral terminology is used deliberately.** The requirements applying to a Thai law firm are set by Thai law and professional regulation; no foreign regime (such as the United States IOLTA construct) is assumed to apply. Specific controls — permitted account types, interest treatment, reconciliation frequency, reporting — are **jurisdiction policy** (§24), backed by an official primary source and approved by an authorized human owner.
 
@@ -383,7 +397,7 @@ A Firm frequently holds money that is not its own: advance funds for costs, sett
 
 - **`ClientMoneyBankAccount`** — a real bank account holding client money, **segregated from Firm operating accounts**, with its own currency, jurisdiction, and permissions.
 - **`ClientMoneyLedger`** — the append-only ledger for one client-money bank account. Its balance is derived from entries.
-- **`ClientMoneySubledger`** — the per-client and, where applicable, per-Matter position within that ledger. The sum of subledgers must equal the ledger, which must reconcile to the bank (§43).
+- **`ClientMoneySubledger`** — the per-client and, where applicable, per-Matter **accountable** position within that ledger. The sum of subledgers must equal the ledger, which must reconcile to the bank (§43). Accountability (whose subledger holds the balance) and beneficial entitlement (who is entitled to it) are distinct recorded facts — see §33.1.
 - **`ClientMoneyTransaction`** — an immutable receipt, disbursement, or adjustment entry.
 - **`ClientMoneyTransfer`** — a movement between subledgers, between client-money accounts, or from client money to operating funds (§40).
 - **`ClientMoneyAuthorization`** — the recorded authorization for a transaction or transfer, including the maker/approver identities where segregation of duties applies (§41).
@@ -391,9 +405,27 @@ A Firm frequently holds money that is not its own: advance funds for costs, sett
 
 ## 33. Required attribution on every client-money movement
 
-Every receipt, disbursement, transfer, refund, and adjustment records: **Firm; account; currency; amount; beneficiary/client attribution; Matter attribution where applicable; purpose; source; authorization; and audit provenance** (actor, timestamp, and the instruction or document relied on).
+Every receipt, disbursement, transfer, refund, and adjustment records: **Firm; account; currency; amount; `BeneficiaryAttribution` (§33.1); Matter attribution where applicable; purpose; source; authorization; and audit provenance** (actor, timestamp, and the instruction or document relied on).
 
 A movement missing any of these is invalid. "Unexplained transaction" is not a state the model permits.
+
+## 33.1 Beneficial entitlement is recorded, never inferred
+
+`BeneficiaryAttribution` records **who is beneficially entitled** to an amount. It supports:
+
+- **The accountable client** — the `Client` whose subledger the amount sits in, referenced by identifier.
+- **An authorized third-party beneficiary reference**, where the beneficial owner is someone other than that client.
+- **Optional Matter attribution**, referenced by identifier.
+- **Purpose** — why the money is held (advance on costs, settlement proceeds, funds pending completion, retainer).
+- **`EntitlementBasis`** — the recorded basis for the attribution: the instruction, undertaking, court order, settlement agreement, or engagement term relied on, or an explicit *pending determination* state where entitlement is genuinely not yet resolved.
+
+**Entitlement is never inferred.** It must not be derived merely from the depositor, the payer, the Primary `MatterClient`, or Matter membership. Any of those may in fact be the beneficiary — but that must be a recorded determination, not an assumption the model makes on the Firm's behalf. Where entitlement is unresolved, the balance is held with an explicit pending-determination state (compare the unidentified-receipt handling in §36) and is neither disbursed nor transferred until an authorized human resolves it.
+
+**Attribution and accountability are distinct facts, and both are kept.** The client/Matter subledger structure in §32 remains exactly as specified — every balance still sits in an accountable subledger that reconciles to the ledger and the bank (§43). Beneficial entitlement is recorded *alongside* that accountability, not instead of it: a balance may sit in Client A's subledger while an identified third party is beneficially entitled to part or all of it, and both facts are visible.
+
+**Reference confers no access.** A third-party beneficiary or payer named in a financial record gains **no** Matter access, Client Portal access, invoice visibility, or document access merely by being referenced (§21, §65). Being named in an attribution is not an authorization.
+
+**Every prohibition in §34 applies unchanged**, whoever is beneficially entitled: no Firm appropriation, no cross-client funding, no negative balance, no unexplained transaction, no silent commingling, no unauthorized cross-Matter transfer, and no AI-controlled movement.
 
 ## 34. Client-money invariants
 
@@ -417,9 +449,10 @@ Client-money entries are **balanced and append-only**: every movement records bo
 
 ## 36. Receipts into client money
 
-- A receipt is attributed to a specific client and, where applicable, Matter, with its purpose recorded (advance on costs, settlement proceeds, funds pending completion, retainer).
-- A receipt of mixed funds (partly the Firm's, partly the client's) is recorded with an explicit split decision, not defaulted; where jurisdiction policy requires, the whole receipt enters client money and the Firm's portion is transferred out under §40.
+- A receipt is attributed to an accountable client and, where applicable, Matter, and carries a `BeneficiaryAttribution` with its purpose and `EntitlementBasis` recorded (§33.1). **The payer is not assumed to be the beneficiary, and the Primary `MatterClient` is not assumed to be entitled** — either may be, but only as a recorded determination.
+- A receipt of mixed funds (partly the Firm's, partly held for another) is recorded with an explicit split decision, not defaulted; where jurisdiction policy requires, the whole receipt enters client money and the Firm's portion is transferred out under §40.
 - An unidentified receipt is held as **unattributed client money** with an explicit investigation state — never allocated by guess and never taken to revenue.
+- A receipt whose accountable client is known but whose **beneficial entitlement is not yet resolved** is held with an explicit pending-determination `EntitlementBasis` (§33.1) and is neither disbursed nor transferred until an authorized human resolves it.
 
 ## 37. Interest and bank charges
 
@@ -433,7 +466,7 @@ Long-held balances with no activity, and balances whose beneficiary cannot be lo
 
 - A disbursement requires: sufficient attributed funds, a recorded purpose, a recorded payee, authorization (§41), and Ethical Wall clearance for the Matter.
 - **Insufficient funds is a hard rejection**, never an overdraft against another client (§34).
-- A refund of client money to its beneficiary follows the same discipline and is recorded as its own transaction.
+- A refund or payment out of client money to the party recorded as beneficially entitled (§33.1) follows the same discipline and is recorded as its own transaction. Where entitlement is in a pending-determination state, no disbursement proceeds until an authorized human resolves it.
 - A `DisbursementEntry` in Area A (§10) that is funded from client money produces a corresponding Area B transaction; the two are linked, not merged.
 
 ## 40. Trust-to-operating transfer
@@ -610,7 +643,14 @@ Chart-of-accounts structure, posting rules, recognition policy, rounding, and ta
 - Published commands, queries, and events only. **No direct Eloquent imports, cross-module table access, or direct writes**, in either direction.
 - **No storage paths, provider credentials, or raw financial payloads cross a module boundary.**
 - Consumers receive identifiers and authorized projections, never raw ledgers.
-- A dependent context being unavailable never blocks core financial recording (§83).
+
+**Dependency unavailability is not uniform — authorization outages and presentation outages are treated oppositely.**
+
+- **A Practice Management outage fails closed.** Practice Management is the sole authority for Matter validation, Matter authorization, `MatterClient` audience resolution, and `CheckEthicalWallAccess` (§55, §65). When it is unavailable, **every new operation requiring any of those decisions is rejected or left explicitly pending** — reads and state-changing operations alike. Billing must **never** approximate an authorization decision, infer one, or fall back on a stale cached Ethical Wall result. Availability never outranks authorization, Ethical Walls, or trust-account safeguards.
+- **A Documents, Communications, or Digital Presence outage must never rewrite or roll back an already issued or posted Billing record.** Rendering, delivery, and integration work queues and retries; the financial record stands and the failure is visible (§56, §58, §83).
+- **Outbound events may wait** in the platform's approved outbox/event mechanism without affecting recorded financial state.
+
+The precise fail-closed scope, and the narrow set of locally valid operations that may continue, are specified in §83.
 
 ## 62. What Billing must never do
 
@@ -729,9 +769,11 @@ Every financial AI output must carry:
 
 **Entities:** `InvoiceLine`; `PaymentAllocation`; `JournalLine`; `LedgerAccount`; `ClientMoneyTransaction`; `RateScheduleEntry`; `ReconcilingItem`.
 
-**Value objects (immutable, no identity):** `Money` (exact decimal + `Currency`); `Currency`; `ExchangeRate` (rate, source, timestamp, base and transaction currencies); `TaxTreatment`; `TaxIdentifier`; `InvoiceNumber` and `DocumentNumberSeries`; `BillingArrangementTerms`; `AllocationInstruction`; `AuthorizationRecord` (actor, role, timestamp, basis); `BeneficiaryAttribution` (client, optional Matter, purpose); `PeriodState`; `AsOfDate`; `FinancialClassification`; `ProviderReference`; `AIAnnotation` provenance.
+**Consumed from the Foundation Library (PF-045), not owned by Billing (§5.1):** `Money` (exact decimal + `Currency`); `Currency`.
 
-**Why `Money` is a value object with mandatory currency:** an amount without a currency is not a financial fact, and permitting a bare number invites exactly the implicit-currency arithmetic that produces unauditable errors.
+**Value objects owned by Billing (immutable, no identity):** `ExchangeRate` (rate, source, timestamp, base and transaction currencies); `TaxTreatment`; `TaxIdentifier`; `InvoiceNumber` and `DocumentNumberSeries`; `BillingArrangementTerms`; `AllocationInstruction`; `AuthorizationRecord` (actor, role, timestamp, basis); `BeneficiaryAttribution` (see §33.1); `EntitlementBasis`; `PeriodState`; `AsOfDate`; `FinancialClassification`; `ProviderReference`; `AIAnnotation` provenance.
+
+**Why `Money` carries a mandatory currency:** an amount without a currency is not a financial fact, and permitting a bare number invites exactly the implicit-currency arithmetic that produces unauditable errors. That guarantee is a **Foundation** property under PF-045, available to every module, which is precisely why Billing must not shadow it with a local type — two money representations on one platform would let an amount cross a module boundary and lose its currency or its precision.
 
 ## 77. Aggregate-boundary reasoning
 
@@ -740,18 +782,19 @@ Every financial AI output must carry:
 - **Correction instruments are their own aggregates** because each is an independently authorized, separately numbered financial document.
 - **`ClientMoneyTransfer` and `ClientMoneyAuthorization` are separate** because a transfer spans two positions and its authorization must be auditable on its own.
 - **Balances are never aggregates.** They are projections over immutable entries (§46), which is what makes direct mutation structurally impossible rather than merely forbidden.
+- **`Money`/`Currency` are outside every Billing aggregate boundary** because they are a Foundation primitive (§5.1, PF-045), not a Billing concept. Billing aggregates *hold* `Money` values; they do not define, version, or govern the type. `ExchangeRate`, by contrast, **is** Billing's: converting between currencies with recorded provenance is a financial-domain decision, not a representation concern, which is why the rate, its source, and its timestamp live with the transaction that used them (§28).
 
 ## 78. Invariants
 
 - Every financial record belongs to **exactly one Firm**.
-- **`Money` is exact decimal with explicit currency**; floating point is prohibited.
+- **`Money` is the Foundation contract (PF-045)**: exact decimal with explicit currency; floating point is prohibited, and Billing defines no competing money or currency type.
 - An **issued** `Invoice` is immutable; its number is immutable and unique per Firm per series.
 - Every **posted** journal balances **per currency**; posted entries are immutable.
 - Every multi-currency amount carries **rate, source, and timestamp**; historical conversions are never recalculated.
 - **All balances are derived** from immutable entries; no directly mutable balance exists in Areas A, B, or C.
 - **Client money is segregated** from operating funds in accounts, ledgers, and permissions.
 - **No negative client or Matter client-money balance**; no cross-client funding; no silent commingling.
-- Every client-money movement carries **full attribution and authorization** (§33).
+- Every client-money movement carries **full attribution and authorization** (§33), including a `BeneficiaryAttribution` whose entitlement is **recorded, never inferred** from depositor, payer, Primary `MatterClient`, or Matter membership (§33.1).
 - **Trust-to-operating transfer requires an eligible obligation and explicit human authorization.**
 - **Cross-client/cross-Matter transfers are deny-by-default** and Ethical-Wall-checked on both sides.
 - **Invoice/payment/trust visibility is deny-by-default**; co-client isolation holds absolutely.
@@ -824,9 +867,13 @@ Billing/
 │   ├── Ledger/         (ChartOfAccounts[+LedgerAccount], JournalEntry[+JournalLine],
 │   │                     AccountingPeriod, BankAccount, BankTransaction,
 │   │                     BankReconciliation)
-│   └── Shared/         (Money, Currency, ExchangeRate, TaxTreatment, TaxIdentifier,
-│                         InvoiceNumber, AuthorizationRecord, BeneficiaryAttribution,
-│                         AsOfDate, FinancialClassification, ProviderReference)
+│   └── Shared/         (ExchangeRate, TaxTreatment, TaxIdentifier, InvoiceNumber,
+│                         AllocationInstruction, AuthorizationRecord,
+│                         BeneficiaryAttribution, EntitlementBasis, AsOfDate,
+│                         FinancialClassification, ProviderReference)
+│                        ↑ Billing-owned financial-domain concepts, shared by all
+│                          three areas. Money and Currency are NOT here — they are
+│                          imported from the Foundation Library (PF-045); see §5.1.
 ├── Infrastructure/     (payment-provider adapters, banking/statement-import adapters,
 │                         e-tax/e-invoice adapters, accounting-export adapters,
 │                         Eloquent adapters, deterministic calculation services)
@@ -839,9 +886,14 @@ Billing/
 │                         SoD threshold defaults, approved AI processor policy)
 ├── ModuleServiceProvider.php
 └── README.md
+
+Imported Foundation contracts (app/Foundation, NOT defined by this module):
+    Money, Currency            ← PF-045; see §5.1
+    AggregateRoot, Entity, ValueObject, DomainEvent, BusinessIdentifier,
+    Result, Clock, UUIDv7      ← PF-040–PF-049, per the approved Foundation Library
 ```
 
-The internal boundary between `Receivables/`, `ClientMoney/`, and `Ledger/` is enforced by distinct aggregates, ledgers, permissions, and accounting meanings. Client money reaches billing only through the authorized transfer in §40; billing reaches the general ledger only through posting (§48).
+The internal boundary between `Receivables/`, `ClientMoney/`, and `Ledger/` is enforced by distinct aggregates, ledgers, permissions, and accounting meanings. Client money reaches billing only through the authorized transfer in §40; billing reaches the general ledger only through posting (§48). **`Money` and `Currency` appear nowhere in Billing's own `Domain/` tree** — they are Foundation Library contracts consumed by every area (§5.1), and defining a Billing-local money or currency type would be a defect, not a variant.
 
 ## 83. Operations and failure handling
 
@@ -865,7 +917,10 @@ Conceptual failure modes the architecture must account for (mitigations are impl
 - **Tax-policy version change** — effective-dated; issued documents retain the treatment in force at issue and are never retroactively re-rated (§24).
 - **Concurrent numbering** — uniqueness enforced at assignment; a collision is rejected and retried, never resolved by suffixing or by silently skipping a number (§19).
 - **Concurrent ledger posting** — resolved by aggregate concurrency control; two simultaneous postings produce two entries in a defined order, never a lost or interleaved one.
-- **Dependency outage** (Practice Management, Documents, Communications, Digital Presence) — never blocks core financial recording; an unavailable authorization check **fails closed** for access while queued events await delivery through the platform's outbox/event infrastructure.
+- **Practice Management outage — fails closed, without exception.** Practice Management is the sole authority for Matter validation, Matter authorization, `MatterClient` audience resolution, and `CheckEthicalWallAccess`. While it is unavailable, every operation depending on one of those decisions is **rejected or left explicitly pending**, covering both reads and state-changing operations, and specifically including: invoice-audience creation or change; disclosure of any Matter-linked financial information; client-money receipt attribution where Matter verification is required; disbursements; trust-to-operating transfers; cross-Matter and cross-client transfers; refunds and allocations requiring Matter authorization; exports; and AI context construction. **Billing must never approximate an authorization decision, infer one, or use a stale cached Ethical Wall result.** A pending operation surfaces as pending; it never completes optimistically and never degrades into an unauthorized disclosure.
+- **What may continue during that outage** — only independently valid local bookkeeping that records an **already-authorized or already-committed** financial fact and **preserves the authorization provenance that permitted it** (for example, posting the ledger consequences of an invoice already issued under a recorded authorization, or recording a provider-confirmed settlement against an already-authorized payment). Anything requiring a *fresh* Matter, audience, or Ethical Wall decision does not qualify.
+- **Documents, Communications, or Digital Presence outage — never rewrites or rolls back an issued or posted record.** Rendering, delivery, and portal integration queue and retry; the financial record stands and the failure is visible. A rendering or notification failure is never a financial event (§56, §58).
+- **Outbound events** may wait in the platform's approved outbox/event infrastructure without affecting recorded financial state.
 - **Stale read models** — balances, aging, and reports carry their "as of" basis so staleness is visible rather than misleading; a read model is never a source of truth.
 - **Backup, recovery, and audit integrity** — recovery must preserve append-only audit continuity; a restore that would silently drop posted entries or audit records is a defect, not an acceptable recovery outcome.
 
@@ -890,7 +945,7 @@ This architecture does **not**:
 
 **Proposed only.** None of these stages is an approved, scheduled, or numbered story. Each requires its own entry in `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md`, with a Definition of Ready and Definition of Done, before implementation begins. This is the same ten-stage sequence recorded for EPIC-008 in `docs/architecture/08_Roadmap.md`.
 
-1. **Financial primitives, exact `Money`/currency, Firm accounting configuration, and policy versioning.**
+1. **Adoption of the PF-045 Foundation `Money`/`Currency` contract, Billing-specific `ExchangeRate` provenance, Firm accounting configuration, and financial-policy versioning.** This stage *consumes* PF-045; it does not reimplement, reschedule, or renumber it (§5.1).
 2. **Billing arrangements, rates, time, fees, expenses, and approval.**
 3. **Invoices, tax documents, credit/debit notes, and accounts receivable.**
 4. **Payments, allocations, refunds, chargebacks, and provider reconciliation.**
