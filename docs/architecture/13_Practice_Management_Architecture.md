@@ -29,7 +29,7 @@ None of those contexts is a plausible owner of Client or Matter — each would h
 - `Organization` — any organizational party the Firm has data about: a Client's corporate entity, an opposing party's organization, a related third party, a court, or a government body. Not every `Organization` is a `Client`.
 - `Contact` — an individual person, independently identified because the same person can be linked to more than one `Client`/`Organization` over time and in different roles (a `Client`'s CFO today, an opposing party's contact tomorrow).
 - `Matter` — the central aggregate; the unit of legal work, professional responsibility, conflicts, and billing. Owns `MatterTeam` and `MatterClient` (entities) — a `Matter` references one or more `Client`s via `MatterClient` (see Matter Clients, below), never exactly one.
-- `Task`, `Appointment`, `Note` — independent aggregates that reference a `Matter` (usually) and a `Client` by identifier; not entities owned inside `Matter` (see Aggregates, entities, and value objects for why).
+- `Task`, `Appointment`, `Note` — independent aggregates that reference a `Matter` (usually); each is Matter-wide by default and may optionally reference a specific `MatterClient`/`Client` already attached to that Matter when the item genuinely applies to only one client (see Matter-Linked Item Client Scope, below); not entities owned inside `Matter` (see Aggregates, entities, and value objects for why).
 - `EthicalWall` — the aggregate governing restricted access to a `Matter` (see Ethical Walls).
 - `ConflictRelationship` — an independent, Firm-scoped aggregate root recording a conflict-relevant relationship between two `PartyReference`s, referencing an optional source `Matter` or disclosure event (see Conflict Checking).
 
@@ -52,7 +52,7 @@ None of those contexts is a plausible owner of Client or Matter — each would h
 | `Matter` | Practice Management | one or more `Client`, each via a `MatterClient` entity; one `PracticeArea`; one `MatterTeam` |
 | `MatterClient` | Owned by `Matter` (entity) | one `Client` identifier, carries a `MatterClientRole` |
 | `MatterTeam` | Owned by `Matter` (entity) | one or more staff Actor identities (owned by a future Identity capability — see Integration Boundaries) |
-| `Task`, `Appointment`, `Note` | Practice Management, each its own aggregate | optional `Matter`, required `Client` for client-related items |
+| `Task`, `Appointment`, `Note` | Practice Management, each its own aggregate | optional `Matter` (Matter-wide by default); optional specific `MatterClient`/`Client` reference, which must already be attached to the Matter (Matter-Linked Item Client Scope) |
 | `EthicalWall` | Practice Management | exactly one `Matter` |
 | `ConflictRelationship` | Practice Management (independent, Firm-scoped aggregate) | two `PartyReference` value objects; optional source `Matter` or disclosure event |
 | `PracticeArea` | Practice Management (platform-seeded + firm-scoped custom) | referenced by `Matter` |
@@ -121,10 +121,10 @@ as a `ClientType` value object, not a subtype hierarchy — a single `Client` ag
 
 A `Matter` references one or more `Client`s, never exactly one — joint representation and co-client matters are common in practice (for example, spouses in an estate matter, or co-defendants sharing counsel). `MatterClient` is an entity owned by the `Matter` aggregate, referencing a `Client` by identifier and carrying a `MatterClientRole`:
 
-- **Primary Client** — the administrative point of contact and engagement-letter/billing party of record for the Matter.
+- **Primary Client** — the default administrative point of contact and billing recipient for the Matter.
 - **Joint/Co-client** — a `Client` jointly represented on the same Matter.
 
-**"Primary" is a purely administrative designation** — who receives default correspondence and whose engagement letter is of record. It does not imply that a Joint/Co-client has lesser legal status, weaker confidentiality or privilege protections, or reduced professional-responsibility duties owed by the Firm. Every `MatterClient`, regardless of role, is a full client of the Firm for that Matter.
+**"Primary" is a purely administrative designation** — the default recipient of correspondence and billing communications. It does not imply that a Joint/Co-client has lesser legal status, weaker confidentiality or privilege protections, reduced professional-responsibility duties owed by the Firm, or a lesser or absent engagement arrangement. Every represented `MatterClient`, regardless of role, must be covered by the appropriate engagement arrangement and receives full professional protections as a full client of the Firm for that Matter.
 
 **Rules**
 
@@ -134,6 +134,15 @@ A `Matter` references one or more `Client`s, never exactly one — joint represe
 - Adding a `MatterClient`, changing its role, or removing it are recorded operations producing `MatterClientAdded`, `MatterClientRoleChanged`, or `MatterClientRemoved` events respectively (Aggregates, entities, and value objects, below) — never a silent field update.
 - `MatterClient` references a `Client` by identifier only; the `Client` aggregate is never embedded or copied into `Matter` (Relationships and ownership, above).
 - Conflict Checking (below) evaluates every `Client` attached to the Matter via `MatterClient` — Primary and Joint/Co-client alike — and every other related party, never only the Primary Client.
+
+## Matter-Linked Item Client Scope
+
+A `Task`, `Appointment`, or `Note` linked to a `Matter` with more than one `MatterClient` (Matter Clients, above) must not be forced onto an arbitrarily chosen single `Client`. The same rule applies uniformly to all three:
+
+- **Matter-wide by default** — a Matter-linked `Task`, `Appointment`, or `Note` applies to the whole Matter and derives its client context from the Matter's full `MatterClient` set, not from one arbitrarily selected `Client`.
+- **Optional specific-client reference** — a `Task`, `Appointment`, or `Note` may optionally reference one specific `MatterClient` (or the `Client` it identifies) when the item genuinely applies to only that client — for example, a co-client-specific intake task, a one-on-one appointment with a single co-client, or a Note about one co-client's individual circumstances.
+- **Referential integrity** — any specific `Client` reference on a `Task`, `Appointment`, or `Note` must identify a `Client` already attached to the Matter via `MatterClient`; a reference to a `Client` not on the Matter is invalid.
+- **Client Portal visibility is explicit and deny-by-default** — surfacing a Matter-linked item to a Client through the Client Portal (`docs/architecture/12_Website_Client_Portal_Architecture.md`), including a Client-visible `Note` (Notes, below), requires an explicit audience determination; an item is never visible to a co-client by default merely because it is visible to the Matter or to another co-client. Exact audience-resolution mechanics — for example, whether a Matter-wide Client-visible item is shown to every attached `Client` or requires a per-client opt-in — are implementation-story-level detail, deliberately unresolved here. The invariant that one co-client must never see another co-client's client-specific or otherwise restricted item is an architectural requirement, not an implementation nicety.
 
 ## 7. Matter Teams
 
@@ -163,6 +172,7 @@ See Why Ethical Walls belong here (in `docs/adr/ADR-006-Practice-Management-Core
 
 `Task` is its own aggregate (not an entity of `Matter`), referencing a `Matter` optionally and a responsible Actor identity, with:
 
+- **Client scope** — a `Task` linked to a Matter is Matter-wide by default; it may optionally reference one specific `MatterClient` already attached to the Matter when it applies to only that client (Matter-Linked Item Client Scope, above).
 - **Dependencies** — a `Task` may depend on one or more other `Task`s completing first; dependency structure is explicit, not inferred from due dates.
 - **Deadlines** — a due date/time, distinct from any court- or statute-driven deadline that may originate in Legal Intelligence or a Matter's own facts (Practice Management models the `Task` deadline; it does not compute statutory deadlines itself).
 - **Priority** — an explicit priority level, not derived solely from proximity to deadline.
@@ -180,7 +190,7 @@ See Why Ethical Walls belong here (in `docs/adr/ADR-006-Practice-Management-Core
 - Video
 - Travel
 
-as an `AppointmentType`/`Modality` value object (Office / Video / Phone / Travel / Court, extending the Modality concept `docs/architecture/12_Website_Client_Portal_Architecture.md` §7 already defines for Booking). Every `Appointment` is **timezone-aware** (`TimeSlot` carries an explicit timezone, not an implicit server-local assumption), matching Digital Presence's Booking System.
+as an `AppointmentType`/`Modality` value object (Office / Video / Phone / Travel / Court, extending the Modality concept `docs/architecture/12_Website_Client_Portal_Architecture.md` §7 already defines for Booking). Every `Appointment` is **timezone-aware** (`TimeSlot` carries an explicit timezone, not an implicit server-local assumption), matching Digital Presence's Booking System. An `Appointment` linked to a Matter is Matter-wide by default (for example, a hearing every `MatterClient` needs to know about) and may optionally reference one specific `MatterClient` already attached to the Matter when it applies to only that client — a one-on-one meeting with a single co-client, for example (Matter-Linked Item Client Scope, above).
 
 **This is the same aggregate Digital Presence's `BookingRequest` produces or updates on confirmation** — resolving the "unresolved implementation choice" `docs/architecture/12_Website_Client_Portal_Architecture.md` §7 named: a confirmed `BookingRequest` issues a command into Practice Management, which creates or updates the corresponding `Appointment`; `BookingRequest` and `Appointment` remain distinct aggregates in distinct bounded contexts, connected only through that published command.
 
@@ -189,8 +199,10 @@ as an `AppointmentType`/`Modality` value object (Office / Video / Phone / Travel
 `Note` is its own aggregate, with a `NoteVisibility` value object distinguishing exactly three mutually exclusive states — who may see the Note, and nothing else:
 
 - Internal (staff-only)
-- Client-visible (surfaced through the Client Portal, `docs/architecture/12_Website_Client_Portal_Architecture.md` §4)
+- Client-visible (surfaced through the Client Portal, `docs/architecture/12_Website_Client_Portal_Architecture.md` §4, subject to the explicit, deny-by-default audience rules in Matter-Linked Item Client Scope, above — a Client-visible `Note` is never shown to a co-client by default merely because it is visible to the Matter)
 - Private (visible only to its author, distinct from Internal's staff-wide visibility)
+
+A `Note` linked to a Matter is Matter-wide by default and may optionally reference one specific `MatterClient` already attached to the Matter when it applies to only that client (Matter-Linked Item Client Scope, above).
 
 Two further properties apply independently of `NoteVisibility`, not as visibility values:
 
@@ -219,7 +231,7 @@ Practice Management integrates with, but never absorbs ownership of:
 
 - **Communications Hub** (`docs/architecture/11_Communications_Hub_Architecture.md`) — `CommunicationThread`/`Message` link to `Client`/`Matter`/`Task`/`Appointment` via `CommunicationLink`; Practice Management is the linked-to party, never the owner of communication content.
 - **Legal Intelligence** (`docs/architecture/09_Legal_Intelligence_Architecture.md`) — a `Matter` may reference a `LegalSource` via the firm-scoped `MatterLegalLink` that document already anticipated; Practice Management never owns or copies platform-global legal-source content.
-- **Website / Client Portal** (`docs/architecture/12_Website_Client_Portal_Architecture.md`) — Digital Presence reads `Matter`/`Task`/`Appointment`/`Client` through Practice Management's published queries for the Client Portal and produces `Appointment`s via confirmed `BookingRequest`s; Practice Management never renders portal UI or owns branding/domain concerns.
+- **Website / Client Portal** (`docs/architecture/12_Website_Client_Portal_Architecture.md`) — Digital Presence reads `Matter`/`Task`/`Appointment`/`Client` through Practice Management's published queries for the Client Portal and produces `Appointment`s via confirmed `BookingRequest`s; those published queries resolve which specific `Client` sees a given Matter-linked item under the explicit, deny-by-default audience rules in Matter-Linked Item Client Scope, above. Practice Management never renders portal UI or owns branding/domain concerns.
 - **Billing** (future bounded context) — Invoices reference `Matter`/`Client` by identifier; Practice Management never owns invoices, payments, or billing rates.
 - **Documents** (future bounded context) — Documents reference `Matter`/`Client` by identifier; Practice Management never stores or versions document content.
 - **Identity** (not yet architected) — staff Actor identity (who a Responsible Lawyer, Paralegal, or Assistant *is*, and their platform-wide login/RBAC) is an external, not-yet-architected dependency; `MatterTeam` `TeamAssignment` entries reference an Actor identifier without owning identity/authentication itself.
@@ -237,7 +249,7 @@ Practice Management integrates with, but never absorbs ownership of:
 ## 15. Privacy
 
 - **PDPA / GDPR** — `Client` and `Contact` records are personal data; regional privacy regimes apply consistent with the platform's Thailand-first posture and the privacy models already established in `docs/architecture/11_Communications_Hub_Architecture.md` §12 and `docs/architecture/12_Website_Client_Portal_Architecture.md` §14.
-- **Data export** — a Client's Practice Management data (their `Matter`s, `Task`s, `Appointment`s, Client-visible `Note`s) is exportable to support a data-subject access request.
+- **Data export** — a Client's Practice Management data is exportable to support a data-subject access request: the `Matter`s they are attached to via `MatterClient`, the Matter-wide `Task`s/`Appointment`s/Client-visible `Note`s on those Matters, and any `Task`/`Appointment`/`Note` that specifically references them (Matter-Linked Item Client Scope, above) — never an item that specifically references a different co-client on a shared Matter.
 - **Deletion** — a deletion request is honored subject to Legal retention (below); Practice Management does not silently purge records a professional-conduct or statutory rule requires retaining.
 - **Legal retention** — Matter records frequently fall under statutory or professional-conduct retention obligations (limitation periods, regulator record-keeping rules) that override an ordinary deletion request, the same override relationship `docs/architecture/11_Communications_Hub_Architecture.md` §11 establishes for legal hold over communications retention policy.
 
@@ -342,9 +354,9 @@ Every AI suggestion in the "may" list is presented as a proposal a human acts on
 - `Organization` — organizational party data; may or may not be linked to a `Client`.
 - `Contact` — an individual person; linked to `Client`/`Organization` via role-carrying relationships.
 - `Matter` — the central aggregate: `MatterNumber`, `MatterStatus`, `PracticeArea` reference, owns `MatterTeam` and `MatterClient` (entities) — one or more `Client` references via `MatterClient`, never exactly one.
-- `Task` — independent aggregate; optional `Matter` reference, `TaskPriority`, `RecurrenceRule`, dependency references to other `Task`s.
-- `Appointment` — independent aggregate; optional `Matter` reference, `Modality`, timezone-aware `TimeSlot`.
-- `Note` — independent aggregate; optional `Matter` reference, `NoteVisibility` (Internal / Client-visible / Private), independent `Pinned` state, optional `AIAnnotation` provenance, immutable content.
+- `Task` — independent aggregate; optional `Matter` reference (Matter-wide by default), optional specific `MatterClient` reference (Matter-Linked Item Client Scope), `TaskPriority`, `RecurrenceRule`, dependency references to other `Task`s.
+- `Appointment` — independent aggregate; optional `Matter` reference (Matter-wide by default), optional specific `MatterClient` reference (Matter-Linked Item Client Scope), `Modality`, timezone-aware `TimeSlot`.
+- `Note` — independent aggregate; optional `Matter` reference (Matter-wide by default), optional specific `MatterClient` reference (Matter-Linked Item Client Scope), `NoteVisibility` (Internal / Client-visible / Private), independent `Pinned` state, optional `AIAnnotation` provenance, immutable content.
 - `EthicalWall` — independent aggregate; exactly one `Matter` reference, allow-list of Actor identifiers.
 - `ConflictRelationship` — independent, Firm-scoped aggregate root; connects two `PartyReference`s, with an optional source `Matter` or disclosure event reference, a relationship type, and a recorded date (Conflict Checking).
 
