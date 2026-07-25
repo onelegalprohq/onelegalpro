@@ -21,6 +21,12 @@ If a request conflicts with approved architecture, stop, explain the conflict, a
 - AI-generated content must never be presented as official law.
 - Platform-global legal sources and firm-owned legal work must not be conflated — see `docs/architecture/01_OneLegalPro_Constitution.md` and `docs/architecture/09_Legal_Intelligence_Architecture.md`.
 
+## White-label rules
+
+- OneLegalPro is white-label by design — no Firm-facing or client-facing surface may hardcode a non-brandable OneLegalPro identity. See `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 10–11), `docs/architecture/10_White_Label_Platform_Architecture.md`, and `docs/adr/ADR-003-White-Label-Platform.md`.
+- UI styling uses theme tokens only, resolved per Firm through the Branding Resolver — never hardcoded brand-specific colors, fonts, or asset paths in template or component code.
+- Branding is presentation-only and must never suppress a mandatory legal disclaimer, citation, or AI-advisory notice.
+
 ## Architecture
 
 OneLegalPro uses Domain-Driven Design, Clean Architecture, a Laravel modular monolith, PostgreSQL, UUIDv7, event-driven integration, REST-first interfaces, and Firm-based multi-tenancy.

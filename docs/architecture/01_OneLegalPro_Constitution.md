@@ -67,6 +67,14 @@ Every legal source must carry jurisdiction, language, effective date, amendment 
 
 `LegalCitation` is a first-class concept capable of representing the canonical Thai citation and, where available, an English reference citation, without conflating the two.
 
+## Article 10 — White-label by design
+
+OneLegalPro is a white-label platform, not a co-branded one. Every Firm-facing and client-facing surface — website, client portal, email, generated documents, and the AI assistant — must present as the Firm's own product. "OneLegalPro" is the platform operator's identity, never a mark a Firm's client is required to see. See `docs/architecture/10_White_Label_Platform_Architecture.md` and `docs/adr/ADR-003-White-Label-Platform.md`.
+
+## Article 11 — Branding ownership and isolation
+
+A Firm's brand — theme values, assets, domain, sender identity, and AI assistant persona — is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). Branding is a presentation concern only: it must never alter legal-content substance, AI governance disclosures (Article 6), citation and provenance requirements, or the mandatory disclaimer (Articles 3–4). No branding configuration may suppress a requirement established elsewhere in this Constitution.
+
 ## Amendment
 
 Amendments to this Constitution require an approved ADR and explicit human sign-off, consistent with the approval gates in `AGENTS.md`.

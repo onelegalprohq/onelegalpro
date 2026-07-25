@@ -63,11 +63,13 @@ Every sprint must preserve module boundaries, Firm isolation, authorization, aud
 
 **ARCH-001 — Thailand-First Legal Intelligence Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/05_AI_Architecture.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/09_Legal_Intelligence_Architecture.md`, and `docs/adr/ADR-002-Thailand-First-Legal-Intelligence.md`.
 
-Architecture approval does not schedule implementation. No `PF-*` story numbering is affected. Any Legal Intelligence implementation stories (see EPIC-002 staging in `docs/architecture/08_Roadmap.md`) are **proposed only** and must be added to this Sprint Plan and to `docs/implementation/03_Engineering_Backlog.md` as their own approved entries before implementation begins.
+**ARCH-002 — White-Label Platform & Multi-Tenant Branding Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/10_White_Label_Platform_Architecture.md`, and `docs/adr/ADR-003-White-Label-Platform.md`.
+
+Architecture approval does not schedule implementation. No `PF-*` story numbering is affected. Any Legal Intelligence implementation stories (see EPIC-002 staging in `docs/architecture/08_Roadmap.md`) or White-Label Platform implementation stories (see EPIC-003 staging in `docs/architecture/08_Roadmap.md`) are **proposed only** and must be added to this Sprint Plan and to `docs/implementation/03_Engineering_Backlog.md` as their own approved entries before implementation begins. The Digital Presence and Client Portal phases below depend on EPIC-003 reaching at least its token-schema and `BrandProfile` foundation stages.
 
 ## Later phases
 
-Platform Core; Legal Practice Core; Documents; Commercial Operations; **Legal Intelligence (EPIC-002, proposed — staged in `docs/architecture/08_Roadmap.md`, not yet scheduled)**; Digital Presence; Client Portal; Workflow; Integrations; Reporting; Academic Edition.
+Platform Core; Legal Practice Core; Documents; Commercial Operations; **Legal Intelligence (EPIC-002, proposed — staged in `docs/architecture/08_Roadmap.md`, not yet scheduled)**; **White-Label Platform (EPIC-003, proposed — staged in `docs/architecture/08_Roadmap.md`, not yet scheduled)**; Digital Presence; Client Portal; Workflow; Integrations; Reporting; Academic Edition.
 
 ## Human approval gates
 
