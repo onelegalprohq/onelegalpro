@@ -4,7 +4,7 @@
 
 ## Purpose and scope
 
-This document defines the conceptual domain and system architecture for OneLegalPro's Digital Presence Platform, implementing `docs/adr/ADR-005-Website-Client-Portal.md` and the relevant articles of `docs/architecture/01_OneLegalPro_Constitution.md`. "Website & Client Portal" names the two flagship surfaces; the bounded context itself — proposed module `DigitalPresence` — is broader, and also covers Embedded Components, Booking, AI Receptionist integration, Intake, Client Authentication, and Knowledge Publishing, all as described below.
+This document defines the conceptual domain and system architecture for OneLegalPro's Digital Presence Platform, implementing `docs/adr/ADR-005-Website-Client-Portal.md` and the relevant articles of `docs/architecture/01_OneLegalPro_Constitution.md`. "Website & Client Portal" names the two flagship surfaces; the bounded context itself — proposed module `DigitalPresence` — is broader, and also covers Embedded Components, Booking, AI Receptionist integration, Intake, the Client Portal access surface, and Knowledge Publishing, all as described below. **Client authentication itself is owned by IdentityAccess** (`docs/architecture/16_Identity_Security_Access_Control_Architecture.md`), which Digital Presence composes through published contracts — see Authentication, below.
 
 This document describes **conceptual models only**. It does not define migrations, Eloquent schemas, or implementation code — those belong to future, separately approved implementation stories (see `docs/architecture/08_Roadmap.md`).
 
@@ -12,7 +12,7 @@ This document describes **conceptual models only**. It does not define migration
 
 Digital Presence is its own bounded context because it is the composition layer where several already-architected capabilities — Branding (`docs/architecture/10_White_Label_Platform_Architecture.md`), Communications (`docs/architecture/11_Communications_Hub_Architecture.md`), and future Practice Management capabilities (Matters, Documents, Invoices, Tasks, Appointments) — become a single client-facing product surface, without any one of those capabilities owning the composition itself.
 
-No existing or planned module is a natural owner of "the public website" or "the client portal": Branding owns identity, not page structure; Communications owns messages, not booking or content; a future Practice Management module owns Matters and Invoices, not how they're presented to a client. If Digital Presence were not its own bounded context, its responsibilities (content publishing, client authentication, booking, embeddable widgets) would either fragment across those modules — each reinventing a slice of "the website" — or accumulate as an unowned pile of presentation logic with no aggregate boundary of its own. A dedicated bounded context gives this composition a name, an owner, and a boundary, while every underlying capability it composes remains owned exactly where it already is.
+No existing or planned module is a natural owner of "the public website" or "the client portal": Branding owns identity, not page structure; Communications owns messages, not booking or content; a future Practice Management module owns Matters and Invoices, not how they're presented to a client. If Digital Presence were not its own bounded context, its responsibilities (content publishing, the client portal access surface, booking, embeddable widgets) would either fragment across those modules — each reinventing a slice of "the website" — or accumulate as an unowned pile of presentation logic with no aggregate boundary of its own. A dedicated bounded context gives this composition a name, an owner, and a boundary, while every underlying capability it composes remains owned exactly where it already is.
 
 ## 2. Supported Deployment Models
 
@@ -55,20 +55,29 @@ The Client Portal is the authenticated, client-facing dashboard surfacing:
 - Messages
 - Notifications
 
-With the sole exception of authentication state and portal-specific display preferences, **the Client Portal owns none of this data**. Matters, Documents, Invoices, Payments, Tasks, and Appointments are surfaced through Practice Management Integration (below); Messages and Notifications are surfaced through Communications Integration (below). The Portal is a permission-aware aggregation view, the same "read-model projection, not a second source of truth" pattern the Communication Inbox already establishes in `docs/architecture/11_Communications_Hub_Architecture.md`.
+With the sole exception of portal-specific access status and display preferences, **the Client Portal owns none of this data** — and since ARCH-008 it does not own authentication state either (see Authentication, below: IdentityAccess owns the principal, credentials, authenticators, recovery, and sessions). Matters, Documents, Invoices, Payments, Tasks, and Appointments are surfaced through Practice Management Integration (below); Messages and Notifications are surfaced through Communications Integration (below). The Portal is a permission-aware aggregation view, the same "read-model projection, not a second source of truth" pattern the Communication Inbox already establishes in `docs/architecture/11_Communications_Hub_Architecture.md`.
 
 ## 5. Authentication
 
-Client-facing authentication is distinct from staff/lawyer authentication (out of scope here) and supports, per Firm policy:
+> **Boundary resolved by ARCH-008.** This section originally placed the Client Portal's authentication identity and policy inside Digital Presence, as a provisional arrangement while no identity architecture existed. **`docs/architecture/16_Identity_Security_Access_Control_Architecture.md` (ARCH-016) and `docs/adr/ADR-009-Identity-Security-Access-Control.md` now own that capability.** No portal capability described below is removed — only its ownership is corrected.
+
+**IdentityAccess owns** the Client Portal principal, credentials, authentication factors and their registration, authentication attempts and lockout, account recovery, and sessions. **Practice Management continues to own the underlying `Client`.** **Digital Presence owns** the portal surface, its presentation, portal-specific preferences, and permission-aware composition — and **invokes IdentityAccess contracts** for invitation, authentication, MFA, session, and recovery operations.
+
+Client-facing authentication remains distinct from staff/lawyer authentication (both are now IdentityAccess concerns, in separate channels of the same Firm security realm) and supports, per Firm policy:
 
 - Password
 - Passwordless
 - Magic Link
 - MFA
+- Passkeys/WebAuthn
 - Future SSO
-- Firm-controlled policies — a Firm configures which methods are permitted, whether MFA is required, and session timeout, via a `PortalAuthPolicy` value object on its `DigitalPresenceProfile` (see Aggregates, entities, and value objects). The platform does not impose one fixed authentication posture on every Firm.
+- **Firm-controlled policies** — a Firm configures which methods are permitted, whether MFA is required, and session timeout. The **authoritative policy is IdentityAccess's channel-specific `AuthenticationPolicy`**; Digital Presence may *present* those Firm-configured security settings, or reference the policy, but **is not the policy authority** (see `PortalAuthPolicyReference` in Aggregates, entities, and value objects, below). The platform does not impose one fixed authentication posture on every Firm.
 
-A `ClientPortalIdentity` is the authentication identity for a Client interacting with the portal; it references the underlying Client business record (owned by a future Practice Management/CRM module) by identifier only, and never duplicates that record's data.
+**`ClientPortalAccessProfile`** is Digital Presence's portal *access and presentation* concept for a Client, linked **by identifier** to an IdentityAccess principal, the Practice Management `Client`, and the Firm. It may carry portal status and portal-specific preferences. It **must not store passwords, authenticators, MFA secrets, passwordless or magic-link tokens, recovery data, or authoritative session state** — all of those belong to IdentityAccess. It replaces the former `ClientPortalIdentity`, which incorrectly modeled an authentication identity inside a presentation context.
+
+**Authentication events originate from IdentityAccess** and may be consumed by Digital Presence for portal display and workflow.
+
+**Successful authentication is not resource visibility.** What a client may see still comes from the owning domain and its audience/authorization rules — Documents' deny-by-default `PortalDocumentAudience`, Billing's invoice audience, and Practice Management's Matter-linked item scope — never from the fact of a successful login (see Practice Management Integration and Security, below).
 
 ## 6. AI Receptionist Integration
 
@@ -137,9 +146,9 @@ The Client Portal surfaces Matters, Documents, Invoices, Tasks, and Appointments
 
 - **Tenant isolation** — every Digital Presence aggregate is firm-scoped, isolated by `FirmContext`, enforced at the application, repository, and database-policy layers, never by global scopes alone.
 - **Permissions** — a Client's portal session is authorized against only their own linked Matters/Documents/Invoices/Tasks/Appointments; staff permissions and Ethical Walls (`docs/domain/06_Laravel_Module_Blueprint.md`) govern staff-side access to the same data through other surfaces.
-- **Encryption** — client credentials, session tokens, and portal data are encrypted at rest and in transit, consistent with `docs/architecture/11_Communications_Hub_Architecture.md`'s security posture.
+- **Encryption** — portal data is encrypted at rest and in transit, consistent with `docs/architecture/11_Communications_Hub_Architecture.md`'s security posture. Client credentials and session material are owned, protected, and never disclosed to Digital Presence by IdentityAccess (`docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §14, §17).
 - **Audit** — authentication events, content publish actions, booking confirmations/cancellations, and widget-embed issuance/revocation are auditable domain events.
-- **Session management** — portal sessions are bound to `PortalAuthPolicy`'s configured timeout and re-authentication rules; widget-issued sessions (see Embedded Component Framework) are scoped more narrowly than a full portal session.
+- **Session management** — portal sessions are issued, rotated, and revoked by IdentityAccess under the Firm's authoritative `AuthenticationPolicy`; Digital Presence consumes session state and never holds authoritative session authority. Widget-issued capability scopes (see Embedded Component Framework) are narrower than a full portal session and are never a Client identity.
 - **CSRF** — every state-changing portal and widget request is CSRF-protected; widget embeds additionally validate origin against the `WidgetEmbed`'s configured allowed origins.
 - **Rate limiting** — unauthenticated surfaces (Contact Widget, AI Chat Widget, public booking requests) are rate-limited per origin/IP/embed-key to prevent spam Lead flooding and abuse, since these are the platform's most exposed unauthenticated attack surface.
 
@@ -161,7 +170,7 @@ The Client Portal surfaces Matters, Documents, Invoices, Tasks, and Appointments
 
 - **Public APIs** — read access to published Knowledge Publishing content and write access for booking/intake, used by the enterprise CMS integration deployment model and by any third-party consumer a Firm authorizes.
 - **Embedded APIs** — scoped, embed-key-authenticated endpoints used exclusively by Embedded Widgets; narrower in permission surface than the Public API or a full Client Portal session (see Embedded Component Framework).
-- **Authentication** — three distinct authentication boundaries: Client Portal session (full client identity, `ClientPortalIdentity`), widget embed key (site-level, not client-level, identity), and Public API credentials (Firm-level, for enterprise/CMS consumers) — never conflated with one another.
+- **Authentication** — three distinct authentication boundaries, never conflated: an IdentityAccess-issued Client Portal session (full client principal), a widget embed key (site-level, **not** client-level, and never a Client identity), and service-principal credentials for enterprise/CMS consumers. Authentication itself is IdentityAccess's (ARCH-016); the Public API surface, scopes, and versioning are reserved for ARCH-009.
 - **Versioning** — exact conventions belong to `docs/architecture/07_API_Standards.md`, currently an empty placeholder; this document assumes Digital Presence's Public and Embedded APIs will follow whatever versioning discipline that document eventually establishes, and does not invent a competing one here.
 
 ## 17. Future Expansion
@@ -172,13 +181,13 @@ The Client Portal surfaces Matters, Documents, Invoices, Tasks, and Appointments
 - Partner portals (a Firm's referral partners, distinct identity/permission model from Clients).
 - Court portals (integration with external court e-filing/portal systems, distinct from the Firm's own Client Portal).
 
-Every item above is additive on top of the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalIdentity`/`BookingRequest` model and the Public/Embedded API boundary, not a redesign of it — mirroring the extension discipline established in `docs/architecture/09_Legal_Intelligence_Architecture.md`, `docs/architecture/10_White_Label_Platform_Architecture.md`, and `docs/architecture/11_Communications_Hub_Architecture.md`.
+Every item above is additive on top of the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalAccessProfile`/`BookingRequest` model (with authentication itself owned by IdentityAccess) and the Public/Embedded API boundary, not a redesign of it — mirroring the extension discipline established in `docs/architecture/09_Legal_Intelligence_Architecture.md`, `docs/architecture/10_White_Label_Platform_Architecture.md`, and `docs/architecture/11_Communications_Hub_Architecture.md`.
 
 ## 18. Failure Modes
 
 Conceptual failure modes the architecture must account for (mitigations are implementation-story-level detail):
 
-- **Authentication failures** — repeated failed logins lock the `ClientPortalIdentity` per `PortalAuthPolicy` rather than allowing unlimited attempts; MFA failure has a distinct, auditable failure path from password failure.
+- **Authentication failures** — repeated failed logins are rate-limited and lock the principal per the Firm's IdentityAccess `AuthenticationPolicy` rather than allowing unlimited attempts; MFA failure has a distinct, auditable failure path from password failure. Both the lockout and its audit belong to IdentityAccess; Digital Presence renders the outcome.
 - **Portal downtime** — a Client Portal outage must not take down public-facing Website Builder pages or the AI Chat/Contact widgets, since they are independent rendering surfaces over the same platform, not a single monolithic page.
 - **Booking conflicts** — two booking requests for the same slot are resolved by an explicit conflict check against `AvailabilitySchedule` and existing confirmed `BookingRequest`s at confirmation time (`BookingConflictDetected`), never by silently double-booking and resolving later.
 - **Widget failures** — a widget failing to load or erroring on a third-party page must fail in isolation (sandboxed embed) without breaking the host page around it; this is a requirement of the Embedded Component Framework's design, not an incidental property.
@@ -192,7 +201,7 @@ The three deployment models (see Supported Deployment Models) exist because OneL
 - A Firm with an **existing website** it does not want to migrate away from — for brand, SEO history, or agency-relationship reasons — adopts Embedded Widgets instead, gaining the AI receptionist, booking, client login, and portal linkage without a hosting migration.
 - A **larger or enterprise Firm** with its own CMS and web team integrates at the API layer, pulling Knowledge Publishing content or posting booking/intake data programmatically, with no dependency on Website Builder's templates or a widget's embedded UI at all.
 
-These are not permanent, mutually exclusive tiers: a Firm can start on Existing Website Integration (widgets bolted onto its current site) and later migrate to Fully Hosted once it decides to consolidate, without losing its `DigitalPresenceProfile` configuration, `ContentItem` history, `ClientPortalIdentity` records, or Communications history — because none of that data is deployment-model-specific. The deployment model governs *how* Digital Presence is surfaced, not what data exists underneath it.
+These are not permanent, mutually exclusive tiers: a Firm can start on Existing Website Integration (widgets bolted onto its current site) and later migrate to Fully Hosted once it decides to consolidate, without losing its `DigitalPresenceProfile` configuration, `ContentItem` history, client portal access (whose principals and credentials are held by IdentityAccess), or Communications history — because none of that data is deployment-model-specific. The deployment model governs *how* Digital Presence is surfaced, not what data exists underneath it.
 
 ## Embedded Component Framework
 
@@ -243,7 +252,7 @@ Digital Presence is a distinct domain from Branding, Communications, and future 
 
 1. **Public content** — `ContentItem` (Website Builder pages, Knowledge Publishing) — authored and published by the Firm, distinct from official legal sources (Article 7).
 2. **Portal presentation** — the Client Portal's aggregation of Matters/Documents/Invoices/Tasks/Appointments/Messages, which it reads but never owns.
-3. **Client authentication identity** — `ClientPortalIdentity`, distinct from the underlying Client business record it references.
+3. **Client portal access and presentation** — `ClientPortalAccessProfile`, distinct from both the underlying Client business record (Practice Management) and the authentication principal, credentials, and sessions (IdentityAccess). Digital Presence never holds authentication identity.
 4. **Embedded component configuration and security** — `WidgetEmbed`, distinct from the widget's rendered content, which is composed from Branding/Communications/Content/Booking data at render time.
 5. **Scheduling requests** — `BookingRequest`/`AvailabilitySchedule`, distinct from the `Appointment` aggregate they ultimately produce or update in a future Practice Management module.
 
@@ -256,7 +265,8 @@ Digital Presence has no platform-global content subdomain — the third module, 
 | Subdomain | Scope | Ownership boundary |
 |---|---|---|
 | Widget component contract and capability schema | Platform-global | Not `FirmContext` — static configuration shared by every Firm |
-| `DigitalPresenceProfile`, `ContentItem`, `ClientPortalIdentity`, `AvailabilitySchedule`, `BookingRequest`, `WidgetEmbed`, `MediaAsset` | Firm-scoped | `FirmContext` |
+| `DigitalPresenceProfile`, `ContentItem`, `ClientPortalAccessProfile`, `AvailabilitySchedule`, `BookingRequest`, `WidgetEmbed`, `MediaAsset` | Firm-scoped | `FirmContext` |
+| Client portal principals, credentials, authenticators, recovery, sessions, authentication policy | Firm-scoped, **owned by IdentityAccess** | Reached only through IdentityAccess's published contracts (ARCH-016) |
 
 A rendering surface may read the platform-global widget contract/schema, but every actual piece of content, identity, or booking data it renders for a given Firm is that Firm's own data, reached only through Digital Presence's published queries, Branding's Resolver, and Communications' published contracts — never through another module's Eloquent records directly.
 
@@ -269,19 +279,25 @@ DigitalPresence/
 ├── Application/
 │   ├── Content/          (CreateContentItem, SubmitContentForReview, PublishContentItem,
 │   │                       ReviseContentItem, ArchiveContentItem, ...)
-│   ├── Portal/            (RegisterClientPortalIdentity, AuthenticateClient, EnableMFA,
-│   │                        IssueMagicLink, SetPortalAuthPolicy, ...)
+│   ├── Portal/            (CreateClientPortalAccessProfile, SetPortalPreferences,
+│   │                        RequestPortalInvitation → IdentityAccess,
+│   │                        InitiateAuthentication → IdentityAccess,
+│   │                        InitiateRecovery → IdentityAccess, ...)
+│   │                       ↑ authentication, MFA, recovery and sessions are
+│   │                         IdentityAccess contracts, not local commands
 │   ├── Booking/           (DefineAvailability, RequestBooking, ConfirmBooking, CancelBooking, ...)
 │   └── Widgets/           (IssueWidgetEmbed, RevokeWidgetEmbed, ConfigureWidget, ...)
 ├── Domain/
 │   ├── DigitalPresenceProfile   (aggregate root)
 │   ├── ContentItem              (aggregate root)
-│   ├── ClientPortalIdentity     (aggregate root)
+│   ├── ClientPortalAccessProfile (aggregate root — portal status/preferences only,
+│   │                              NO credentials, MFA secrets, recovery data or sessions)
 │   ├── AvailabilitySchedule     (aggregate root)
 │   ├── BookingRequest           (aggregate root)
 │   ├── WidgetEmbed, MediaAsset  (entities)
-│   ├── DeploymentModel, ContentType, ContentStatus, SEOMetadata, PortalAuthPolicy,
-│   │   AuthMethod, TimeSlot, TimeZone, Modality, EmbedKey, AllowedOrigin   (value objects)
+│   ├── DeploymentModel, ContentType, ContentStatus, SEOMetadata,
+│   │   PortalAuthPolicyReference, TimeSlot, TimeZone, Modality,
+│   │   EmbedKey, AllowedOrigin   (value objects)
 ├── Infrastructure/        (hosting/CDN adapter, enterprise CMS connector adapters,
 │                            calendar/timezone library adapters; reuses Branding's
 │                            TenantDomain/SSL infrastructure rather than its own)
@@ -290,8 +306,9 @@ DigitalPresence/
 ├── Database/               (new migrations only — no historical migrations touched)
 ├── Routes/
 ├── Tests/
-├── Config/                 (widget capability schema, default `PortalAuthPolicy`,
-│                            booking conflict rules, rate-limit thresholds)
+├── Config/                 (widget capability schema, booking conflict rules,
+│                            rate-limit thresholds; authentication policy defaults
+│                            belong to IdentityAccess)
 ├── ModuleServiceProvider.php
 └── README.md
 ```
@@ -302,9 +319,9 @@ Dependency direction and cross-module rules follow `docs/domain/06_Laravel_Modul
 
 **Aggregates**
 
-- `DigitalPresenceProfile` — per-Firm configuration: enabled deployment model(s), `PortalAuthPolicy`, booking configuration reference. One per Firm.
+- `DigitalPresenceProfile` — per-Firm configuration: enabled deployment model(s), a `PortalAuthPolicyReference` to the Firm's IdentityAccess-owned portal authentication policy, booking configuration reference. One per Firm.
 - `ContentItem` — a single piece of published or draft content (practice page, lawyer profile, office location, news item, article, FAQ, legal update), carrying `SEOMetadata` and `MediaAsset` references, following Draft → Review → Publish, editable in place with revision history (not immutable, unlike `LegalSource`).
-- `ClientPortalIdentity` — a Client's portal authentication identity: credential/passwordless method, MFA configuration; references the Client business record by ID only.
+- `ClientPortalAccessProfile` — a Client's portal access and presentation record: portal status and portal-specific preferences. References the IdentityAccess principal, the Practice Management `Client`, and the Firm **by identifier only**, and holds **no credentials, authenticators, MFA secrets, passwordless or recovery material, or authoritative session state** (Authentication, above).
 - `AvailabilitySchedule` — a lawyer's or office's bookable availability (recurring rules, exceptions, timezone).
 - `BookingRequest` — a requested or confirmed booking, ultimately producing/updating an `Appointment` in a future Practice Management module (see Booking System, Unresolved implementation choice).
 
@@ -319,8 +336,7 @@ Dependency direction and cross-module rules follow `docs/domain/06_Laravel_Modul
 - `ContentType` — `PracticePage` / `LawyerProfile` / `OfficeLocation` / `News` / `Article` / `FAQ` / `LegalUpdate` / `ContactPage`.
 - `ContentStatus` — `Draft` / `InReview` / `Published` / `Archived`.
 - `SEOMetadata` — title, meta description, canonical URL, structured-data references.
-- `PortalAuthPolicy` — allowed `AuthMethod`s, MFA requirement, session timeout, future SSO configuration.
-- `AuthMethod` — `Password` / `Passwordless` / `MagicLink` / `MFA` / `SSO` (future).
+- `PortalAuthPolicyReference` — a reference to the Firm's authoritative, IdentityAccess-owned portal `AuthenticationPolicy` (permitted methods, MFA requirement, session timeout, federation configuration), together with any Firm-configured presentation of those settings. Digital Presence presents and references this policy; **it is not the policy authority** (ARCH-016 §13).
 - `TimeSlot`, `TimeZone`, `Modality` (`Office` / `Video` / `Phone`) — Booking value objects.
 - `EmbedKey`, `AllowedOrigin` — widget security value objects.
 
@@ -328,12 +344,12 @@ Dependency direction and cross-module rules follow `docs/domain/06_Laravel_Modul
 
 **Events** (past tense, per `docs/domain/06_Laravel_Module_Blueprint.md` naming convention)
 
-`ContentDrafted`, `ContentSubmittedForReview`, `ContentPublished`, `ContentRevised`, `ContentArchived`, `ClientPortalIdentityCreated`, `ClientAuthenticated`, `ClientAuthenticationFailed`, `MFAEnabled`, `PortalAuthPolicyUpdated`, `AvailabilityDefined`, `BookingRequested`, `BookingConfirmed`, `BookingCancelled`, `BookingConflictDetected`, `WidgetEmbedIssued`, `WidgetEmbedRevoked`, `DigitalPresenceProfileUpdated`.
+`ContentDrafted`, `ContentSubmittedForReview`, `ContentPublished`, `ContentRevised`, `ContentArchived`, `ClientPortalAccessProfileCreated`, `PortalPreferencesUpdated`, `AvailabilityDefined`, `BookingRequested`, `BookingConfirmed`, `BookingCancelled`, `BookingConflictDetected`, `WidgetEmbedIssued`, `WidgetEmbedRevoked`, `DigitalPresenceProfileUpdated`.
 
 **Lifecycle and state transitions**
 
 - `ContentItem`: `Draft` → `InReview` → `Published` → (`Published` may be revised in place, recording a new revision) → `Archived`.
-- `ClientPortalIdentity`: `Invited` → `Activated` → `Active` (or `Locked` after repeated failed authentication, or `MFAPending` where MFA is required) → `Deactivated`.
+- `ClientPortalAccessProfile`: `Invited` → `Activated` → `Active` → `Deactivated`, mirroring the authoritative principal lifecycle IdentityAccess owns (`Locked`, `Suspended`, `MFAPending`, and recovery states are IdentityAccess's, surfaced here for presentation, never authored here).
 - `BookingRequest`: `Requested` → `Confirmed` (conflict-checked against `AvailabilitySchedule` and existing confirmed requests at this transition) → `Completed` / `Cancelled` / `NoShow`.
 - `WidgetEmbed`: `Issued` → `Active` → `Revoked` (immediate, invalidating the `EmbedKey`).
 
@@ -341,14 +357,14 @@ Dependency direction and cross-module rules follow `docs/domain/06_Laravel_Modul
 
 **Unresolved implementation choice:** exact storage backend split, to be finalized in a future implementation-focused ADR once content volume and rendering-performance requirements are known. Conceptually:
 
-- Structured configuration and metadata (`DigitalPresenceProfile`, `ContentItem` metadata/status, `ClientPortalIdentity`, `AvailabilitySchedule`, `BookingRequest`, `WidgetEmbed`) belongs in PostgreSQL, consistent with the platform's existing database rule and UUIDv7 identity.
+- Structured configuration and metadata (`DigitalPresenceProfile`, `ContentItem` metadata/status, `ClientPortalAccessProfile`, `AvailabilitySchedule`, `BookingRequest`, `WidgetEmbed`) belongs in PostgreSQL, consistent with the platform's existing database rule and UUIDv7 identity.
 - `MediaAsset` binaries belong in object storage, referenced by identifier, the same pattern `docs/architecture/10_White_Label_Platform_Architecture.md` applies to `BrandAsset`.
 - A CDN or edge cache may sit in front of published `ContentItem` output for performance; cache invalidation on publish/revision is an implementation-level requirement, not a schema concern.
 
 ## Access-control boundaries
 
 - `ContentItem` authoring (Draft/Review/Publish) requires Firm-staff authorization; public read access applies only to `Published` items.
-- `ClientPortalIdentity` mutations require either the Client's own authenticated action or Firm-admin action (for account recovery/deactivation).
+- `ClientPortalAccessProfile` mutations require either the Client's own authenticated action or Firm-admin action. **Credential, authenticator, recovery, and session operations are IdentityAccess's**, invoked through its published contracts and subject to its own authorization and step-up rules — Digital Presence never performs them locally.
 - Widget requests are authorized by `EmbedKey` + `AllowedOrigin` validation, a narrower boundary than a full Client Portal session or Public API credential (API Architecture, above).
 - Firm-scoped isolation is enforced at the application, repository, and database-policy layers, never by global scopes alone, per `docs/domain/06_Laravel_Module_Blueprint.md`.
 - Any write path that could let Digital Presence bypass Branding's or Communications' own access-control rules (for example, a widget reading another Firm's `BrandProfile` or `CommunicationThread`) is a defect, not a variant, per the published-contract-only rule those architectures already establish.
