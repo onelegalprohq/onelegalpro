@@ -28,9 +28,10 @@ None of those contexts is a plausible owner of Client or Matter — each would h
 - `Client` — an Individual, Corporate, Government, Non-profit, or Foreign Entity that has (or had) an engagement relationship with the Firm.
 - `Organization` — any organizational party the Firm has data about: a Client's corporate entity, an opposing party's organization, a related third party, a court, or a government body. Not every `Organization` is a `Client`.
 - `Contact` — an individual person, independently identified because the same person can be linked to more than one `Client`/`Organization` over time and in different roles (a `Client`'s CFO today, an opposing party's contact tomorrow).
-- `Matter` — the central aggregate; the unit of legal work, professional responsibility, conflicts, and billing.
+- `Matter` — the central aggregate; the unit of legal work, professional responsibility, conflicts, and billing. Owns `MatterTeam` and `MatterClient` (entities) — a `Matter` references one or more `Client`s via `MatterClient` (see Matter Clients, below), never exactly one.
 - `Task`, `Appointment`, `Note` — independent aggregates that reference a `Matter` (usually) and a `Client` by identifier; not entities owned inside `Matter` (see Aggregates, entities, and value objects for why).
 - `EthicalWall` — the aggregate governing restricted access to a `Matter` (see Ethical Walls).
+- `ConflictRelationship` — an independent, Firm-scoped aggregate root recording a conflict-relevant relationship between two `PartyReference`s, referencing an optional source `Matter` or disclosure event (see Conflict Checking).
 
 **Reference data**
 
@@ -45,13 +46,15 @@ None of those contexts is a plausible owner of Client or Matter — each would h
 
 | Concept | Owned by | References |
 |---|---|---|
-| `Client` | Practice Management | zero or more `Contact`, zero or more `Organization` (corporate structure), zero or more `Matter` |
+| `Client` | Practice Management | zero or more `Contact`, zero or more `Organization` (corporate structure), zero or more `Matter` (via `MatterClient`) |
 | `Organization` | Practice Management | zero or more `Contact` |
 | `Contact` | Practice Management | zero or more `Client`/`Organization`, via a role-carrying relationship |
-| `Matter` | Practice Management | exactly one `Client`; one `PracticeArea`; one `MatterTeam` |
+| `Matter` | Practice Management | one or more `Client`, each via a `MatterClient` entity; one `PracticeArea`; one `MatterTeam` |
+| `MatterClient` | Owned by `Matter` (entity) | one `Client` identifier, carries a `MatterClientRole` |
 | `MatterTeam` | Owned by `Matter` (entity) | one or more staff Actor identities (owned by a future Identity capability — see Integration Boundaries) |
 | `Task`, `Appointment`, `Note` | Practice Management, each its own aggregate | optional `Matter`, required `Client` for client-related items |
 | `EthicalWall` | Practice Management | exactly one `Matter` |
+| `ConflictRelationship` | Practice Management (independent, Firm-scoped aggregate) | two `PartyReference` value objects; optional source `Matter` or disclosure event |
 | `PracticeArea` | Practice Management (platform-seeded + firm-scoped custom) | referenced by `Matter` |
 
 Every relationship above is a reference by identifier, never a shared Eloquent record or an embedded copy — the same discipline `docs/domain/06_Laravel_Module_Blueprint.md` requires between any two modules, applied here between Practice Management's own aggregates.
@@ -64,7 +67,7 @@ Prospective, Opened → Cancelled (terminal)
 ```
 
 - **Prospective** — a candidate matter, typically created from a qualified Lead or consultation once Communications/Digital Presence hands off (Purpose, above); no `MatterNumber` yet, no formal engagement.
-- **Opened** — administrative creation: conflict check has passed or been explicitly overridden with recorded justification, a `MatterNumber` is assigned (immutable from this point on — see Matter Numbering), and at least a Responsible Lawyer is assigned to the `MatterTeam`.
+- **Opened** — administrative creation: conflict check has passed or been explicitly overridden with recorded justification, a `MatterNumber` is assigned (immutable from this point on — see Matter Numbering), at least a Responsible Lawyer is assigned to the `MatterTeam`, and exactly one `MatterClient` holds the administrative Primary Client role (Matter Clients, below).
 - **Active** — work is underway. Some Firms treat Opened and Active as effectively simultaneous; both are modeled distinctly so Firms that separate "matter administratively created" from "work has formally begun" can represent that gap.
 - **Paused / Awaiting Client / Awaiting Court** — substates of "not actively progressing," each entered and exited with a recorded reason, always returning to Active once the blocking condition clears.
 - **Closed** — the Firm's own work has concluded. Other contexts (Billing, Documents) may still have trailing actions (final invoice, document retention) but those are their own lifecycles, not gates on Practice Management's Closed transition.
@@ -77,6 +80,7 @@ Prospective, Opened → Cancelled (terminal)
 - `MatterNumber` is immutable once assigned at Opened, regardless of any later status change (Matter Numbering).
 - Status changes are never performed by AI without explicit human authorization (AI Rules).
 - Reaching Opened requires a conflict check outcome to exist (clear, or overridden with justification) — a `Matter` cannot silently skip Conflict Checking.
+- A `Matter` must have an administrative Primary `MatterClient` to reach Opened, and must never be left without any `Client` or without an administrative Primary Client at any point after Opened (Matter Clients, below).
 
 ## 4. Matter Numbering
 
@@ -110,8 +114,26 @@ as a `ClientType` value object, not a subtype hierarchy — a single `Client` ag
 
 - **Relationships** — a `Client` may reference one or more `Organization` records (its own corporate structure or affiliates) and is linked to `Contact` records via role-carrying relationships (for example, "CFO," "authorized signatory," "primary contact").
 - **Multiple contacts** — a `Client` is not limited to one `Contact`; `Contact` is its own aggregate precisely so the same person can be linked from more than one `Client` or `Organization` without duplication.
-- **Multiple matters** — a `Client` may have any number of `Matter`s over time; `Matter` references `Client` by identifier, never the reverse ownership.
+- **Multiple matters** — a `Client` may have any number of `Matter`s over time, and a `Matter` may in turn involve more than one `Client` (Matter Clients, below); `Matter` references `Client` by identifier via `MatterClient`, never the reverse ownership, and never an embedded or copied `Client` record.
 - **Conflict relationships** — a `Client` participates in the `ConflictRelationship` model (Conflict Checking, below) the same way any other party does; being a current Client does not exempt a party from conflict analysis for a new, unrelated matter.
+
+## Matter Clients
+
+A `Matter` references one or more `Client`s, never exactly one — joint representation and co-client matters are common in practice (for example, spouses in an estate matter, or co-defendants sharing counsel). `MatterClient` is an entity owned by the `Matter` aggregate, referencing a `Client` by identifier and carrying a `MatterClientRole`:
+
+- **Primary Client** — the administrative point of contact and engagement-letter/billing party of record for the Matter.
+- **Joint/Co-client** — a `Client` jointly represented on the same Matter.
+
+**"Primary" is a purely administrative designation** — who receives default correspondence and whose engagement letter is of record. It does not imply that a Joint/Co-client has lesser legal status, weaker confidentiality or privilege protections, or reduced professional-responsibility duties owed by the Firm. Every `MatterClient`, regardless of role, is a full client of the Firm for that Matter.
+
+**Rules**
+
+- A `Matter` must reference at least one `Client` via `MatterClient`, and must never be left without any `Client` or without an administrative Primary Client, at any point after it reaches Opened (Matter Lifecycle, above).
+- Reaching Opened requires exactly one `MatterClient` to hold the Primary Client role.
+- Removing the sole Primary Client (for example, a co-client's engagement ending) requires designating a new Primary Client from the remaining `MatterClient`s in the same operation — a Matter can never be left without one.
+- Adding a `MatterClient`, changing its role, or removing it are recorded operations producing `MatterClientAdded`, `MatterClientRoleChanged`, or `MatterClientRemoved` events respectively (Aggregates, entities, and value objects, below) — never a silent field update.
+- `MatterClient` references a `Client` by identifier only; the `Client` aggregate is never embedded or copied into `Matter` (Relationships and ownership, above).
+- Conflict Checking (below) evaluates every `Client` attached to the Matter via `MatterClient` — Primary and Joint/Co-client alike — and every other related party, never only the Primary Client.
 
 ## 7. Matter Teams
 
@@ -164,13 +186,18 @@ as an `AppointmentType`/`Modality` value object (Office / Video / Phone / Travel
 
 ## 11. Notes
 
-`Note` is its own aggregate, with a `NoteVisibility` value object distinguishing:
+`Note` is its own aggregate, with a `NoteVisibility` value object distinguishing exactly three mutually exclusive states — who may see the Note, and nothing else:
 
 - Internal (staff-only)
 - Client-visible (surfaced through the Client Portal, `docs/architecture/12_Website_Client_Portal_Architecture.md` §4)
-- AI-generated (carries `AIAnnotation`-style provenance — model/version, timestamp, confidence — the same discipline `docs/architecture/05_AI_Architecture.md` requires of AI output elsewhere)
-- Pinned (surfaced prominently on the Matter Dashboard)
 - Private (visible only to its author, distinct from Internal's staff-wide visibility)
+
+Two further properties apply independently of `NoteVisibility`, not as visibility values:
+
+- **AI provenance** — a `Note` optionally carries `AIAnnotation`-style provenance (model/version, timestamp, confidence — the same discipline `docs/architecture/05_AI_Architecture.md` requires of AI output elsewhere) when it is AI-generated. This is metadata about authorship, not a visibility state: an AI-generated `Note` can be Internal, Client-visible, or Private.
+- **Pinned** — an independent state on `Note`, set or cleared by a distinct `PinNote` operation (Proposed module structure, below), surfacing the Note prominently on the Matter Dashboard. Pinning never changes a Note's `NoteVisibility`.
+
+A `Note` can be simultaneously AI-generated, pinned, and Internal, Client-visible, or Private — these are three independent dimensions, not one combined enumeration.
 
 A `Note`'s content is **immutable once recorded** — the same immutable-audit discipline `docs/architecture/11_Communications_Hub_Architecture.md` applies to `Message`. A correction is a new `Note` referencing the one it supersedes, never an in-place edit.
 
@@ -218,7 +245,7 @@ Practice Management integrates with, but never absorbs ownership of:
 
 - **Published contracts** — every cross-context interaction with Practice Management (Communications' `CommunicationLink`, Digital Presence's Client Portal reads and `BookingRequest` confirmation, a future Billing/Documents module's `Matter`/`Client` references) goes through published commands, queries, and events, never direct database coupling.
 - **Queries** — for example, `GetMatterSummary`, `GetClientMatters`, `CheckEthicalWallAccess`, `SearchConflicts` (Conflict Checking).
-- **Commands** — for example, `CreateProspectiveMatter`, `OpenMatter`, `ChangeMatterStatus`, `AssignMatterTeamMember`, `CreateTask`, `CompleteTask`, `ScheduleAppointment`, `AddNote`, `EstablishEthicalWall`.
+- **Commands** — for example, `CreateProspectiveMatter`, `OpenMatter`, `ChangeMatterStatus`, `AddMatterClient`, `AssignMatterTeamMember`, `CreateTask`, `CompleteTask`, `ScheduleAppointment`, `AddNote`, `PinNote`, `EstablishEthicalWall`.
 - **Events** — see Aggregates, entities, and value objects for the full list; every meaningful state change is published for the Matter Timeline and for other contexts' own projections to consume.
 - **No direct database coupling** — no other module may query or write Practice Management's Eloquent records directly, and Practice Management may not do so to any other module's records, per `docs/domain/06_Laravel_Module_Blueprint.md`.
 
@@ -259,9 +286,9 @@ An `Activity` entry in the Timeline is a lightweight, append-only record — "so
 - Lawyers (whether a `MatterTeam` assignment creates a conflict, including from a lawyer's history prior to joining the Firm)
 - Historical relationships
 
-**Model.** A `PartyReference` value object identifies a party for conflict-checking purposes — a name, a role (Client / Opposing Party / Related Party / Organization / Lawyer), and an optional link to an actual `Client`, `Contact`, or `Organization` record where one exists. Not every party relevant to a conflict check has a full record: an opposing party in a matter the Firm never took on may exist only as a `PartyReference`.
+**Model.** A `PartyReference` value object identifies a party for conflict-checking purposes — a name, a role (Client / Opposing Party / Related Party / Organization / Lawyer), and an optional link to an actual `Client`, `Contact`, or `Organization` record where one exists. Not every party relevant to a conflict check has a full record: an opposing party in a matter the Firm never took on may exist only as a `PartyReference`. For a `Matter` with more than one `Client` (Matter Clients, above), conflict checking evaluates every attached `Client` — Primary and Joint/Co-client alike — plus every other related party; it is never limited to the Primary Client.
 
-A `ConflictRelationship` entity connects two `PartyReference`s with a relationship type (for example, `Opposed`, `Related`, `Represents`, `FormerClient`, `PriorEmployment`) and a source `Matter` or disclosure event, plus the date recorded. `SearchConflicts` (API Architecture, above) is a published query that traverses this relationship data — conceptually a graph traversal, and a natural precursor to the Knowledge graph named in Future Expansion — to surface potential conflicts for a proposed new `Matter`, new `Client`, or new `MatterTeam` assignment.
+`ConflictRelationship` is an **independent, Firm-scoped aggregate root** — not an entity owned by `Matter` or by any other aggregate — connecting two `PartyReference`s with a relationship type (for example, `Opposed`, `Related`, `Represents`, `FormerClient`, `PriorEmployment`) and a source `Matter` or disclosure event, plus the date recorded. Its own consistency and lifecycle boundary is exactly one recorded relationship between two parties; it does not belong to, and is not loaded as part of, the `Matter` or `Client` aggregate it may reference by identifier. `SearchConflicts` (API Architecture, above) is a published query that traverses this relationship data — conceptually a graph traversal, and a natural precursor to the Knowledge graph named in Future Expansion — to surface potential conflicts for a proposed new `Matter`, new `Client`, or new `MatterTeam` assignment. Conflict matching and scoring algorithms remain explicitly out of scope of this aggregate's definition, per the architecture-only limitation above.
 
 **Explicit limitation.** Completeness depends on what has been disclosed and recorded, particularly for a lawyer's history prior to joining the Firm — this is an inherent limitation of any conflict system, not a gap unique to this design, and this document does not claim otherwise. Exact matching/scoring logic (fuzzy name matching, similarity thresholds) is implementation-story-level detail, deliberately unresolved here, consistent with "architecture only, do not implement."
 
@@ -314,38 +341,42 @@ Every AI suggestion in the "may" list is presented as a proposal a human acts on
 - `Client` — `ClientType` (Individual / Corporate / Government / Non-profit / Foreign Entity), profile data, references to `Organization`/`Contact` relationships.
 - `Organization` — organizational party data; may or may not be linked to a `Client`.
 - `Contact` — an individual person; linked to `Client`/`Organization` via role-carrying relationships.
-- `Matter` — the central aggregate: `MatterNumber`, `MatterStatus`, `PracticeArea` reference, `Client` reference, owns `MatterTeam` (entity).
+- `Matter` — the central aggregate: `MatterNumber`, `MatterStatus`, `PracticeArea` reference, owns `MatterTeam` and `MatterClient` (entities) — one or more `Client` references via `MatterClient`, never exactly one.
 - `Task` — independent aggregate; optional `Matter` reference, `TaskPriority`, `RecurrenceRule`, dependency references to other `Task`s.
 - `Appointment` — independent aggregate; optional `Matter` reference, `Modality`, timezone-aware `TimeSlot`.
-- `Note` — independent aggregate; optional `Matter` reference, `NoteVisibility`, immutable content.
+- `Note` — independent aggregate; optional `Matter` reference, `NoteVisibility` (Internal / Client-visible / Private), independent `Pinned` state, optional `AIAnnotation` provenance, immutable content.
 - `EthicalWall` — independent aggregate; exactly one `Matter` reference, allow-list of Actor identifiers.
+- `ConflictRelationship` — independent, Firm-scoped aggregate root; connects two `PartyReference`s, with an optional source `Matter` or disclosure event reference, a relationship type, and a recorded date (Conflict Checking).
 
 **Entities** (owned by an aggregate, identity matters, mutable within the aggregate's lifecycle rules)
 
 - `MatterTeam` — owned by `Matter`; composed of `TeamAssignment` entries.
 - `TeamAssignment` — owned by `MatterTeam`; references an Actor identifier, carries `TeamRole` and role-derived permissions.
-- `ConflictRelationship` — connects two `PartyReference`s (Conflict Checking).
+- `MatterClient` — owned by `Matter`; references a `Client` identifier, carries `MatterClientRole` (Matter Clients, above).
 
 **Value objects** (immutable, no identity)
 
-- `ClientType`, `MatterStatus`, `TeamRole`, `TaskPriority`, `NoteVisibility`, `AppointmentType`/`Modality`.
+- `ClientType`, `MatterStatus`, `TeamRole`, `TaskPriority`, `NoteVisibility`, `AppointmentType`/`Modality`, `MatterClientRole` (Primary Client / Joint-Co-client).
 - `MatterNumber`, `MatterNumberingScheme` — see Matter Numbering.
 - `PracticeArea` reference (the taxonomy entry a `Matter` points to; the taxonomy itself is reference data — see Practice Areas).
 - `TimeSlot` (timezone-aware).
 - `RecurrenceRule` — governs `Task` template recurrence.
 - `PartyReference` — a name, role, and optional link to a `Client`/`Contact`/`Organization`, used in Conflict Checking.
-- `AIAnnotation` — provenance on any AI-produced suggestion/summary (model/version, timestamp, confidence), reusing the shape `docs/architecture/11_Communications_Hub_Architecture.md` already defines.
+- `AIAnnotation` — provenance on any AI-produced suggestion/summary or Note (model/version, timestamp, confidence), reusing the shape `docs/architecture/11_Communications_Hub_Architecture.md` already defines.
 
 **Events** (past tense, per `docs/domain/06_Laravel_Module_Blueprint.md` naming convention)
 
-`ClientRegistered`, `ContactAdded`, `OrganizationRegistered`, `ProspectiveMatterCreated`, `MatterOpened`, `MatterNumberAssigned`, `MatterActivated`, `MatterPaused`, `MatterResumed`, `MatterClosed`, `MatterArchived`, `MatterCancelled`, `MatterStatusChanged`, `MatterTeamMemberAssigned`, `MatterTeamMemberRemoved`, `TaskCreated`, `TaskAssigned`, `TaskCompleted`, `TaskOverdue`, `AppointmentScheduled`, `AppointmentConfirmed`, `AppointmentRescheduled`, `AppointmentCancelled`, `AppointmentNoShow`, `NoteAdded`, `ConflictCheckRequested`, `ConflictFlagged`, `ConflictCheckOverridden`, `EthicalWallEstablished`, `EthicalWallAccessGranted`, `EthicalWallAccessDenied`, `EthicalWallEmergencyOverride`, `EthicalWallLifted`.
+`ClientRegistered`, `ContactAdded`, `OrganizationRegistered`, `ProspectiveMatterCreated`, `MatterOpened`, `MatterNumberAssigned`, `MatterActivated`, `MatterPaused`, `MatterResumed`, `MatterClosed`, `MatterArchived`, `MatterCancelled`, `MatterStatusChanged`, `MatterClientAdded`, `MatterClientRoleChanged`, `MatterClientRemoved`, `MatterTeamMemberAssigned`, `MatterTeamMemberRemoved`, `TaskCreated`, `TaskAssigned`, `TaskCompleted`, `TaskOverdue`, `AppointmentScheduled`, `AppointmentConfirmed`, `AppointmentRescheduled`, `AppointmentCancelled`, `AppointmentNoShow`, `NoteAdded`, `NotePinned`, `NoteUnpinned`, `ConflictCheckRequested`, `ConflictFlagged`, `ConflictCheckOverridden`, `ConflictRelationshipRecorded`, `EthicalWallEstablished`, `EthicalWallAccessGranted`, `EthicalWallAccessDenied`, `EthicalWallEmergencyOverride`, `EthicalWallLifted`.
 
 **Lifecycle and state transitions**
 
 - `Matter`: see Matter Lifecycle, above.
+- `MatterClient`: `Added` with a `MatterClientRole` → role may change (`MatterClientRoleChanged`) while attached → `Removed`; removing the sole Primary Client requires assigning a new one in the same operation (Matter Clients, above).
 - `Task`: `Open` → `InProgress` → `Completed` / `Cancelled`. A recurring task's next occurrence is a new `Task` instance, not a state the same instance cycles back through.
 - `Appointment`: `Requested`/`Scheduled` → `Confirmed` → `Completed` / `Cancelled` / `NoShow` — the same shape `docs/architecture/12_Website_Client_Portal_Architecture.md`'s `BookingRequest` uses, since a confirmed `BookingRequest` produces this transition.
+- `Note`: recorded once, immutable; `Pinned` toggles independently of content and of `NoteVisibility` via `PinNote`/unpin (Notes, above). A correction is a new `Note` referencing the one it supersedes.
 - `EthicalWall`: `Established` → `Active` (allow-list may be modified while Active) → `Lifted`.
+- `ConflictRelationship`: recorded once with a relationship type and date; a correction is a new `ConflictRelationship` recording the corrected relationship, never an in-place edit (Failure Modes, Relationship corruption).
 
 ## Proposed module structure
 
@@ -358,10 +389,11 @@ PracticeManagement/
 │   ├── Matters/            (CreateProspectiveMatter, OpenMatter, ChangeMatterStatus,
 │   │                         AssignMatterNumber, CloseMatter, ArchiveMatter, CancelMatter, ...)
 │   ├── MatterTeams/         (AssignTeamMember, RemoveTeamMember, ChangeTeamRole, ...)
+│   ├── MatterClients/       (AddMatterClient, ChangeMatterClientRole, RemoveMatterClient, ...)
 │   ├── Tasks/               (CreateTask, AssignTask, CompleteTask, DefineRecurringTask, ...)
 │   ├── Appointments/        (ScheduleAppointment, ConfirmAppointment, RescheduleAppointment,
 │   │                          CancelAppointment, ...)
-│   ├── Notes/               (AddNote, PinNote, ...)
+│   ├── Notes/               (AddNote, PinNote, UnpinNote, ...)
 │   ├── Conflicts/           (RequestConflictCheck, RecordConflictRelationship,
 │   │                          OverrideConflictFlag, ...)
 │   └── EthicalWalls/        (EstablishEthicalWall, GrantNeedToKnowAccess,
@@ -371,11 +403,12 @@ PracticeManagement/
 │   ├── Matter                                (aggregate root — the central aggregate)
 │   ├── Task, Appointment, Note               (aggregate roots)
 │   ├── EthicalWall                           (aggregate root)
-│   ├── MatterTeam, TeamAssignment, ConflictRelationship   (entities)
+│   ├── ConflictRelationship                  (aggregate root, Firm-scoped — see Conflict Checking)
+│   ├── MatterTeam, TeamAssignment, MatterClient   (entities)
 │   ├── PracticeArea                          (reference-data entity)
 │   ├── ClientType, MatterStatus, TeamRole, TaskPriority, NoteVisibility,
-│   │   AppointmentType/Modality, MatterNumber, MatterNumberingScheme, TimeSlot,
-│   │   RecurrenceRule, PartyReference, AIAnnotation   (value objects)
+│   │   AppointmentType/Modality, MatterClientRole, MatterNumber, MatterNumberingScheme,
+│   │   TimeSlot, RecurrenceRule, PartyReference, AIAnnotation   (value objects)
 ├── Infrastructure/         (Eloquent adapters, numbering-sequence generator,
 │                             conflict-search index adapter)
 ├── Interface/               (Matter Dashboard read model, Matter Timeline read model,
@@ -398,7 +431,7 @@ Practice Management is the fourth module — after `Branding`, `Communications`,
 | Subdomain | Scope | Ownership boundary |
 |---|---|---|
 | `PracticeArea` seeded taxonomy, default `MatterNumberingScheme` templates | Platform-global | Not `FirmContext` — static configuration shared by every Firm |
-| `Client`, `Organization`, `Contact`, `Matter`, `MatterTeam`, `Task`, `Appointment`, `Note`, `EthicalWall`, `ConflictRelationship`, firm-custom `PracticeArea` entries | Firm-scoped | `FirmContext` |
+| `Client`, `Organization`, `Contact`, `Matter`, `MatterClient`, `MatterTeam`, `Task`, `Appointment`, `Note`, `EthicalWall`, `ConflictRelationship`, firm-custom `PracticeArea` entries | Firm-scoped | `FirmContext` |
 
 This is now the recurring shape for the platform's client/firm-facing product surfaces — the exception remains Legal Intelligence's platform-global legal-source content (`docs/architecture/09_Legal_Intelligence_Architecture.md`), which is genuinely shared reference data rather than a schema every Firm fills in independently.
 
