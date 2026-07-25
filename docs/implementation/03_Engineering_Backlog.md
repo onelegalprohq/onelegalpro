@@ -16,10 +16,10 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 ## Repository Bootstrap
 - PF-001 Repository Structure — verify repository state
 - PF-002 Git & Repository Standards — Done
-- PF-003 Repository Documentation — Next
+- PF-003 Repository Documentation — Done
 
 ## Development Environment
-- PF-010 Docker Development Environment
+- PF-010 Docker Development Environment — Next
 - PF-011 Local Environment & Configuration
 - PF-012 Development Tooling
 
