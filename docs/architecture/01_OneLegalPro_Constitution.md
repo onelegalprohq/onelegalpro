@@ -75,6 +75,14 @@ OneLegalPro is a white-label platform, not a co-branded one. Every Firm-facing a
 
 A Firm's brand — theme values, assets, domain, sender identity, and AI assistant persona — is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). Branding is a presentation concern only: it must never alter legal-content substance, AI governance disclosures (Article 6), citation and provenance requirements, or the mandatory disclaimer (Articles 3–4). No branding configuration may suppress a requirement established elsewhere in this Constitution.
 
+## Article 12 — Communications AI conduct
+
+Every AI capability that touches a communication with a Lead or Client — the Website AI Receptionist, Email Intelligence, and general AI Assistance — must identify itself as AI, must never imply that interacting with it creates an attorney-client relationship, must never give legal advice, and must recommend consultation with a lawyer where a question approaches legal-advice territory. This extends Article 6 to the Communications Hub specifically. See `docs/architecture/11_Communications_Hub_Architecture.md` and `docs/adr/ADR-004-Communications-Hub.md`.
+
+## Article 13 — Communications data ownership
+
+Every communication thread, message, and business-object link is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). There is no platform-global communications content subdomain — only channel adapter contracts and capability schemas are platform-global, static configuration. AI-generated annotations on a communication (summaries, classifications, suggested replies, suggested links) must remain structurally distinct from the raw communication content they annotate, and no AI-authored communication may be sent to a Lead or Client without configured human authorization.
+
 ## Amendment
 
 Amendments to this Constitution require an approved ADR and explicit human sign-off, consistent with the approval gates in `AGENTS.md`.

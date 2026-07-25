@@ -27,6 +27,12 @@ If a request conflicts with approved architecture, stop, explain the conflict, a
 - UI styling uses theme tokens only, resolved per Firm through the Branding Resolver — never hardcoded brand-specific colors, fonts, or asset paths in template or component code.
 - Branding is presentation-only and must never suppress a mandatory legal disclaimer, citation, or AI-advisory notice.
 
+## Communications rules
+
+- Communications is its own bounded context — a `CommunicationThread` per counterparty, per Firm, unifying every channel into one timeline. Other modules reference communications through published links; they never own or duplicate communication history. See `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 12–13), `docs/architecture/11_Communications_Hub_Architecture.md`, and `docs/adr/ADR-004-Communications-Hub.md`.
+- Provider-specific logic stays behind a `ChannelAdapter`; the Application and Domain layers never branch on a specific provider.
+- Communications AI (Website AI Receptionist, Email Intelligence, AI Assistance) must identify itself, never imply an attorney-client relationship or give legal advice, and never send a communication without configured human authorization.
+
 ## Architecture
 
 OneLegalPro uses Domain-Driven Design, Clean Architecture, a Laravel modular monolith, PostgreSQL, UUIDv7, event-driven integration, REST-first interfaces, and Firm-based multi-tenancy.

@@ -67,3 +67,14 @@ Legal Intelligence AI features remain advisory. Outputs that could inform legal 
 ## Prohibition on presenting generated text as official law
 
 AI-generated explanations, summaries, and commentary must be visually and structurally distinct from official legal source text and from reference translations at every point of presentation. No interface may render AI-generated material in a way that could be mistaken for the official Thai text or an official translation.
+
+## Communications Hub AI
+
+The rules above govern AI over Legal Intelligence content specifically. The following extend the same governing principle — AI output is advisory only, never presented as final, always subject to human review — to AI capabilities within `docs/architecture/11_Communications_Hub_Architecture.md`: the Website AI Receptionist, Email Intelligence, and general AI Assistance across every communication channel.
+
+- **Self-identification.** Any AI-driven conversational surface (Website AI Chat, Client Portal Chat, or an AI-assisted reply) must identify itself as AI; it must never be presented as, or be confusable with, a human staff member.
+- **No implied attorney-client relationship.** Engaging with an AI receptionist or assistant does not, by itself, create an attorney-client relationship. This must be structurally clear in how the AI presents itself, consistent with `docs/architecture/01_OneLegalPro_Constitution.md`, Article 12.
+- **No legal advice.** Communications AI gathers information, classifies, drafts, and routes; it does not answer what a visitor's or client's legal position is or what they should do about it. Where a question approaches legal-advice territory, the AI's response is to recommend lawyer consultation, not attempt an answer.
+- **Provenance on every AI output.** Every AI-produced summary, classification, draft reply, suggested tag, suggested lawyer, or suggested business-object link carries provenance (model/version, timestamp, confidence) — the same provenance discipline this document requires of Legal Intelligence retrieval, applied here to communications AI output.
+- **Human review and approval before outbound action.** AI-drafted replies, low-confidence suggested links to a Lead/Client/Matter, and any other AI-proposed action require explicit human approval before taking effect. AI never sends a communication to a Lead or Client without configured human authorization; a narrowly scoped, Firm-configured auto-send exception is the only departure from this default, never the default itself.
+- **Escalation on uncertainty.** Where AI confidence in continuing a conversation safely is low, or urgency is detected, the conversation is escalated to a human without restarting it — conversation history and any collected intake data or AI annotations remain intact across the handoff.
