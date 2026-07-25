@@ -39,6 +39,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`11_Communications_Hub_Architecture.md`](architecture/11_Communications_Hub_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`12_Website_Client_Portal_Architecture.md`](architecture/12_Website_Client_Portal_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`13_Practice_Management_Architecture.md`](architecture/13_Practice_Management_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
+| [`14_Document_Management_Architecture.md`](architecture/14_Document_Management_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 
 ## Architecture Decision Records
 
@@ -52,6 +53,7 @@ Records of specific, accepted architecture decisions. Each ADR is referenced fro
 | [`ADR-004-Communications-Hub.md`](adr/ADR-004-Communications-Hub.md) | Accepted. |
 | [`ADR-005-Website-Client-Portal.md`](adr/ADR-005-Website-Client-Portal.md) | Accepted. |
 | [`ADR-006-Practice-Management-Core.md`](adr/ADR-006-Practice-Management-Core.md) | Accepted. |
+| [`ADR-007-Document-Management.md`](adr/ADR-007-Document-Management.md) | Accepted. |
 
 ## Domain design
 
@@ -75,4 +77,4 @@ When guidance conflicts, this is the order of authority, per `AGENTS.md`:
 
 If a request conflicts with approved architecture, stop and request an architecture decision rather than resolving the conflict unilaterally.
 
-**A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-006) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
+**A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-007) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
