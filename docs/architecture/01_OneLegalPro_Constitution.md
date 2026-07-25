@@ -83,6 +83,14 @@ Every AI capability that touches a communication with a Lead or Client — the W
 
 Every communication thread, message, and business-object link is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). There is no platform-global communications content subdomain — only channel adapter contracts and capability schemas are platform-global, static configuration. AI-generated annotations on a communication (summaries, classifications, suggested replies, suggested links) must remain structurally distinct from the raw communication content they annotate, and no AI-authored communication may be sent to a Lead or Client without configured human authorization.
 
+## Article 14 — Digital Presence composition discipline
+
+Digital Presence (public websites, the Client Portal, embedded widgets, and booking) must consume the Branding Engine (Articles 10–11) and the Communications Hub (Articles 12–13) through their published contracts rather than reimplementing branding or messaging logic. The AI capability embedded in any Digital Presence surface is the Communications Hub's AI receptionist, not a separate AI system, and remains bound by Article 12 in full. See `docs/architecture/12_Website_Client_Portal_Architecture.md` and `docs/adr/ADR-005-Website-Client-Portal.md`.
+
+## Article 15 — Digital Presence data ownership
+
+Every content item, client portal identity, availability schedule, booking request, and widget embed is firm-scoped data isolated by `FirmContext`, on the same discipline as any other firm-owned data (Article 5). Client Portal surfaces (Matters, Documents, Invoices, Payments, Tasks, Appointments) are read/write views over their owning modules' published contracts, never duplicated into Digital Presence's own schema. Firm-published Knowledge Publishing content (articles, FAQs, legal updates) is firm-owned editorial material under Article 7's separation-of-official-law framework and must never be presented as, or conflated with, an official legal source.
+
 ## Amendment
 
 Amendments to this Constitution require an approved ADR and explicit human sign-off, consistent with the approval gates in `AGENTS.md`.

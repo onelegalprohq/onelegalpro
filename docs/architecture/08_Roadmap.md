@@ -12,7 +12,8 @@ Sequence OneLegalPro's major epics at the architecture level. This document sits
 2. **EPIC-002 — Legal Intelligence** (proposed — see below). Begins after Platform Foundation's repository, environment, quality/CI, and Foundation Library sprints are far enough along to support a new module (see `docs/domain/06_Laravel_Module_Blueprint.md`).
 3. **EPIC-003 — White-Label Platform** (proposed — see below). Must reach at least its token-schema and `BrandProfile` foundation stages before the Digital Presence or Client Portal epics can implement any client-facing rendering surface, since both depend on the Branding Resolver contract.
 4. **EPIC-004 — Communications Hub** (proposed — see below). Must reach at least its channel-neutral thread/message foundation and website/portal chat adapter stages before the Digital Presence or Client Portal epics can implement any client-facing chat experience, since both depend on the `Communications` module's adapter contract and human-handoff model.
-5. Later epics: Platform Core; Legal Practice Core; Documents; Commercial Operations; Digital Presence; Client Portal; Workflow; Integrations; Reporting; Academic Edition (unchanged from `docs/implementation/01_Implementation_Sprint_Plan.md`), with Digital Presence and Client Portal each depending on EPIC-003 and EPIC-004 as noted above.
+5. **EPIC-005 — Digital Presence Platform** (proposed — see below). Consolidates the previously separate "Digital Presence" and "Client Portal" names in the Later epics list below into one bounded context (`docs/architecture/12_Website_Client_Portal_Architecture.md`, `docs/adr/ADR-005-Website-Client-Portal.md`). Depends on EPIC-003 reaching its Branding Resolver foundation and EPIC-004 reaching its channel-neutral thread/message foundation and website/portal chat adapter stages, since Digital Presence composes both rather than reimplementing either.
+6. Later epics: Platform Core; Legal Practice Core; Documents; Commercial Operations; **Digital Presence; Client Portal (both now governed by EPIC-005 — Digital Presence Platform, see below)**; Workflow; Integrations; Reporting; Academic Edition (unchanged from `docs/implementation/01_Implementation_Sprint_Plan.md`).
 
 ## EPIC-002 — Legal Intelligence (proposed)
 
@@ -75,3 +76,24 @@ Proposed staged delivery:
 ## Future channel and capability expansion
 
 Every stage above is designed so that Slack, Microsoft Teams, Voice, and Video channels, along with voice AI, meeting transcription, a court hearing assistant, real-time translation, and video consultation, are additive — new `ChannelAdapter`s and, where relevant, new `AIAnnotation` types layered on the existing `CommunicationThread`/`Message` model — not a redesign of either. See `docs/architecture/11_Communications_Hub_Architecture.md`, Future Expansion, for the extension model.
+
+## EPIC-005 — Digital Presence Platform (proposed)
+
+> **Status note:** The *architecture* for the Digital Presence Platform is approved — see `docs/adr/ADR-005-Website-Client-Portal.md` and `docs/architecture/12_Website_Client_Portal_Architecture.md`. The stage list below is a **proposed** staging of future implementation stories. None of these stages are approved, scheduled, or numbered `PF-*` stories. They require separate entry into `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md` before any implementation work begins.
+
+Proposed staged delivery:
+
+1. **`DigitalPresenceProfile` and deployment-model foundation** — per-Firm configuration of fully hosted / existing website / enterprise CMS deployment models.
+2. **Content Management and Website Builder** — `ContentItem` aggregate, Draft → Review → Publish, Practice Areas, Lawyer Profiles, Office Locations, News, Articles, FAQs, Contact.
+3. **Client Portal authentication** — `ClientPortalIdentity`, `PortalAuthPolicy` (password, passwordless, magic link, MFA).
+4. **Practice Management read-surfaces** — Matters/Documents/Invoices/Payments/Tasks/Appointments surfaced in the Client Portal, staged as each owning module's own architecture becomes available.
+5. **Booking System** — `AvailabilitySchedule`, `BookingRequest`, conflict detection, reminder workflow via Communications.
+6. **AI Receptionist and widget integration** — Website AI Chat, Client Portal Chat, AI Chat Widget, wired to the Communications Hub's AI receptionist and handoff model.
+7. **Embedded Component Framework** — `WidgetEmbed`, `EmbedKey`/`AllowedOrigin` security boundary, sandboxed third-party-site embedding for all seven widgets.
+8. **Knowledge Publishing** — Articles, legal updates, FAQs, educational content, with a `CrossReference`-style citation path to Legal Intelligence.
+9. **SEO and accessibility hardening** — `SEOMetadata`, structured data, WCAG AA across Website Builder, Portal, and widgets.
+10. **Enterprise API/CMS integration** — Public APIs for headless content pull and programmatic booking/intake.
+
+## Future Digital Presence expansion
+
+Every stage above is designed so that mobile app reuse, a Progressive Web App, a client mobile app, partner portals, and court portals are additive consumers of the existing Public/Embedded API surface and the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalIdentity`/`BookingRequest` model, not a redesign of any of them. See `docs/architecture/12_Website_Client_Portal_Architecture.md`, Future Expansion, for the extension model.

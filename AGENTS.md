@@ -33,6 +33,13 @@ If a request conflicts with approved architecture, stop, explain the conflict, a
 - Provider-specific logic stays behind a `ChannelAdapter`; the Application and Domain layers never branch on a specific provider.
 - Communications AI (Website AI Receptionist, Email Intelligence, AI Assistance) must identify itself, never imply an attorney-client relationship or give legal advice, and never send a communication without configured human authorization.
 
+## Digital Presence rules
+
+- Digital Presence (public websites, Client Portal, embedded widgets, booking) composes the Branding Engine and the Communications Hub through their published contracts — it never reimplements branding or messaging logic. See `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 14–15), `docs/architecture/12_Website_Client_Portal_Architecture.md`, and `docs/adr/ADR-005-Website-Client-Portal.md`.
+- The Client Portal is a presentation surface, not a data owner, for Matters, Documents, Invoices, Payments, Tasks, and Appointments — it reads through the owning module's published queries and never duplicates that data into its own schema.
+- Every embedded widget is one reusable, sandboxed component (Booking, Client Login, Matter Status, AI Chat, Contact, Payment, Document Upload) — never a bespoke per-site or per-Firm reimplementation.
+- The embedded AI receptionist is the Communications Hub's AI, not a separate AI system; it stays bound by the Communications rules above wherever it is embedded.
+
 ## Architecture
 
 OneLegalPro uses Domain-Driven Design, Clean Architecture, a Laravel modular monolith, PostgreSQL, UUIDv7, event-driven integration, REST-first interfaces, and Firm-based multi-tenancy.
