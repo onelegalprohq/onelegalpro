@@ -120,6 +120,15 @@ The two areas are enforced by **distinct aggregates, lifecycles, access policies
 
 **Invariant.** An `AIRun`'s output is never itself authoritative domain truth. It becomes consequential only when a human accepts a resulting `ToolCallProposal` (or an eligible, narrowly bounded `AutomationPolicy` pre-authorizes it per §11) and that proposal is translated into an `ActionRequest` that passes the same authorization and approval composition (§10, §12–§13) any other action would.
 
+**Four distinct roles, never collapsed into one another.** Every consequential path through this architecture involves up to four separately recorded roles, and no document, audit record, or presentation may blur them:
+
+1. **AI proposes.** The Copilot (via an `AIRun` and its `ToolCallProposal`) is the proposing, advisory origin. It never becomes the acting or approving principal, regardless of confidence, wording, or how the proposal is later described.
+2. **A human decides.** Where human review is required (the default, per §10), a specific, identified human actor either approves the proposal, rejects it, or edits and re-proposes it, or — outside any AI involvement — initiates the action directly. This human is the **decision actor**. Approving a proposal never converts the AI into the decision actor, and the AI is never recorded as if it had decided anything.
+3. **Workflow orchestrates.** `Workflow` sequences the approved request into an `ActionRequest` and coordinates its execution (§9, §12). It is the orchestration mechanism, never the authority that decided the action was appropriate, and never the authority that performs it.
+4. **The owning domain executes and authorizes.** The domain module that owns the target resource performs its own current authorization and business-rule validation (§12–§13) and is the only party that actually carries out and records the business action. It remains the authoritative executor and business-rule owner regardless of how the request reached it.
+
+A `WorkflowAuditRecord` and any `AIProvenance` preserve all four roles **separately and distinguishably** — the proposing `AIRun`, the approving `HumanReviewDecision`/`ApprovalDecision` and its actor, the orchestrating `WorkflowRun`/`StepExecution`, and the owning domain's own execution record. **A human-approved action is never described, presented, or audited as "AI performing the action"** — the action is attributed to the human decision actor and the owning domain's execution, with the AI's proposal recorded as its advisory origin, not its cause of authority.
+
 ## 7. Workflow definition and version lifecycle
 
 ```text
@@ -128,9 +137,20 @@ Draft → In Review → Published (immutable) ⇄ Superseded → Retired
 
 - **Draft** — a `WorkflowDefinition`'s in-progress version, freely editable, not executable by any trigger.
 - **In Review** — an explicit human review step before publication; review is recorded (who, when, what was reviewed).
-- **Published** — the `WorkflowVersion` becomes **immutable**. Its step graph, triggers, and approval requirements are frozen. A `WorkflowRun` that starts from this version is bound to it for its entire lifetime; **publishing a newer version never silently alters an already-running instance.**
+- **Published** — the `WorkflowVersion` becomes **immutable**. Its step graph, triggers, and approval requirements are frozen. A `WorkflowRun` that starts from this version is **permanently bound to it for its entire lifetime**; **publishing a newer version never silently alters an already-running instance.**
 - **Superseded** — a newer version has been published for the same `WorkflowDefinition`; the superseded version remains immutable and remains the version of record for any run still bound to it.
-- **Retired** — no new `WorkflowRun` may start from this version; runs already bound to it continue unless an authorized human explicitly initiates a **version-migration operation** — itself a distinct, recorded, human-authorized act, never an automatic consequence of retirement or of publishing a new version.
+- **Retired** — no new `WorkflowRun` may start from this version; runs already bound to it are unaffected by retirement and continue exactly as before.
+
+**A `WorkflowRun`'s bound `WorkflowVersion` can never be changed in place, by anyone, for any reason — there is no version-migration operation on an existing run.** Publishing, superseding, or retiring a `WorkflowVersion` never changes any existing run's bound version, not even through an administrator or otherwise authorized human action. A run bound to a retired or superseded version may continue to completion, be explicitly cancelled (§20), or be brought to a safe terminal or manual-intervention state (§22) according to Firm policy — but it is never rewritten to point at a different version.
+
+**If the underlying business process must continue under a newer `WorkflowVersion`, the correct operation is replacement, not migration:**
+
+1. The existing `WorkflowRun` is first safely cancelled or brought to a terminal state (§20) — its own history is never discarded.
+2. A **new** `WorkflowRun` is then created against the newer `WorkflowVersion`, with its own new run identity.
+3. The new run starts with **fresh trigger provenance, fresh authorization checks, fresh `ApprovalDecision`s, a fresh material-input fingerprint (§10), and its own independent idempotency scope (§19)** — none of these carry over from the original run.
+4. The original run and the replacement run may be linked by **provenance only** (a recorded reference noting one succeeded the other); that link is informational and never changes, or implies a change to, the original run's permanently bound version.
+5. **No approval granted to the original run automatically carries into the replacement run.** Any action the replacement run needs to take must be freshly proposed, freshly authorized, and freshly approved under the newer version's own requirements.
+6. The original run's complete history — every `StepExecution`, `ApprovalDecision`, and `WorkflowAuditRecord` — remains preserved and queryable exactly as it occurred, regardless of the replacement run's existence.
 
 **Playbook-to-workflow conversion is an explicit, governed human decision, never automatic.** A `KnowledgeItem` playbook (`docs/architecture/14_Document_Knowledge_Management_Architecture.md` §K13) remains guidance and source material — it is not executable merely because it exists. Converting or mapping an approved playbook into a `WorkflowDefinition`/`WorkflowVersion` requires an authorized human to author the resulting workflow deliberately, referencing the source playbook's identity and version as provenance; the playbook's own approval, versioning, and staleness lifecycle in Knowledge Management is unaffected, and a later playbook edit never silently changes an already-published `WorkflowVersion`.
 
@@ -218,6 +238,21 @@ Human review is the **default** for any consequential action. An `ApprovalReques
 - Expose restricted data.
 - Approve its own tool call or workflow proposal.
 - Perform a destructive operation.
+
+**Two different kinds of "non-delegable," neither weaker than the other.** The list above mixes two categories, and neither human approval nor Firm configuration changes either of them:
+
+- **Human-gated domain actions** — Matter-status changes, lawyer assignment/removal, document finalization/signing/filing/sending/publishing, invoice issuance, and identity/permission changes are actions a **qualified human may still decide to take through the platform**. For these, AI may at most propose or draft (§6); a qualified human, where the action is permitted at all, makes the actual decision; `Workflow` may then coordinate the already-approved request (§9, §12); and the owning domain performs its own current authorization and business-rule validation and executes the action. The resulting action is attributed to the human decision actor and the owning domain's execution — **never to AI** — per the four-role separation in §6.
+- **Structural, absolute AI prohibitions** — presenting generated content as official law or legal advice, approving its own proposal or tool call, and any client-money movement (below) are never AI's role **under any circumstance**, including a human's attempted approval, a Firm's automation-policy configuration, or a workflow's design. No approval chain, wording, or configuration converts AI into the approving or authorization authority for these; they are properties of what AI structurally is and does, not a delegation boundary that a human decision can cross on AI's behalf.
+
+**The following remain absolute regardless of human-approval wording, Firm configuration, or workflow design**, extending `docs/architecture/01_OneLegalPro_Constitution.md` and `docs/architecture/05_AI_Architecture.md` unchanged:
+
+- AI-generated content is never presented as official law.
+- Client-facing Communications AI never presents itself as a lawyer, gives legal advice, or implies that interacting with it created an attorney-client relationship.
+- AI never overrides or decides an Ethical Wall outcome.
+- AI never acts as an authentication or authorization authority.
+- AI never approves its own proposal or tool call, under any configuration.
+- AI never initiates, approves, releases, or performs a client-money movement.
+- AI never receives unrestricted shell, database, or credential access.
 
 **Financial calculations remain deterministic outside the model.** Client-money movements must never be AI-initiated, AI-approved, or AI-released, regardless of confidence, policy configuration, or approval-chain composition — this extends `docs/architecture/01_OneLegalPro_Constitution.md` Article 25 and `docs/architecture/05_AI_Architecture.md`'s Financial AI rules unchanged.
 
@@ -343,6 +378,8 @@ Copilot memory is defined conservatively:
 
 ## 21. Audit and observability
 
+**Every audit record for a consequential action preserves the four roles in §6 separately and distinguishably** — the proposing `AIRun`, the approving human actor's `HumanReviewDecision`/`ApprovalDecision`, the orchestrating `WorkflowRun`/`StepExecution`, and the owning domain's own execution record — and never collapses them into a single "AI did this" or "the system did this" statement.
+
 **Immutable, append-only `WorkflowAuditRecord`s cover, at minimum:**
 
 - Workflow publication and retirement
@@ -376,7 +413,7 @@ Copilot memory is defined conservatively:
 - **Unavailable IdentityAccess or Ethical Wall authority** — per §13–§14, the operation fails closed; no stale or assumed-good authorization decision is used.
 - **Revoked access during a long-running workflow** — the next revalidation point (§13) detects the revocation and fails the affected step closed, rather than continuing under the original grant.
 - **Stale approval** — an `ApprovalRequest` past its validity window, or invalidated by a material-input change (§10), blocks execution until a new approval is obtained.
-- **Changed workflow version** — an in-flight `WorkflowRun` is unaffected by a newer `WorkflowVersion`'s publication (§7); it continues under its bound version until explicitly migrated.
+- **Changed workflow version** — an in-flight `WorkflowRun` is unaffected by a newer `WorkflowVersion`'s publication (§7); it remains permanently bound to its starting version for its entire lifetime and is never migrated to a different one. If the business process must continue under the newer version, the run is cancelled or reaches a terminal state and a new `WorkflowRun` is created against the newer version, with its own fresh authorization, approval, and idempotency scope (§7).
 - **Invalid model output** — output that fails schema or output-validation checks (§17) is rejected before it can inform a `ToolCallProposal` or downstream step.
 - **Prompt-injection detection** — a detected injection pattern results in safe failure (§17): the implied instruction is declined and, where appropriate, flagged for human review.
 - **Duplicate triggers** — deduplicated per §8; a duplicate origin never starts a second consequential run.
@@ -440,8 +477,9 @@ A branded persona changes how the Copilot presents itself; it never changes what
 - No cross-Firm AI context, memory, embedding, cache, evaluation, or training use.
 - Denied callers receive no existence signal.
 - Published workflow versions are immutable.
-- A run never silently changes workflow version.
+- A `WorkflowRun`'s bound version is permanent and can never be changed in place, by anyone; continuing under a newer version requires cancelling the run and creating a new one.
 - Approval is exact, scoped, versioned, and invalidated by material change.
+- AI proposes, a human decides, Workflow orchestrates, and the owning domain executes and authorizes — the four roles are never collapsed, and a human-approved action is never described as AI performing the action.
 - Idempotency does not equal exactly-once execution.
 - Cancellation does not erase completed domain truth.
 - Compensation is explicit and separately authorized.
@@ -481,7 +519,7 @@ A branded persona changes how the Copilot presents itself; it never changes what
 - **Let Integrations implement Workflow orchestration itself, since it already handles external events.** Rejected — this is exactly the boundary Constitution Article 37 reserved; Integrations supplies external contracts and verified events, Workflow supplies orchestration, and neither absorbs the other (§24.9).
 - **Make AI Copilot its own, broader "AI platform" bounded context absorbing Legal Intelligence retrieval, Document Intelligence, Knowledge RAG, and Financial AI logic.** Rejected — those AI capabilities remain owned by their respective domains (`docs/architecture/05_AI_Architecture.md`); the Copilot consumes their published retrieval and provenance rules rather than reimplementing or absorbing them (§2, §15).
 - **Select a specific workflow-engine product, queue/broker, vector database, or agent framework now, to unblock design.** Rejected — vendor and product selection follow approved conceptual architecture, not precede it; none is selected here.
-- **Allow a workflow-version migration to happen automatically when a newer version is published.** Rejected — this would silently alter running instances' behavior underneath already-authorized approvals and in-flight state; migration is always an explicit, separately authorized human act (§7).
+- **Allow an existing `WorkflowRun` to be migrated — automatically or by explicit human action — to a newer `WorkflowVersion`.** Rejected in both forms. Automatic migration would silently alter a running instance's behavior underneath already-authorized approvals and in-flight state; and even an explicit, human-authorized migration would let an approval, a fingerprint, or an authorization decision made against one version's step graph carry forward and apply to a different one, which is exactly the silent-authority-carryover risk this architecture exists to prevent. A `WorkflowRun`'s bound version is therefore permanent and can never be changed in place by anyone. Continuing the underlying business process under a newer version requires cancelling the existing run and creating a new one, with its own fresh authorization, approval, and idempotency scope (§7).
 
 ## 28. Consequences and trade-offs
 
