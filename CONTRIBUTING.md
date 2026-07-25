@@ -10,6 +10,19 @@ This repository uses a **main plus feature-branch** strategy:
 - All work happens on a short-lived feature branch created from `main` and merged back via pull request.
 - Delete feature branches after merge.
 
+### Protect main (GitHub ruleset)
+
+`main` is protected by an active GitHub branch ruleset (`Protect main`), verified at PF-002 closure:
+
+- A pull request is required before merging to `main`.
+- Branch deletion and force-pushes to `main` are blocked.
+- Review conversations must be resolved before a pull request can merge.
+- No bypass actor is configured — the ruleset applies to everyone, with no exceptions.
+- The required formal GitHub approval count is temporarily **0**, because this is currently a single-owner repository and GitHub does not allow an author to approve their own pull request. Human review and approval is still mandatory: record it as an explicit review comment on the pull request until a second authorized reviewer is available. Formal approving reviews (a required approval count above zero) must be configured as soon as a second authorized reviewer exists.
+- Status checks, commit signing, code scanning, code quality, and coverage requirements are **not currently enabled**. They are deferred to their own approved future stories (CI/CD and quality-gate stories) and must not be treated as active until those stories configure and verify them.
+
+This ruleset does not weaken the rule above: `main` remains deployable and protected at all times.
+
 ### Branch naming
 
 Branches are named `<type>/<story-id>-<short-description>`, using the story IDs from `docs/implementation/03_Engineering_Backlog.md`:
