@@ -13,7 +13,8 @@ Sequence OneLegalPro's major epics at the architecture level. This document sits
 3. **EPIC-003 — White-Label Platform** (proposed — see below). Must reach at least its token-schema and `BrandProfile` foundation stages before the Digital Presence or Client Portal epics can implement any client-facing rendering surface, since both depend on the Branding Resolver contract.
 4. **EPIC-004 — Communications Hub** (proposed — see below). Must reach at least its channel-neutral thread/message foundation and website/portal chat adapter stages before the Digital Presence or Client Portal epics can implement any client-facing chat experience, since both depend on the `Communications` module's adapter contract and human-handoff model.
 5. **EPIC-005 — Digital Presence Platform** (proposed — see below). Consolidates the previously separate "Digital Presence" and "Client Portal" names in the Later epics list below into one bounded context (`docs/architecture/12_Website_Client_Portal_Architecture.md`, `docs/adr/ADR-005-Website-Client-Portal.md`). Depends on EPIC-003 reaching its Branding Resolver foundation and EPIC-004 reaching its channel-neutral thread/message foundation and website/portal chat adapter stages, since Digital Presence composes both rather than reimplementing either.
-6. Later epics: Platform Core; Legal Practice Core; Documents; Commercial Operations; **Digital Presence; Client Portal (both now governed by EPIC-005 — Digital Presence Platform, see below)**; Workflow; Integrations; Reporting; Academic Edition (unchanged from `docs/implementation/01_Implementation_Sprint_Plan.md`).
+6. **EPIC-006 — Practice Management Core** (proposed — see below). Consolidates the previously unarchitected "Legal Practice Core" name in the Later epics list below into one bounded context (`docs/architecture/13_Practice_Management_Architecture.md`, `docs/adr/ADR-006-Practice-Management-Core.md`). **Retroactive dependency note:** although architected sixth in this sequence, Practice Management Core is the platform's Core Domain — EPIC-004's business-object-linking stage (Communications' `CommunicationLink` to Client/Matter/Task/Appointment) and EPIC-005's Practice Management read-surfaces and Booking System stages both already named "a future Practice Management module" as an external dependency (`docs/architecture/11_Communications_Hub_Architecture.md` §10; `docs/architecture/12_Website_Client_Portal_Architecture.md` §7, §12). Implementation sequencing for those specific stages must account for EPIC-006's `Client`/`Matter`/`Task`/`Appointment` foundation stages, regardless of this document's architecture-approval ordering.
+7. Later epics: Platform Core; **Legal Practice Core (now governed by EPIC-006 — Practice Management Core, see below)**; Documents; Commercial Operations; **Digital Presence; Client Portal (both now governed by EPIC-005 — Digital Presence Platform, see below)**; Workflow; Integrations; Reporting; Academic Edition (unchanged from `docs/implementation/01_Implementation_Sprint_Plan.md`).
 
 ## EPIC-002 — Legal Intelligence (proposed)
 
@@ -97,3 +98,24 @@ Proposed staged delivery:
 ## Future Digital Presence expansion
 
 Every stage above is designed so that mobile app reuse, a Progressive Web App, a client mobile app, partner portals, and court portals are additive consumers of the existing Public/Embedded API surface and the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalIdentity`/`BookingRequest` model, not a redesign of any of them. See `docs/architecture/12_Website_Client_Portal_Architecture.md`, Future Expansion, for the extension model.
+
+## EPIC-006 — Practice Management Core (proposed)
+
+> **Status note:** The *architecture* for Practice Management Core is approved — see `docs/adr/ADR-006-Practice-Management-Core.md` and `docs/architecture/13_Practice_Management_Architecture.md`. The stage list below is a **proposed** staging of future implementation stories. None of these stages are approved, scheduled, or numbered `PF-*` stories. They require separate entry into `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md` before any implementation work begins. Because Practice Management is the platform's Core Domain, its early stages are a practical prerequisite for EPIC-004 and EPIC-005's Matter/Client/Task/Appointment-dependent stages — see the retroactive dependency note in the Epic sequence, above.
+
+Proposed staged delivery:
+
+1. **`Client`/`Organization`/`Contact` foundation** — the three party aggregates and their cross-referencing relationships.
+2. **`Matter` aggregate, lifecycle, and `MatterNumber`** — the central aggregate, its status lifecycle, and firm-configurable, immutable matter numbering.
+3. **`PracticeArea` taxonomy** — platform-seeded defaults plus firm-scoped custom practice areas.
+4. **`MatterTeam` and role-based permissions** — Responsible/Lead/Supporting Lawyer, Paralegal, Assistant, External Counsel roles and their derived permissions.
+5. **`Task`/`Appointment`/`Note` aggregates** — including dependencies, recurrence, timezone-aware scheduling, and immutable-audit note content.
+6. **Ethical Walls** — restricted-matter access, need-to-know allow-lists, auditing, and emergency override.
+7. **Conflict Checking** — `PartyReference`/`ConflictRelationship` model and the `SearchConflicts` published query (architecture only; matching/scoring logic is a separate, future implementation decision).
+8. **Matter Timeline read-model** — the cross-context, chronological history assembled from Communications, Documents, Billing, and AI activity.
+9. **Matter Dashboard** — the lawyer's primary workspace, composing Tasks, Timeline, Communications, Documents, Billing, AI summaries, Deadlines, and Appointments.
+10. **Integration hardening with Communications and Digital Presence** — resolving the `CommunicationLink` and `BookingRequest`/Client-Portal-read-surface dependencies those architectures already named.
+
+## Future Practice Management expansion
+
+Every stage above is designed so that multi-office Firms, international matters (via Legal Intelligence's `Jurisdiction` value object), court integrations, workflow automation, Matter templates, and a broader knowledge graph are additive extensions to the existing `Matter`/`Task`/`Appointment`/`ConflictRelationship` model, not a redesign of any of them. See `docs/architecture/13_Practice_Management_Architecture.md`, Future Expansion, for the extension model.
