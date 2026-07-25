@@ -4,15 +4,17 @@
 
 Accepted. The human owner has explicitly approved this decision.
 
+**Amended by ARCH-008 (`docs/adr/ADR-009-Identity-Security-Access-Control.md`) on the authentication boundary only** — see Authentication boundary correction, below. Every other decision in this ADR stands unchanged, and no approved Client Portal capability is removed.
+
 ## Context
 
-OneLegalPro's Firms need a public website, a client-facing portal, embeddable widgets for firms that already have their own site, a booking system, an AI receptionist, intake collection, client authentication, and a place to publish articles and FAQs. Prior to this ADR, none of this had an approved architecture. Two of these — "Digital Presence" and "Client Portal" — already appeared as unarchitected later-phase names in `docs/implementation/01_Implementation_Sprint_Plan.md` and `docs/architecture/08_Roadmap.md`, but neither had a domain model, and nothing addressed how a website and a portal, or the widgets a Firm might embed on its own separate site, would relate to each other or to the platform's already-approved Branding (`docs/adr/ADR-003-White-Label-Platform.md`) and Communications Hub (`docs/adr/ADR-004-Communications-Hub.md`) architectures.
+OneLegalPro's Firms need a public website, a client-facing portal, embeddable widgets for firms that already have their own site, a booking system, an AI receptionist, intake collection, authenticated client access, and a place to publish articles and FAQs. Prior to this ADR, none of this had an approved architecture. Two of these — "Digital Presence" and "Client Portal" — already appeared as unarchitected later-phase names in `docs/implementation/01_Implementation_Sprint_Plan.md` and `docs/architecture/08_Roadmap.md`, but neither had a domain model, and nothing addressed how a website and a portal, or the widgets a Firm might embed on its own separate site, would relate to each other or to the platform's already-approved Branding (`docs/adr/ADR-003-White-Label-Platform.md`) and Communications Hub (`docs/adr/ADR-004-Communications-Hub.md`) architectures.
 
 OneLegalPro must serve three materially different starting points: Firms with **no website at all**, Firms with an **existing website** they will not migrate away from, and **enterprise** Firms whose own CMS or web team wants to integrate programmatically. Any architecture that assumes only one of these (typically "we host everything") fails the other two. Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs an approved architecture before any Digital Presence or Client Portal implementation work begins.
 
 ## Decision
 
-1. **Digital Presence is its own bounded context** (proposed module `DigitalPresence`), composing already-architected capabilities — Branding and Communications — into public websites, a client portal, embedded widgets, booking, client authentication, and content publishing, without owning identity or messaging itself.
+1. **Digital Presence is its own bounded context** (proposed module `DigitalPresence`), composing already-architected capabilities — Branding and Communications — into public websites, a client portal, embedded widgets, booking, client portal access, and content publishing, **without owning identity or messaging itself**. (This ADR originally listed "client authentication" among the composed capabilities while also stating that Digital Presence does not own identity; ARCH-008 resolves that tension in favor of the latter — see Authentication boundary correction, below.)
 2. **Digital Presence supports three deployment models simultaneously**: fully hosted website, existing website integration (via Embedded Widgets), and enterprise CMS integration (via Public APIs) — addressing Firms without a website, Firms with one already, and enterprise integrations, respectively, as three configurations of one platform rather than three separate products.
 3. **Every widget is one reusable, sandboxed Embedded Component**, not a bespoke integration per Firm or per site. A widget resolves branding and messaging through the same published contracts Digital Presence uses everywhere else, and is authorized through a narrow `WidgetEmbed`/`EmbedKey`/`AllowedOrigin` boundary distinct from a full Client Portal session or Public API credential.
 4. **Websites and the Client Portal share the same underlying infrastructure**: the same Branding Resolver, the same Communications integration, the same `TenantDomain`/SSL handling, the same accessibility and SEO discipline. Neither surface reimplements what the other already has.
@@ -21,6 +23,21 @@ OneLegalPro must serve three materially different starting points: Firms with **
 7. **Digital Presence data is wholly firm-scoped**, isolated by `FirmContext`, with no platform-global content subdomain — the third module, after Branding and Communications, to take this shape.
 
 Full conceptual detail is recorded in `docs/architecture/12_Website_Client_Portal_Architecture.md`.
+
+## Authentication boundary correction (ARCH-008)
+
+When this ADR was accepted, no identity architecture existed, so Digital Presence provisionally held the Client Portal's authentication identity (`ClientPortalIdentity`) and authentication policy (`PortalAuthPolicy`). That was always in tension with Decision 5 — the Portal is a presentation surface, not a data owner — and with Decision 1's own statement that Digital Presence does not own identity. **ARCH-008 resolves it:**
+
+- **IdentityAccess owns** the Client Portal principal, credentials, authentication factors, authentication attempts, recovery, and sessions.
+- **Practice Management continues to own the underlying `Client`.**
+- **Digital Presence owns** the portal surface, presentation, portal-specific preferences, and permission-aware composition, and **invokes IdentityAccess contracts** for invitation, authentication, MFA, session, and recovery operations. It **must not store passwords, authenticators, recovery secrets, or session authority.**
+- **`ClientPortalIdentity` is replaced by `ClientPortalAccessProfile`** — a presentation/access concept linked by identifier to an IdentityAccess principal, the Practice Management `Client`, and the Firm, carrying portal status and preferences but **no credentials, MFA secrets, passwordless tokens, recovery data, or authoritative session state**.
+- **`PortalAuthPolicy` is reinterpreted** as a reference to (and presentation of) the Firm's authoritative, IdentityAccess-owned channel `AuthenticationPolicy`. Digital Presence is not the policy authority.
+- **Authentication events originate from IdentityAccess** and may be consumed by Digital Presence.
+- **Successful authentication is not resource visibility** — what a client sees still comes from the owning domain's audience and authorization rules.
+- **`WidgetEmbed` and `AllowedOrigin` remain Digital Presence concepts.** Embedded-widget capability security stays narrower than an authenticated client session and never becomes a Client identity.
+
+**No approved Client Portal capability is removed by this correction** — password, passwordless, magic link, MFA, future SSO, Firm-configurable policy, lockout, and recovery all remain available, sourced from IdentityAccess instead of implemented locally. Decisions 2, 3, 4, 6, and 7 are unaffected. See `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §28.
 
 ## Why Digital Presence is its own bounded context
 
@@ -52,4 +69,4 @@ A public website and an authenticated client portal look different, but the unde
 
 ## Future extensibility
 
-The architecture is designed so that mobile app reuse, a Progressive Web App, a dedicated client mobile app, partner portals, and court portals can each be added as new consumers of the existing Public/Embedded API surface and the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalIdentity`/`BookingRequest` model, without redesigning any of them. See `docs/architecture/12_Website_Client_Portal_Architecture.md`, Future Expansion.
+The architecture is designed so that mobile app reuse, a Progressive Web App, a dedicated client mobile app, partner portals, and court portals can each be added as new consumers of the existing Public/Embedded API surface and the existing `DigitalPresenceProfile`/`ContentItem`/`ClientPortalAccessProfile`/`BookingRequest` model (with authentication supplied by IdentityAccess), without redesigning any of them. See `docs/architecture/12_Website_Client_Portal_Architecture.md`, Future Expansion.
