@@ -107,60 +107,77 @@ final class FoundationLayerHasNoFrameworkDependenciesTest extends TestCase
     public function test_no_foundation_source_file_calls_a_laravel_global_helper(): void
     {
         foreach ($this->foundationSourceFiles() as $relativePath => $source) {
-            $this->assertDoesNotMatchRegularExpression(
-                $this->forbiddenGlobalHelperPattern(),
-                $this->withoutComments($source),
+            $this->assertSame(
+                [],
+                $this->globalHelperCalls($source),
                 $relativePath.' must not call a Laravel global helper.',
             );
         }
     }
 
     /**
-     * Regression cover for the helper pattern itself.
+     * Regression cover for the detector itself — the calls it must report.
      *
      * A leading backslash makes a call resolve to the *global* function, so
      * `\config(...)` is exactly as prohibited as `config(...)` and must never
-     * become a way around the guard. An object method, a static method, and a
-     * namespaced function that merely shares the name are all different
-     * functions and must not be reported.
+     * become a way around the guard.
      */
-    public function test_the_helper_pattern_detects_qualified_and_unqualified_global_calls(): void
+    public function test_the_helper_detector_reports_qualified_and_unqualified_global_calls(): void
     {
         $prohibited = [
-            "config('app.name');",
-            '\config(\'app.name\');',
-            'now();',
-            '\now();',
-            'return view($template);',
-            'return \view($template);',
+            "config('app.name');" => 'config',
+            "\\config('app.name');" => 'config',
+            'now();' => 'now',
+            '\now();' => 'now',
+            'view($template);' => 'view',
+            '\view($template);' => 'view',
+            'return now();' => 'now',
+            'CONFIG();' => 'config',
         ];
 
-        foreach ($prohibited as $snippet) {
-            $this->assertMatchesRegularExpression(
-                $this->forbiddenGlobalHelperPattern(),
-                $snippet,
-                $snippet.' is a Laravel global helper call and must be detected.',
+        foreach ($prohibited as $snippet => $expected) {
+            $this->assertSame(
+                [$expected],
+                $this->globalHelperCalls('<?php '.$snippet),
+                $snippet.' is a Laravel global helper call and must be reported.',
             );
         }
     }
 
-    public function test_the_helper_pattern_ignores_methods_and_namespaced_functions(): void
+    /**
+     * Regression cover for the detector itself — what it must never report.
+     *
+     * Declaring a method named `now()` is not calling Laravel's `now()`. PF-047
+     * (Clock) legitimately declares exactly that, so a declaration, an object
+     * or static method, a namespaced function, a comment, a string literal, a
+     * longer identifier, and a variable must all stay silent.
+     */
+    public function test_the_helper_detector_ignores_declarations_methods_and_literals(): void
     {
         $allowed = [
             '$service->config();',
+            '$service?->config();',
             'Service::config();',
+            'self::now();',
             'Vendor\config();',
             'Vendor\Nested\now();',
-            '$this->view($template);',
-            'self::now();',
-            '$configured = true;',
+            "interface Clock\n{\n    public function now(): \DateTimeImmutable;\n}",
+            "final class Example\n{\n    public function config(): array\n    {\n        return [];\n    }\n}",
+            "function config(): void\n{\n}",
+            "abstract class Base\n{\n    abstract public function view(string \$template): string;\n}",
+            '// config(\'app.name\') named only in a comment',
+            '/** Mentions now() and view() only in a docblock. */',
+            '$sql = "config(1)";',
+            "\$literal = 'now()';",
             'reconfigure();',
+            '$config = 1;',
+            '$now = 1;',
         ];
 
         foreach ($allowed as $snippet) {
-            $this->assertDoesNotMatchRegularExpression(
-                $this->forbiddenGlobalHelperPattern(),
-                $snippet,
+            $this->assertSame(
+                [],
+                $this->globalHelperCalls('<?php '.$snippet),
                 $snippet.' is not a Laravel global helper call and must not be reported.',
             );
         }
@@ -178,28 +195,97 @@ final class FoundationLayerHasNoFrameworkDependenciesTest extends TestCase
     }
 
     /**
-     * The single pattern matching a call to a prohibited Laravel global helper.
+     * Every prohibited Laravel global-helper call in a PHP source string.
      *
      * Both the guard above and its regression tests use this one method, so the
-     * pattern can never drift between what is enforced and what is proven.
+     * detection can never drift between what is enforced and what is proven.
      *
-     * It matches an optional leading backslash — `\config(...)` resolves to the
-     * global function just as `config(...)` does — while the lookbehinds reject
-     * the three lookalikes that are different functions entirely: an object
-     * method (`->config()`), a static method (`::config()`), and a namespaced
-     * function (`Vendor\config()`, where the backslash follows an identifier
-     * character rather than opening a fully qualified global name). A variable
-     * function (`$config()`) and a longer identifier ending in a helper name
-     * (`reconfigure()`) are rejected for the same reason.
+     * Detection is token-aware rather than textual, because a helper name in
+     * source text is not by itself a call to that helper. `token_get_all()`
+     * (PHP's own tokenizer — no parser library, no dependency) does the reading,
+     * and a name counts as a prohibited call only when all three hold:
+     *
+     * 1. **The name resolves to the global function.** `T_STRING` is an
+     *    unqualified name, and `T_NAME_FULLY_QUALIFIED` is a leading-backslash
+     *    name — but only when it has no further separator, so `\config` counts
+     *    while `\App\Support\config` does not. `T_NAME_QUALIFIED`
+     *    (`Vendor\config`) and `T_NAME_RELATIVE` (`namespace\config`) name
+     *    different functions and are never considered. Comparison is
+     *    lowercased, since PHP function names are case-insensitive.
+     * 2. **An argument list follows**, so a bare mention is not a call.
+     * 3. **The preceding significant token does not make it something else** —
+     *    `function` (a declaration, including PF-047's `Clock::now()`), `->` or
+     *    `?->` (an object method), `::` (a static method), or `new` (an
+     *    instantiation).
+     *
+     * Comments, docblocks, and quoted strings never produce these token types,
+     * so they are ignored for free; `reconfigure` is a single distinct
+     * `T_STRING`; and `$config` is a `T_VARIABLE`.
+     *
+     * @return list<string> the helper names called, in source order
      */
-    private function forbiddenGlobalHelperPattern(): string
+    private function globalHelperCalls(string $source): array
     {
-        $helpers = implode('|', array_map(
-            static fn (string $helper): string => preg_quote($helper, '/'),
-            self::FORBIDDEN_GLOBAL_HELPERS,
+        $tokens = array_values(array_filter(
+            token_get_all($source),
+            static fn (array|string $token): bool => ! \is_array($token)
+                || ! \in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true),
         ));
 
-        return '/(?<![A-Za-z0-9_$\\\\])(?<!->)(?<!::)\\\\?(?:'.$helpers.')\s*\(/';
+        $calls = [];
+
+        foreach ($tokens as $index => $token) {
+            if (! \is_array($token)) {
+                continue;
+            }
+
+            $name = $this->globalFunctionName($token);
+
+            if ($name === null || ! \in_array($name, self::FORBIDDEN_GLOBAL_HELPERS, true)) {
+                continue;
+            }
+
+            if (($tokens[$index + 1] ?? null) !== '(') {
+                continue;
+            }
+
+            $previous = $tokens[$index - 1] ?? null;
+
+            if (\is_array($previous) && \in_array($previous[0], [
+                T_FUNCTION,
+                T_OBJECT_OPERATOR,
+                T_NULLSAFE_OBJECT_OPERATOR,
+                T_DOUBLE_COLON,
+                T_NEW,
+            ], true)) {
+                continue;
+            }
+
+            $calls[] = $name;
+        }
+
+        return $calls;
+    }
+
+    /**
+     * The global function a name token refers to, or null if it names something
+     * other than a global function.
+     *
+     * @param  array{0: int, 1: string, 2: int}  $token
+     */
+    private function globalFunctionName(array $token): ?string
+    {
+        if ($token[0] === T_STRING) {
+            return strtolower($token[1]);
+        }
+
+        if ($token[0] === T_NAME_FULLY_QUALIFIED) {
+            $name = ltrim($token[1], '\\');
+
+            return str_contains($name, '\\') ? null : strtolower($name);
+        }
+
+        return null;
     }
 
     /**
