@@ -8,7 +8,7 @@ This document defines the conceptual domain and system architecture for OneLegal
 
 **In scope:** external API contract registration and versioning; integration application and Firm-scoped installation lifecycle; requested scopes and their relationship to domain authorization; outbound integration events and webhook delivery; inbound webhook verification and command intake; connector configuration and synchronization; import/export job coordination; developer documentation and sandbox coordination; and the cross-cutting security, privacy, audit, and failure-handling requirements that apply to all of the above.
 
-**Out of scope:** everything in §41, and specifically Workflow orchestration (reserved for a future ARCH-010) and Marketplace publication/monetization (reserved, ungoverned, against `docs/architecture/06_Marketplace.md`).
+**Out of scope:** everything in §41, and specifically Workflow orchestration (owned by `Workflow`, ARCH-010 — see `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`; Integrations supplies verified events and delivery, never orchestration state) and Marketplace publication/monetization (reserved, ungoverned, against `docs/architecture/06_Marketplace.md`).
 
 This document describes **conceptual models only**. It defines no migrations, schemas, routes, controllers, jobs, packages, or vendor selection.
 
@@ -51,7 +51,7 @@ External API contract registration and lifecycle · external representation mapp
 | Billing or financial ledgers | **Billing** |
 | Branding | **Branding** |
 | Legal Intelligence content | **Legal Intelligence** |
-| Workflow orchestration | **Reserved for a future ARCH-010** |
+| Workflow orchestration | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) |
 | AI authority | **Nobody — AI is never an authorization authority** |
 | Marketplace publication or monetization | **Reserved, ungoverned**, against `docs/architecture/06_Marketplace.md` |
 | Provider-specific business semantics already owned elsewhere | **The owning domain's adapter** (§29) |
@@ -459,7 +459,7 @@ Timeouts, circuit breakers, and bulkheads keep one failing external dependency f
 - **IdentityAccess** owns principals, service principals, credentials, sessions, permissions, and security events.
 - **Platform Foundation** owns `FirmContext` and technical tenancy primitives.
 - **Integrations** owns stable external contracts and integration lifecycle records — never domain truth.
-- **Workflow orchestration** remains reserved for a future ARCH-010.
+- **Workflow orchestration** is owned by `Workflow` (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`); Integrations supplies verified events and outbound delivery to it and absorbs none of its orchestration state.
 - **AI** never becomes an API authorization authority.
 
 ## 46. AI and system-actor rules
@@ -530,7 +530,7 @@ Rules, per `docs/domain/06_Laravel_Module_Blueprint.md` unchanged:
 - Long-lived, non-rotatable secrets are prohibited; any compatibility API key is Firm-bound, purpose-bound, non-recoverable, rotatable, revocable, scope-limited, and audited.
 - A denied external caller receives no existence signal.
 - Failure handling fails closed where current authority is required, and never rewrites already-committed domain truth.
-- Workflow orchestration and Marketplace publication remain reserved and unarchitected here.
+- Workflow orchestration is owned by `Workflow` (ARCH-010) and is not designed here; Marketplace publication remains reserved and unarchitected here.
 - AI holds no API or integration authorization authority.
 - Architecture approval schedules no implementation.
 
@@ -549,11 +549,11 @@ Recorded in full in `docs/adr/ADR-010-API-Integration-Platform.md`, Alternatives
 
 ## 51. Explicit non-goals
 
-This architecture does **not**: implement any API, webhook, connector, or integration; create schemas, migrations, routes, controllers, jobs, or packages; select or configure an API gateway, identity vendor, message broker, cloud service, or Laravel package; claim any API is implemented or deployed; claim ISO, SOC, PDPA, GDPR, or any other certification or compliance; design Workflow orchestration (reserved for ARCH-010); design Marketplace publication, monetization, or partner certification (reserved against `docs/architecture/06_Marketplace.md`, which remains an empty placeholder); grant AI any authorization authority; move service-principal ownership out of IdentityAccess; put payment-provider or messaging-provider business semantics into Integrations; promise exactly-once delivery or global event ordering; or schedule any implementation work.
+This architecture does **not**: implement any API, webhook, connector, or integration; create schemas, migrations, routes, controllers, jobs, or packages; select or configure an API gateway, identity vendor, message broker, cloud service, or Laravel package; claim any API is implemented or deployed; claim ISO, SOC, PDPA, GDPR, or any other certification or compliance; design Workflow orchestration (owned by `Workflow`, ARCH-010 — see `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`); design Marketplace publication, monetization, or partner certification (reserved against `docs/architecture/06_Marketplace.md`, which remains an empty placeholder); grant AI any authorization authority; move service-principal ownership out of IdentityAccess; put payment-provider or messaging-provider business semantics into Integrations; promise exactly-once delivery or global event ordering; or schedule any implementation work.
 
 ## 52. Future expansion
 
-Each of the following is **describable as future work, not implemented, not architected in detail, and not scheduled**: full public marketplace and partner certification (reserved for a future Marketplace architecture); Workflow-driven multi-step orchestration across domains consuming these contracts (reserved for ARCH-010); GraphQL or other query-language surfaces layered atop the same authorization composition; advanced API analytics and per-integration profitability views; a dedicated developer portal product; partner-tier rate-limit and SLA differentiation; and cross-Firm integration templates distributed through a future Marketplace. **No cryptocurrency, no autonomous AI API authority, and no cross-Firm data sharing is contemplated by any of them.**
+Each of the following is **describable as future work, not implemented, not architected in detail, and not scheduled**: full public marketplace and partner certification (reserved for a future Marketplace architecture); Workflow-driven multi-step orchestration across domains consuming these contracts (owned by `Workflow`, ARCH-010 — see `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`; not implemented, and Integrations' own contract ownership is unchanged by it); GraphQL or other query-language surfaces layered atop the same authorization composition; advanced API analytics and per-integration profitability views; a dedicated developer portal product; partner-tier rate-limit and SLA differentiation; and cross-Firm integration templates distributed through a future Marketplace. **No cryptocurrency, no autonomous AI API authority, and no cross-Firm data sharing is contemplated by any of them.**
 
 ## 53. Proposed implementation stages
 

@@ -115,7 +115,7 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 | `BrandProfile`, `PDFBrandingConfig`, theme tokens | **Branding** | Composed at rendering time; presentation only |
 | Official statutes, regulations, court decisions, translations, citations | **Legal Intelligence** | Cited; never duplicated or overridden |
 | Actor identity, permissions, segregation-of-duties assignments | **Future Identity/Security** | Consumed; never owned by Billing |
-| Workflow orchestration | **Future Workflow** | May orchestrate; never owns financial state |
+| Workflow orchestration | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) | May orchestrate; never owns financial state |
 
 ## Alternatives considered
 
@@ -168,7 +168,7 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 - **Branding** composes presentation onto financial artifacts and may never alter their substance.
 - **Legal Intelligence** is cited for the legal basis of a jurisdiction policy; it never becomes a second tax-rules engine.
 - **A future Identity/Security context** supplies actor identity, permissions, and segregation-of-duties assignments that Billing consumes rather than defines.
-- **A future Workflow context** may orchestrate billing processes through published contracts without owning any financial state.
+- **`Workflow` (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`)** may orchestrate billing processes through published contracts without owning any financial state; client-money movement, invoice issuance/voiding, rate/tax changes, and journal posting remain categorically non-delegable to AI.
 
 ## Explicit non-goals
 

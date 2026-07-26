@@ -61,7 +61,7 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 | Documents, knowledge, invoices, communications, legal sources | **Their owning contexts** | Referenced; resource authorization stays with the owner |
 | Client Portal presentation, portal preferences, widgets | **Digital Presence** | Serves authentication/session contracts to it |
 | Public API surfaces, scopes, versioning, webhooks, developer portal | **Future ARCH-009** | Reserved; IdentityAccess supplies service-principal authentication only |
-| Workflow state and orchestration | **Future Workflow architecture** | Reserved |
+| Workflow state and orchestration | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) | Approved boundary; IdentityAccess supplies principals and authorization decisions only |
 | AI authority | **Nobody — AI is never an authorization authority** | Records provenance only |
 
 ## Alternatives considered

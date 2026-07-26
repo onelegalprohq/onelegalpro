@@ -52,7 +52,7 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 
 15. **Developer experience is contract-driven.** Documentation, examples, and any future generated SDK are derived from the authoritative OpenAPI contract; a generated SDK never becomes a second source of truth for what the API does.
 
-16. **Workflow ownership remains reserved for ARCH-010.** Integrations coordinates request/response, event delivery, and job lifecycle; it does not orchestrate multi-step business processes across domains.
+16. **Workflow ownership belongs to `Workflow` (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`).** Integrations coordinates request/response, event delivery, and job lifecycle; it does not orchestrate multi-step business processes across domains.
 
 17. **Marketplace distribution remains separately governed.** No public marketplace, app store, paid-app billing model, partner certification program, or cross-Firm knowledge/app exchange is architected here; `docs/architecture/06_Marketplace.md` remains an empty placeholder.
 
@@ -68,7 +68,7 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 | `Client`, `Matter`, `MatterTeam`, Ethical Walls | **Practice Management** | `CheckEthicalWallAccess` remains the sole authority |
 | Documents, knowledge, invoices, communications, legal sources, brand profiles | **Their owning contexts** | Reached only through published commands/queries; never duplicated |
 | Business rules and record truth | **The owning domain module**, always | Integrations translates a stable contract into the owning module's command/query |
-| Workflow orchestration | **Reserved for ARCH-010** | Not designed here |
+| Workflow orchestration | **`Workflow`** (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`) | Not designed here; Integrations supplies verified events and delivery only |
 | Marketplace publication/monetization | **Reserved, ungoverned** | Not designed here |
 | AI authority over API access | **Nobody — AI is never an authorization authority** | Unchanged from Constitution Article 26 |
 
@@ -115,12 +115,12 @@ Per `docs/adr/ADR-001-Architecture-First.md` and `AGENTS.md`, this needs approve
 - **Practice Management** supplies `CheckEthicalWallAccess` for every Matter-linked external request; it gains no new ownership and loses none.
 - **Documents, Knowledge, Billing, and Communications** each retain full ownership of their own resource rules and provider-specific semantics (document delivery, knowledge retrieval eligibility, financial invariants, messaging channels); Integrations supplies only the shared external-contract and ingress machinery around them.
 - **Legal Intelligence**'s official-source provenance and mandatory disclaimer requirements (Constitution Articles 2–4) apply unchanged to any API response surfacing translated legal content.
-- **A future Workflow architecture (ARCH-010)** will consume Integrations' contracts for orchestration without Integrations absorbing workflow state.
+- **`Workflow` (ARCH-010, `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`)** consumes Integrations' contracts for orchestration without Integrations absorbing workflow state.
 - **A future Marketplace architecture** will govern any cross-Firm distribution of integrations, separately from this ADR.
 
 ## Explicit non-goals
 
-This ADR does **not**: implement any API, webhook, connector, or integration; create schemas, migrations, routes, controllers, jobs, or packages; select or configure an API gateway, identity vendor, message broker, cloud service, or Laravel package; claim any API is implemented or deployed; claim ISO, SOC, PDPA, GDPR, or any other certification or compliance; design Workflow orchestration (reserved for ARCH-010); design Marketplace publication, monetization, or partner certification (reserved, separately governed, against `docs/architecture/06_Marketplace.md`); grant AI any authorization authority; move service-principal ownership out of IdentityAccess; put payment-provider or messaging-provider business semantics into Integrations; promise exactly-once delivery or global event ordering; or schedule EPIC-010 implementation.
+This ADR does **not**: implement any API, webhook, connector, or integration; create schemas, migrations, routes, controllers, jobs, or packages; select or configure an API gateway, identity vendor, message broker, cloud service, or Laravel package; claim any API is implemented or deployed; claim ISO, SOC, PDPA, GDPR, or any other certification or compliance; design Workflow orchestration (owned by `Workflow`, ARCH-010 — see `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`); design Marketplace publication, monetization, or partner certification (reserved, separately governed, against `docs/architecture/06_Marketplace.md`); grant AI any authorization authority; move service-principal ownership out of IdentityAccess; put payment-provider or messaging-provider business semantics into Integrations; promise exactly-once delivery or global event ordering; or schedule EPIC-010 implementation.
 
 ## Implementation status
 

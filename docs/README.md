@@ -13,7 +13,7 @@ This is the complete, navigable index of OneLegalPro's documentation. Start with
 
 Repository-wide rules that apply regardless of which module or story is being worked on.
 
-- [`AGENTS.md`](../AGENTS.md) — AI development guide: source-of-truth list, per-module rules (Legal Intelligence, White-Label, Communications, Digital Presence, Practice Management, Document & Knowledge Management, Billing/Trust Accounting & Finance, Identity/Security & Access Control, API & Integration Platform), architecture layering, and approval gates.
+- [`AGENTS.md`](../AGENTS.md) — AI development guide: source-of-truth list, per-module rules (Legal Intelligence, White-Label, Communications, Digital Presence, Practice Management, Document & Knowledge Management, Billing/Trust Accounting & Finance, Identity/Security & Access Control, API & Integration Platform, AI Copilot & Workflow Automation), architecture layering, and approval gates.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — branch strategy, GitHub `main` ruleset, Conventional Commits, Semantic Versioning, pull request process, testing/documentation requirements, and security/secret-handling rules.
 
 ## Project tracking
@@ -43,6 +43,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`15_Billing_Trust_Accounting_Finance_Architecture.md`](architecture/15_Billing_Trust_Accounting_Finance_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`16_Identity_Security_Access_Control_Architecture.md`](architecture/16_Identity_Security_Access_Control_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`17_API_Integration_Platform_Architecture.md`](architecture/17_API_Integration_Platform_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
+| [`18_AI_Copilot_Workflow_Automation_Architecture.md`](architecture/18_AI_Copilot_Workflow_Automation_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 
 ## Architecture Decision Records
 
@@ -60,6 +61,7 @@ Records of specific, accepted architecture decisions. Each ADR is referenced fro
 | [`ADR-008-Billing-Trust-Accounting-Finance.md`](adr/ADR-008-Billing-Trust-Accounting-Finance.md) | Accepted. |
 | [`ADR-009-Identity-Security-Access-Control.md`](adr/ADR-009-Identity-Security-Access-Control.md) | Accepted. |
 | [`ADR-010-API-Integration-Platform.md`](adr/ADR-010-API-Integration-Platform.md) | Accepted. |
+| [`ADR-011-AI-Copilot-Workflow-Automation.md`](adr/ADR-011-AI-Copilot-Workflow-Automation.md) | Accepted. |
 
 ## Domain design
 
@@ -83,4 +85,4 @@ When guidance conflicts, this is the order of authority, per `AGENTS.md`:
 
 If a request conflicts with approved architecture, stop and request an architecture decision rather than resolving the conflict unilaterally.
 
-**A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-010) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
+**A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-011) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
