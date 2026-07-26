@@ -9,9 +9,9 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
 - Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), a reviewed Rector deferral decision (PF-022), local Git hooks (PF-023), GitHub Actions continuous integration (PF-030), and required-status-check quality gates (PF-031) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021), [Local Git hooks (PF-023)](#local-git-hooks-pf-023), [Continuous integration (PF-030)](#continuous-integration-pf-030), and [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) below.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), a reviewed Rector deferral decision (PF-022), local Git hooks (PF-023), GitHub Actions continuous integration (PF-030), required-status-check quality gates (PF-031), and dependency security scanning (PF-032) are **complete** — the repository-foundation tooling track PF-020 through PF-032 is now finished. See [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021), [Local Git hooks (PF-023)](#local-git-hooks-pf-023), [Continuous integration (PF-030)](#continuous-integration-pf-030), [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031), and [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- Laravel Pint and Larastan/PHPStan are configured, checked by local, optional Git hooks (PF-023), and run automatically in CI on every pull request (PF-030). The local hooks remain fast feedback only and are never the merge gate; since PF-031 the three CI checks are **required** by the active `Protect main` ruleset, which is the authoritative enforcement boundary for `main` — PF-032 still owns security scanning. Rector remains deliberately deferred (not installed or configured, per PF-022's review) — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
+- Laravel Pint and Larastan/PHPStan are configured, checked by local, optional Git hooks (PF-023), and run automatically in CI on every pull request (PF-030). The local hooks remain fast feedback only and are never the merge gate; since PF-031 the three CI checks are **required** by the active `Protect main` ruleset, which is the authoritative enforcement boundary for `main`, and PF-032 added a fourth required check, **`Dependency Audit`**, which audits the committed dependency lock files. Rector remains deliberately deferred (not installed or configured, per PF-022's review) — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -33,6 +33,8 @@ The full constitutional rules behind these commitments are in [`docs/architectur
 | [`AGENTS.md`](AGENTS.md) | Required reading for any AI coding assistant before changing this repository; lists the source-of-truth documents and per-module rules. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Git workflow, branch/commit/versioning conventions, PR process, and security/secret-handling rules. |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | PF-030 continuous integration: the PHP Code Quality, Frontend Build, and Application Tests checks that run on every pull request targeting `main` — all three required to merge since PF-031. |
+| [`.github/workflows/security.yml`](.github/workflows/security.yml) | PF-032 security scanning: the Dependency Audit check that audits the committed Composer and npm lock files on every pull request targeting `main` — required to merge. |
+| [`.github/dependabot.yml`](.github/dependabot.yml) | PF-032 Dependabot configuration: weekly Composer, npm, and GitHub Actions update proposals, each opened as an ordinary pull request for human review. |
 | [`docs/README.md`](docs/README.md) | Full, navigable documentation index. |
 | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | Authoritative, continuously updated record of current/next story and completed work. |
 | [`docs/architecture/`](docs/architecture) | Approved architecture documents (Constitution, AI Architecture, Roadmap, and the per-epic architecture documents). |
@@ -142,7 +144,7 @@ Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose
 
 ## Development tooling readiness (PF-012)
 
-PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint, PF-021 has configured Larastan-backed PHPStan, PF-022 reviewed Rector and deliberately deferred it, and PF-023 has configured local, optional Git hooks. The remaining inventory:
+PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint, PF-021 has configured Larastan-backed PHPStan, PF-022 reviewed Rector and deliberately deferred it, PF-023 has configured local, optional Git hooks, and PF-030 through PF-032 have configured CI, required status checks, and dependency security scanning. The remaining inventory:
 
 - **Laravel Pint** is configured — see [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020) below.
 - **Larastan/PHPStan** is configured — see [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
@@ -150,13 +152,14 @@ PF-012 (Development Tooling) inventoried the repository's tooling state and clar
 - **Git hooks** are configured, tracked, and installable — see [Local Git hooks (PF-023)](#local-git-hooks-pf-023) below. Installation is an intentional, separate developer action; nothing installs them automatically.
 - **GitHub Actions** are configured — see [Continuous integration (PF-030)](#continuous-integration-pf-030) below. The checks run automatically on pull requests and, since PF-031, all three are **required** by the `Protect main` ruleset; see [`CONTRIBUTING.md`](CONTRIBUTING.md) for that ruleset's full current state.
 - **Required status checks** are configured — see [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) below. **Coverage thresholds, a PHPStan level increase, frontend linting, and test-count thresholds are deliberately not configured**, and neither is commit signing.
+- **Dependency security scanning** is configured — see [Security scanning (PF-032)](#security-scanning-pf-032) below. `composer audit` and `npm audit` run in the required **`Dependency Audit`** check, and Dependabot proposes weekly Composer, npm, and GitHub Actions updates. **CodeQL/SAST, dependency review, SARIF upload, container scanning, scheduled scanning, and third-party secret scanners are deliberately not configured.**
 
-Future ownership, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
+Ownership notes, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
 
 - **PF-031** configured automated quality gates and made the three CI checks required. It deliberately introduced no new threshold; any future PHPStan rule-level increase remains its documented ownership area and requires a fresh decision against the code present at that time.
-- **PF-032** will configure security scanning.
+- **PF-032** configured security scanning: dependency auditing as a fourth required check, Dependabot update proposals, and a documented record of GitHub's native protections. It deliberately configured no SAST, code scanning, or container scanning.
 
-No developer should treat security scanning as active or enforced until PF-032 is completed and merged, and no disabled ruleset option (commit signing, linear history, required deployments, merge queue, code scanning, code quality, coverage) should be treated as active. **Local Git hooks (PF-023) are fast local feedback, not authoritative CI or security controls** — they are bypassable with `--no-verify` by design and are never the merge gate. The PF-030 CI checks are unbypassable by `--no-verify`, run independently of local hooks, and are required to pass by the `Protect main` ruleset.
+Dependency auditing is active and enforced; **the deferred controls listed above are not**, and no disabled ruleset option (commit signing, linear history, required deployments, merge queue, code scanning, code quality, coverage) should be treated as active. **Local Git hooks (PF-023) are fast local feedback, not authoritative CI or security controls** — they are bypassable with `--no-verify` by design and are never the merge gate. The PF-030 and PF-032 CI checks are unbypassable by `--no-verify`, run independently of local hooks, and are required to pass by the `Protect main` ruleset.
 
 ## Code style: Laravel Pint (PF-020)
 
@@ -209,7 +212,7 @@ If analysis fails with a genuine out-of-memory error, the standard Composer scri
 docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=2G
 ```
 
-PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable. `composer phpstan` also runs automatically in the `pre-push` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. `composer phpstan` additionally runs in CI's **PHP Code Quality** check on every pull request — see [Continuous integration (PF-030)](#continuous-integration-pf-030) — and PF-031 made that check required to merge. **PF-031 left the analysis level at 5** and added no baseline, suppression, or ignored error; raising the level against the current small skeleton would produce a gate that certifies nothing, so it stays a future decision to be made against real module code. PF-032 owns security scanning. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
+PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities; dependency vulnerability auditing is separate, and is covered by [Security scanning (PF-032)](#security-scanning-pf-032) below. Larastan/PHPStan is configured and runnable. `composer phpstan` also runs automatically in the `pre-push` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. `composer phpstan` additionally runs in CI's **PHP Code Quality** check on every pull request — see [Continuous integration (PF-030)](#continuous-integration-pf-030) — and PF-031 made that check required to merge. **PF-031 left the analysis level at 5** and added no baseline, suppression, or ignored error; raising the level against the current small skeleton would produce a gate that certifies nothing, so it stays a future decision to be made against real module code. **PF-032 did not change the analysis level or add any static application security testing** — see [Security scanning (PF-032)](#security-scanning-pf-032) below. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
 
 ## Local Git hooks (PF-023)
 
@@ -235,7 +238,7 @@ sh .githooks/uninstall.sh
 
 If Docker is not installed, not running, or the `app` service isn't up, and no usable host Composer environment (`vendor/autoload.php` present) is found either, a hook **fails with a clear, actionable message** telling you to start Docker Desktop, run `docker compose up -d`, ensure dependencies are installed, and re-run — it never silently skips a check. `git commit --no-verify` / `git push --no-verify` remain available as an intentional emergency bypass; using them does not mean the code is clean, only that local validation was skipped.
 
-**These are local, optional hooks — not authoritative security or CI controls, and never the merge gate.** They are easily bypassed and only run on the machine where they're installed. They remain genuinely useful for catching a problem before you push, but the authoritative boundary is the active `Protect main` ruleset: the same checks run remotely and unbypassably in CI — see [Continuous integration (PF-030)](#continuous-integration-pf-030) — and since PF-031 all three are *required* to merge, as described in [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031). PF-032 remains responsible for security scanning. None of that is implemented by PF-023, and CI never invokes these hook scripts.
+**These are local, optional hooks — not authoritative security or CI controls, and never the merge gate.** They are easily bypassed and only run on the machine where they're installed. They remain genuinely useful for catching a problem before you push, but the authoritative boundary is the active `Protect main` ruleset: the same checks run remotely and unbypassably in CI — see [Continuous integration (PF-030)](#continuous-integration-pf-030) — and since PF-031 all three are *required* to merge, as described in [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031), joined by PF-032's required `Dependency Audit` check. None of that is implemented by PF-023 — the hooks run no audit or security command — and CI never invokes these hook scripts.
 
 **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (which bundles Git Bash) — the hook scripts are POSIX `sh` and Git invokes them through whichever POSIX-compatible shell it ships with on each platform. **Not supported:** a raw Windows shell (`cmd.exe`/PowerShell) with no Git-for-Windows or WSL POSIX shell available.
 
@@ -253,10 +256,10 @@ Three stable checks appear on every pull request:
 
 - **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` rather than the dev server. That manifest must exist before the test suite renders a view, so the tests job consumes the frontend job's build output instead of rebuilding it.
 - **Runtimes:** `ubuntu-24.04`, **PHP 8.4**, **Node 22**, Composer v2, coverage disabled, no version matrix — matching the Docker development environment. Tests run against SQLite `:memory:` per [`phpunit.xml`](phpunit.xml), so **no PostgreSQL, Redis, queue worker, or Docker service is required**.
-- **Every action is pinned to a full 40-character commit SHA**, with its human-readable release tag in an inline comment. Keeping those references updated automatically is PF-032 scope.
+- **Every action is pinned to a full 40-character commit SHA**, with its human-readable release tag in an inline comment. PF-032 added Dependabot's `github-actions` ecosystem to keep those references current *without* unpinning them — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - **Read-only and secretless:** the workflow declares `permissions: contents: read`, uses no repository secret, and uses `pull_request` rather than `pull_request_target` — so pull requests from forks run with read-only access and never gain privileged base-repository permissions. It never comments on a pull request, pushes commits or tags, publishes an artifact externally, or deploys anything.
 - **CI is independent of local Git hooks.** It calls the Composer/npm scripts directly and never invokes `.githooks/` scripts, so it runs whether or not a developer opted into [Local Git hooks (PF-023)](#local-git-hooks-pf-023).
-- **PF-030 made these checks visible; PF-031 made them required.** A failing or missing check now blocks the merge — see [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) below. PF-032 owns security scanning, which is not implemented here, and **there is no production deployment**.
+- **PF-030 made these checks visible; PF-031 made them required.** A failing or missing check now blocks the merge — see [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) below. Security scanning is **not** implemented in this workflow: PF-032 added it as a separate workflow with its own required check — see [Security scanning (PF-032)](#security-scanning-pf-032) below — and **there is no production deployment**.
 
 ## Quality gates: required status checks (PF-031)
 
@@ -274,16 +277,73 @@ PF-031 made the three PF-030 checks **mandatory before `main` may be updated**, 
 - **The rest of the `Protect main` ruleset is unchanged and still enforced**: pull requests required, conversation resolution required, branch deletion restricted, force pushes blocked, and **no bypass actor configured**. Required formal approving reviews remain temporarily **0** because this is a single-owner repository and GitHub does not let an author approve their own pull request — **explicit human review and an approval comment on the pull request remain mandatory**.
 - **PF-031 introduced no new threshold.** PHPStan stays at **level 5** with no baseline or suppression, **no code-coverage collection or threshold** was added, **no frontend linter or type checker** was added, and **no test-count or assertion-count threshold** was added. Against the current small Laravel skeleton, any of these would be a cosmetic gate that certifies nothing.
 - **Commit signing remains deferred**, pending a later ownership and signing-policy decision. Linear history, required deployments, a merge queue, required code-scanning results, required GitHub code-quality results, required code-coverage thresholds, and automatic Copilot review are all **not enabled** — do not treat any of them as an active control.
-- **Code scanning and dependency/security automation are PF-032 scope**, still unconfigured. PF-031 introduced no application code, business module, deployment pipeline, production environment, repository secret, or new dependency.
+- **Dependency and security automation came later, in PF-032** — see [Security scanning (PF-032)](#security-scanning-pf-032) below. PF-031 itself introduced no application code, business module, deployment pipeline, production environment, repository secret, or new dependency.
+
+## Security scanning (PF-032)
+
+PF-032 added the repository's first security scanning: a second tracked workflow, [`.github/workflows/security.yml`](.github/workflows/security.yml) (named `Security`), plus [`.github/dependabot.yml`](.github/dependabot.yml). The workflow triggers on **pull requests targeting `main`** and on manual **`workflow_dispatch`** — there is no push, scheduled, deployment, or path-filter trigger.
+
+| Required check | Source | Job ID | What it runs |
+|---|---|---|---|
+| **`Dependency Audit`** | GitHub Actions | `dependencies` | `composer audit --locked --abandoned=report --no-interaction`, then `npm audit --audit-level=high` |
+
+**All four checks are now required to merge.** The repository owner added `Dependency Audit` to the active `Protect main` ruleset from GitHub Actions, so it joins `PHP Code Quality`, `Frontend Build`, and `Application Tests`:
+
+| Required check | Source | Workflow |
+|---|---|---|
+| **`PHP Code Quality`** | GitHub Actions | [`ci.yml`](.github/workflows/ci.yml) |
+| **`Frontend Build`** | GitHub Actions | [`ci.yml`](.github/workflows/ci.yml) |
+| **`Application Tests`** | GitHub Actions | [`ci.yml`](.github/workflows/ci.yml) |
+| **`Dependency Audit`** | GitHub Actions | [`security.yml`](.github/workflows/security.yml) |
+
+- **The audit reads lock files and never remediates.** `--locked` audits `composer.lock` directly and `npm audit` reads `package-lock.json` directly, so **no `composer install` or `npm ci` runs, no `vendor/` or `node_modules/` directory exists in the job, and no third-party dependency code or package lifecycle script executes**. The manifests and lock files are never written, and `npm audit fix`, `composer update`, and `npm update` are never invoked. Remediating a real advisory is a deliberate, separately reviewed change — never something the check does on its own.
+- **Nothing is ignored.** `--ignore-unreachable` is deliberately not used, so an unreachable advisory database fails the check rather than passing as though nothing were found. `--abandoned=report` is pinned explicitly so a future Composer default change cannot silently turn an abandoned package into a merge blocker. `--omit=dev` is deliberately not used: [`package.json`](package.json) declares no production dependencies, so omitting development dependencies would audit nothing at all.
+- **The job is independent** — no `needs:` and no `if:` condition — so it can never report the `skipped` conclusion that GitHub's required-check evaluation does not treat as blocking. Required checks are matched by exact name, so renaming this job is a two-part change (workflow *and* ruleset), exactly as for the other three.
+- **Read-only and secretless:** `permissions: contents: read`, no repository secret, `persist-credentials: false` on checkout, and no SARIF or artifact upload. Every action is pinned to a full 40-character commit SHA with its release tag in an inline comment, and **no new third-party action, Composer package, or npm package was added** — the three actions used are already in [`ci.yml`](.github/workflows/ci.yml) at the same SHAs.
+- **Dependabot proposes weekly updates** for three ecosystems — **Composer**, **npm**, and **GitHub Actions** — each limited to 5 open pull requests, with no grouping configured. The GitHub Actions entry keeps action references **pinned to full commit SHAs**: Dependabot proposes a new SHA and rewrites the trailing release-tag comment, never a mutable version tag.
+- **Dependabot merges nothing.** Every proposal is an ordinary pull request that must pass all four required checks and receive human review before merge. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the narrow governance exception that covers these maintenance pull requests.
+
+Run the same audits locally, the same way CI does — both read the lock files only and change nothing:
+
+```bash
+docker compose exec app composer audit --locked --abandoned=report --no-interaction
+docker compose exec vite npm audit --audit-level=high
+```
+
+### GitHub-native protections (verified enabled)
+
+These are GitHub repository settings, not repository files. The repository owner verified each one as **enabled** at PF-032 closure:
+
+- **Dependency graph**
+- **Dependabot alerts**
+- **Dependabot security updates**
+- **Secret Protection**
+- **Push Protection**
+
+Push Protection rejects a push containing a detected secret pattern. It is a prevention control, not a status check, and never decides whether a pull request may merge. The rules in [Security and confidentiality](#security-and-confidentiality) below still apply in full — a committed secret is compromised and must be rotated, and a history rewrite alone is not sufficient remediation.
+
+### Deliberately deferred — do not treat any of these as active
+
+- **CodeQL/SAST** — not configured. CodeQL does not support PHP, and this repository's whole JavaScript surface is a placeholder, so it would certify nothing today. Reconsider against real `app/Modules/` code.
+- **GitHub Dependency Review** — not configured. Its vulnerability coverage is a subset of the lock-file audit above, which audits the entire dependency tree rather than only a pull request's additions.
+- **SARIF upload** — nothing produces or uploads SARIF, and no workflow is granted `security-events` permission.
+- **Container scanning** — not configured. The Docker files are development-only, and there is no production deployment.
+- **Scheduled scanning** — no workflow has a `schedule` trigger; advisory drift against unchanged `main` is covered by Dependabot alerts instead.
+- **Third-party secret scanners** — none. GitHub's native Secret Protection above is the only secret-scanning control.
+- **Automatic dependency submission** — disabled.
+- **Grouped security updates** — disabled, and [`.github/dependabot.yml`](.github/dependabot.yml) configures no `groups`.
+- **AI findings** — off.
+
+PF-032 introduced no application code, business module, deployment pipeline, production environment, repository secret, new dependency, PHPStan level change, baseline, suppression, or coverage threshold. It changed no existing check name and no existing CI behavior: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) is unchanged.
 
 ## Development workflow
 
 Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 - Work happens on short-lived feature branches created from `main`; `main` is protected and never receives direct commits.
-- **One approved story per pull request** — a PR implements exactly one story ID from [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
+- **One approved story per pull request** — a PR implements exactly one story ID from [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md). GitHub-generated Dependabot update pull requests are the one narrow, documented exception; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Every PR uses the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) with its sections intact.
-- **All three required CI checks must pass before a PR can merge** — `PHP Code Quality`, `Frontend Build`, and `Application Tests` — enforced by the `Protect main` ruleset since PF-031.
+- **All four required CI checks must pass before a PR can merge** — `PHP Code Quality`, `Frontend Build`, and `Application Tests` (required since PF-031), plus `Dependency Audit` (required since PF-032) — enforced by the `Protect main` ruleset.
 - Human review and approval is required before merge. GitHub's formal approval-count requirement is currently 0 because this is a single-owner repository (GitHub cannot let an author approve their own PR); until a second authorized reviewer exists, human approval is recorded as an explicit review comment on the pull request instead. Conversation resolution is required, and no bypass actor exists.
 
 ## Security and confidentiality
@@ -296,7 +356,7 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 ## Current limitations and next foundation work
 
 - **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured**, checked by local, optional Git hooks (PF-023) once installed, and run automatically in CI (PF-030). The local hooks remain feedback only, bypassable with `--no-verify`, and are not authoritative controls. Rector (PF-022) was reviewed and deliberately deferred rather than installed — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
-- **CI is now an enforced merge gate, but a deliberately narrow one.** PF-031 requires all three PF-030 checks through the `Protect main` ruleset. **Commit signing, code scanning, dependency/security automation, coverage thresholds, frontend linting, and test-count thresholds remain unconfigured** and must not be treated as enforced — commit signing awaits a later ownership and signing-policy decision, and security scanning is PF-032 — see [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) above and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **CI is now an enforced merge gate, but a deliberately narrow one.** The `Protect main` ruleset requires all three PF-030 checks (since PF-031) plus PF-032's `Dependency Audit`. **Dependency auditing and Dependabot update proposals are active; SAST/CodeQL, dependency review, SARIF, container scanning, scheduled scanning, third-party secret scanners, commit signing, coverage thresholds, frontend linting, and test-count thresholds remain unconfigured** and must not be treated as enforced — commit signing awaits a later ownership and signing-policy decision — see [Quality gates: required status checks (PF-031)](#quality-gates-required-status-checks-pf-031) and [Security scanning (PF-032)](#security-scanning-pf-032) above, and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **There is no production deployment.** CI builds and tests the application; it deploys nothing, and no deployment pipeline, environment, or infrastructure exists.
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).

@@ -1,4 +1,4 @@
-# PF-032 Security Scanning (phase 1)
+# PF-032 Security Scanning
 #
 # Audits the repository's committed dependency lock files against the published
 # Composer and npm security advisory databases on pull requests targeting main.
@@ -8,12 +8,14 @@
 # "Application Tests") stay untouched, and so a future scheduled advisory-drift
 # trigger can be considered here without changing ci.yml's documented triggers.
 #
-# At phase 1 this check is VISIBLE ONLY. Making "Dependency Audit" a required
-# status check in the active "Protect main" ruleset is a separate, human-made
-# GitHub settings change that happens in phase 2, after this check has reported
-# green on its own pull request. Required checks are matched by exact check
-# name, so renaming the job below after that point without a corresponding
-# human-reviewed ruleset update makes the repository fail closed.
+# "Dependency Audit" is a REQUIRED status check in the active "Protect main"
+# ruleset, alongside ci.yml's "PHP Code Quality", "Frontend Build", and
+# "Application Tests" — a pull request cannot update main until all four pass.
+# That enforcement lives in GitHub's repository settings, not in this file.
+# Required checks are matched by exact check name, so renaming the job below
+# without a corresponding human-reviewed ruleset update makes the repository
+# fail closed: GitHub keeps waiting for a required check name that no longer
+# reports, and every pull request stays blocked as "Expected".
 #
 # Out of scope here, and not to be treated as active: CodeQL/SAST, GitHub
 # Dependency Review, SARIF, container scanning, scheduled scanning, and
