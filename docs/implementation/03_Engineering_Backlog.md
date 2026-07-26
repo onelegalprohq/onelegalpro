@@ -24,8 +24,8 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-012 Development Tooling — Done
 
 ## Code Quality
-- PF-020 Laravel Pint — Next
-- PF-021 PHPStan
+- PF-020 Laravel Pint — Done
+- PF-021 PHPStan — Next
 - PF-022 Rector, optional
 - PF-023 Git Hooks
 
