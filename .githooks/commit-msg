@@ -28,7 +28,7 @@ reject() {
 
 # Git- and tooling-generated subjects are exempt from Conventional Commits
 # formatting - they are not authored by a developer against CONTRIBUTING.md.
-if printf '%s\n' "${subject}" | grep -Eq '^(Merge |Revert "|fixup!|squash!)'; then
+if printf '%s\n' "${subject}" | grep -Eq '^(Merge |Revert "|fixup! |squash! )'; then
     exit 0
 fi
 
