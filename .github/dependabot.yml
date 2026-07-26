@@ -1,0 +1,48 @@
+# PF-032 Security Scanning (phase 1)
+#
+# Activates Dependabot version updates for the repository's three dependency
+# ecosystems. Every update arrives as an ordinary pull request targeting main,
+# so it passes the same required PF-030/PF-031 status checks and the same
+# mandatory human review as any other change — Dependabot merges nothing.
+#
+# Dependabot alerts and Dependabot security updates are enabled separately in
+# GitHub's repository settings, not by this file.
+#
+# Commit-message prefixes are set so Dependabot's own commits satisfy the
+# Conventional Commits rule in CONTRIBUTING.md ("chore" and "ci" are both
+# allowed types).
+#
+# Grouping is deliberately not configured in phase 1.
+
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  # Keeps the full-commit-SHA action references in .github/workflows/ current.
+  # Dependabot preserves SHA pinning — it proposes a new full commit SHA and
+  # rewrites the trailing release-tag comment, never a mutable version tag — and
+  # each proposal is reviewed by a human like any other pull request.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"

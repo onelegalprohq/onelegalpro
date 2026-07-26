@@ -20,6 +20,7 @@ This repository uses a **main plus feature-branch** strategy:
 - No bypass actor is configured — the ruleset applies to everyone, with no exceptions.
 - The required formal GitHub approval count is temporarily **0**, because this is currently a single-owner repository and GitHub does not allow an author to approve their own pull request. Human review and approval is still mandatory: record it as an explicit review comment on the pull request until a second authorized reviewer is available. Formal approving reviews (a required approval count above zero) must be configured as soon as a second authorized reviewer exists.
 - **All three PF-030 status checks are required (PF-031).** PF-030 added the GitHub Actions workflow that makes these checks *visible* on every pull request targeting `main`; PF-031 made them *mandatory*, so `main` cannot be updated until **`PHP Code Quality`**, **`Frontend Build`**, and **`Application Tests`** have all passed. GitHub Actions is their configured source. See [Continuous integration (PF-030)](#continuous-integration-pf-030) and [Required status checks (PF-031)](#required-status-checks-pf-031) below.
+- **A fourth status check is required (PF-032).** PF-032 added the `Security` workflow's **`Dependency Audit`** check, and the repository owner added it to this same ruleset from GitHub Actions. `main` therefore cannot be updated until **all four** of `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit` have passed. See [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - **"Require branches to be up to date before merging" is deliberately OFF.** A stale-but-green pull request may still merge. This is a considered choice for a single-owner repository with serialized pull requests, not an oversight — see [Required status checks (PF-031)](#required-status-checks-pf-031).
 - "Do not require status checks on creation" is **off**, so the requirement applies from the moment a pull request is created.
 - **Commit signing is not required.** It remains deferred pending a later ownership and signing-policy decision, and is not PF-031 scope.
@@ -42,7 +43,7 @@ PF-031 (Quality Gates) configured the `Protect main` ruleset to require exactly 
 - **Required checks are matched by exact check name.** Renaming `PHP Code Quality`, `Frontend Build`, or `Application Tests` without a corresponding, human-reviewed update to the ruleset makes the repository **fail closed**: GitHub keeps waiting for a required check name that no longer reports, and every pull request stays blocked as "Expected". Treat a job rename as a two-part change — the workflow edit *and* the ruleset update — never one without the other.
 - **The up-to-date-branch requirement stays off for now.** Enabling it would invalidate every other open pull request on each merge to `main` and force an update-and-rerun cycle, which buys little while pull requests are authored one at a time. Revisit it alongside the second-reviewer decision above, or when approved business-module implementation makes semantic conflicts realistic.
 - **PF-031 changed no quality threshold.** PHPStan stays at level 5, no code-coverage collection or threshold is introduced, no frontend linter or type checker is introduced, and no test-count or assertion-count threshold is introduced. Introducing a threshold against the current small Laravel skeleton would create a cosmetic gate that certifies nothing.
-- **Code scanning and dependency/security automation are PF-032 scope** — CodeQL, dependency review, `composer audit`, `npm audit`, secret scanning, container scanning, and action-update automation are all still unconfigured and must not be treated as active.
+- **Dependency and security automation arrived in PF-032, not PF-031.** At PF-031 closure, `composer audit`, `npm audit`, dependency review, CodeQL, secret scanning, container scanning, and action-update automation were all unconfigured. PF-032 has since configured dependency auditing, weekly Dependabot update proposals, and the required `Dependency Audit` check, and recorded GitHub's native protections — see [Security scanning (PF-032)](#security-scanning-pf-032) below. **CodeQL/SAST, dependency review, SARIF upload, container scanning, scheduled scanning, and third-party secret scanners remain deliberately deferred** and must not be treated as active.
 - PF-031 introduced no application code, business module, deployment pipeline, production environment, repository secret, or new dependency.
 
 ### Branch naming
@@ -90,6 +91,17 @@ No release has been tagged yet. While `EPIC-001 Platform Foundation` is in progr
 - Reference the story ID in the PR title and description.
 - Keep changes scoped to the files required by the approved story, per `AGENTS.md`.
 
+### Dependabot maintenance pull requests (narrow exception)
+
+GitHub-generated Dependabot update pull requests (PF-032) are **maintenance pull requests**, not product-story work, and are the single narrow exception to the story-ID rule above:
+
+- A Dependabot PR is **not manually assigned a product-story ID**. It is identified by the generated dependency update itself.
+- Each Dependabot PR **must remain narrowly scoped to the generated dependency update** it was opened for. Do not add unrelated changes, refactors, documentation rewrites, or a second dependency bump to it — open a normal story PR for that instead.
+- Each Dependabot PR **must pass all four required status checks and receive human review before merge**, exactly like any other pull request. Nothing merges automatically.
+- A dependency change that is not a routine version bump still needs its own approval. A **new** runtime dependency, or a change that alters authentication/authorization, database design, public API contracts, billing, or AI governance, requires the explicit human approval gate below regardless of which tool opened the pull request.
+
+**This exception does not weaken the one-approved-story-per-human-authored-PR rule.** Every human-authored pull request still implements exactly one approved story ID from the Engineering Backlog.
+
 ## Testing and documentation requirements
 
 Every pull request must, per the Sprint Plan's Definition of Done:
@@ -113,10 +125,54 @@ Three stable checks appear on every pull request:
 
 - **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` instead. That manifest must exist before the suite runs, so the tests job consumes the frontend job's build output rather than rebuilding it.
 - CI uses **PHP 8.4** and **Node 22** on `ubuntu-24.04`, matching the Docker development environment. Tests run against SQLite `:memory:` per [`phpunit.xml`](phpunit.xml) — no PostgreSQL, Redis, queue worker, or Docker service is involved.
-- **Every action is pinned to a full commit SHA**, with its human-readable release tag in an inline comment. Automated updating of those references is PF-032 scope.
+- **Every action is pinned to a full commit SHA**, with its human-readable release tag in an inline comment. PF-032 added Dependabot's `github-actions` ecosystem to propose updates to those references *without* unpinning them — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - The workflow uses **read-only permissions (`contents: read`) and no secrets**, and uses `pull_request` rather than `pull_request_target`, so pull requests from forks run safely without privileged access.
-- **All three checks are now required to merge (PF-031).** PF-030 made them visible; PF-031 made them mandatory through the `Protect main` ruleset, so a pull request with a failing or missing check cannot be merged into `main` — see [Required status checks (PF-031)](#required-status-checks-pf-031) above.
+- **All three of this workflow's checks are required to merge (PF-031).** PF-030 made them visible; PF-031 made them mandatory through the `Protect main` ruleset, so a pull request with a failing or missing check cannot be merged into `main` — see [Required status checks (PF-031)](#required-status-checks-pf-031) above. PF-032 later added a fourth required check, `Dependency Audit`, from a separate workflow — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - CI calls the Composer and npm scripts directly. It never invokes the PF-023 Git hooks below, and it runs regardless of whether a developer has installed them.
+
+## Security scanning (PF-032)
+
+A second tracked workflow, [`.github/workflows/security.yml`](.github/workflows/security.yml) (named `Security`), audits the committed dependency lock files. It triggers on `pull_request` targeting `main` and on manual `workflow_dispatch` — there is no `push`, `schedule`, `pull_request_target`, `workflow_run`, deployment, or path-filter trigger.
+
+| Check name | Job ID | What it runs |
+|---|---|---|
+| **Dependency Audit** | `dependencies` | `composer audit --locked --abandoned=report --no-interaction`, then `npm audit --audit-level=high` |
+
+- **`Dependency Audit` is a required status check.** The repository owner added it to the active `Protect main` ruleset from GitHub Actions, so it joins `PHP Code Quality`, `Frontend Build`, and `Application Tests` — all four must pass before `main` may be updated. Renaming the job is a two-part change (workflow *and* ruleset), exactly as for the other three.
+- **The audit reads lock files and never remediates.** `--locked` audits `composer.lock` directly and `npm audit` reads `package-lock.json` directly, so no `composer install` or `npm ci` runs, no `vendor/` or `node_modules/` directory exists in the job, and no third-party dependency code or package lifecycle script executes. `composer.json`, `composer.lock`, `package.json`, and `package-lock.json` are never written; `npm audit fix`, `composer update`, and `npm update` are never invoked.
+- **Failures are not ignored.** `--ignore-unreachable` is deliberately not used, so an unreachable advisory database fails the check rather than passing as though nothing were found. `--abandoned=report` is pinned explicitly so a future Composer default change cannot silently turn an abandoned package into a merge blocker. `--omit=dev` is deliberately not used: `package.json` declares no production dependencies, so omitting development dependencies would audit nothing.
+- **The job is independent.** It declares no `needs:` and no `if:` condition, so it can never report the `skipped` conclusion that GitHub's required-check evaluation does not treat as blocking.
+- **Read-only and secretless:** `permissions: contents: read`, no repository secret, `persist-credentials: false` on checkout, no SARIF upload, and no artifact upload or download. Every action is pinned to a full 40-character commit SHA with its release tag in an inline comment, and no new third-party action was introduced — all three are already used by [`ci.yml`](.github/workflows/ci.yml) at the same SHAs.
+- **`.github/dependabot.yml` configures weekly update proposals** for three ecosystems — **Composer**, **npm**, and **GitHub Actions** — each with an open-pull-request limit of 5 and no grouping. The GitHub Actions entry keeps action references pinned to full commit SHAs: Dependabot proposes a new SHA and rewrites the trailing release-tag comment, never a mutable version tag.
+- **Dependabot merges nothing.** Every proposal is an ordinary pull request that must pass all four required checks and receive human review before merge, exactly like any other change.
+
+### GitHub-native protections (verified enabled)
+
+These live in GitHub's repository settings, not in this repository. The repository owner verified each one as **enabled** at PF-032 closure:
+
+- Dependency graph
+- Dependabot alerts
+- Dependabot security updates
+- Secret Protection
+- Push Protection
+
+Push Protection means a push containing a detected secret pattern is rejected by GitHub. That is a prevention control, not a status check, and it never affects whether a pull request may merge. The secret-handling rules below still apply in full: a committed secret is compromised and must be rotated, and a history rewrite alone is not sufficient remediation.
+
+### Deliberately deferred (not enabled, not required)
+
+Do not treat any of the following as an active control:
+
+- **CodeQL/SAST** — not configured. CodeQL does not support PHP, and this repository's entire JavaScript surface is a placeholder, so it would certify nothing today. Reconsider against real `app/Modules/` code.
+- **GitHub Dependency Review** — not configured. Its vulnerability coverage is a subset of the lock-file audit above, which already audits the whole dependency tree rather than only the pull request's additions.
+- **SARIF upload** — nothing produces or uploads SARIF, and no workflow is granted `security-events` permission.
+- **Container scanning** — not configured. The Docker files are development-only and there is no production deployment.
+- **Scheduled scanning** — no workflow has a `schedule` trigger. Advisory drift against unchanged `main` is covered by Dependabot alerts instead.
+- **Third-party secret scanners** — none. GitHub's native Secret Protection above is the only secret-scanning control.
+- **Automatic dependency submission** — disabled.
+- **Grouped security updates** — disabled, and no Dependabot `groups` configuration exists.
+- **AI findings** — off.
+
+Everything the `Protect main` ruleset still does not enforce is listed under [Protect main (GitHub ruleset)](#protect-main-github-ruleset) above and remains accurate: commit signing, linear history, required deployments, a merge queue, required code-scanning results, required GitHub code-quality results, code-coverage thresholds, and automatic Copilot review are all still not enabled.
 
 ## Local Git hooks (PF-023)
 
@@ -128,7 +184,7 @@ Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and check Conven
 - **Check mapping:** `pre-commit` runs `git diff --cached --check` and check-only `composer pint:test`; `commit-msg` validates the commit subject against this document's Conventional Commits rule below; `pre-push` runs `composer phpstan` and `composer test`.
 - **Conventional Commit enforcement:** the `commit-msg` hook enforces the `<type>(<scope>): <description>` format and allowed types defined above, with `Merge`, `Revert "`, `fixup! ` (space required), and `squash! ` (space required) subjects exempted since they are Git- or tooling-generated, not authored against this convention — `fixup!`/`squash!` without the trailing space are validated as ordinary commit subjects instead.
 - **Bypass acknowledgement:** `git commit --no-verify` / `git push --no-verify` skip these hooks by design — that is an intentional emergency escape hatch, not a statement that the skipped code is clean.
-- **Local hooks are not a substitute for CI, and never the merge gate.** These are fast, bypassable, machine-local feedback only — genuinely useful for catching a problem before you push, but they decide nothing about whether a change may reach `main`. The active `Protect main` ruleset above is the authoritative enforcement boundary: since PF-031 it requires the three PF-030 GitHub Actions checks, which run independently of these hooks and cannot be bypassed with `--no-verify`. This section does not weaken any existing branch, PR, review, security, or approval rule.
+- **Local hooks are not a substitute for CI, and never the merge gate.** These are fast, bypassable, machine-local feedback only — genuinely useful for catching a problem before you push, but they decide nothing about whether a change may reach `main`. The active `Protect main` ruleset above is the authoritative enforcement boundary: it requires the three PF-030 GitHub Actions checks (since PF-031) plus PF-032's `Dependency Audit`, all of which run independently of these hooks and cannot be bypassed with `--no-verify`. **No hook runs any audit or security command** — dependency auditing exists only in CI. This section does not weaken any existing branch, PR, review, security, or approval rule.
 - **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (Git Bash bundled). A raw Windows shell (`cmd.exe`/PowerShell) without Git for Windows or WSL is not supported.
 
 ## AI-assisted development requirements

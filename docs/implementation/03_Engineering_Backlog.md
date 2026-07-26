@@ -32,9 +32,14 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 ## CI/CD
 - PF-030 GitHub Actions — Done
 - PF-031 Quality Gates — Done
-- PF-032 Security Scanning — Next
+- PF-032 Security Scanning — Done
+
+Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect main` ruleset now requires four GitHub Actions checks: `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit`.
 
 ## Foundation Library
+
+Not started and not scheduled. No story below is Ready, Next, In Progress, or Done; each requires its own approved entry with a Definition of Ready before implementation begins.
+
 - PF-040 AggregateRoot
 - PF-041 Entity
 - PF-042 ValueObject

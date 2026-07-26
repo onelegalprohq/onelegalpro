@@ -1,0 +1,90 @@
+# PF-032 Security Scanning
+#
+# Audits the repository's committed dependency lock files against the published
+# Composer and npm security advisory databases on pull requests targeting main.
+#
+# This workflow is deliberately separate from .github/workflows/ci.yml so the
+# three required PF-030/PF-031 checks ("PHP Code Quality", "Frontend Build",
+# "Application Tests") stay untouched, and so a future scheduled advisory-drift
+# trigger can be considered here without changing ci.yml's documented triggers.
+#
+# "Dependency Audit" is a REQUIRED status check in the active "Protect main"
+# ruleset, alongside ci.yml's "PHP Code Quality", "Frontend Build", and
+# "Application Tests" — a pull request cannot update main until all four pass.
+# That enforcement lives in GitHub's repository settings, not in this file.
+# Required checks are matched by exact check name, so renaming the job below
+# without a corresponding human-reviewed ruleset update makes the repository
+# fail closed: GitHub keeps waiting for a required check name that no longer
+# reports, and every pull request stays blocked as "Expected".
+#
+# Out of scope here, and not to be treated as active: CodeQL/SAST, GitHub
+# Dependency Review, SARIF, container scanning, scheduled scanning, and
+# third-party secret scanners.
+#
+# Every action is pinned to a full commit SHA, verified against its release tag.
+
+name: Security
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Read-only. No job writes to the repository, comments on a pull request,
+# uploads SARIF or artifacts, publishes anything, or uses a repository secret.
+permissions:
+  contents: read
+
+# A newer commit on the same pull request cancels its superseded run, while
+# separate pull requests never cancel one another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependencies:
+    name: Dependency Audit
+    runs-on: ubuntu-24.04
+    # Independent by design: no "needs:" and no "if:" condition, so this job can
+    # never report the "skipped" conclusion that GitHub's required-status-check
+    # evaluation does not treat as blocking.
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This job never pushes, so the token is not written to .git/config.
+          persist-credentials: false
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      # Reads composer.lock only. "--locked" audits the lock file itself, so no
+      # "composer install" runs, no vendor/ directory exists, and no third-party
+      # dependency code is ever downloaded or executed. Nothing is remediated:
+      # composer.json and composer.lock are never written. "--abandoned" is
+      # pinned explicitly so a future Composer default change cannot silently
+      # turn an abandoned package into a merge blocker. Network or advisory-
+      # database failures are deliberately NOT ignored (no
+      # "--ignore-unreachable"): an unreachable advisory source fails the job
+      # rather than passing as if nothing were found.
+      - name: Audit Composer dependencies
+        run: composer audit --locked --abandoned=report --no-interaction
+
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      # Reads package-lock.json only. No "npm ci" or "npm install" runs, so no
+      # node_modules/ exists and no package lifecycle script executes. Never
+      # "npm audit fix" — this job reports, it does not remediate, and
+      # package.json and package-lock.json are never written. "--omit=dev" is
+      # deliberately NOT used: package.json declares no production dependencies,
+      # so omitting dev dependencies would audit nothing at all.
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
