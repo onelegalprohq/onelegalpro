@@ -38,18 +38,87 @@ Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect 
 
 ## Foundation Library
 
-Not started and not scheduled. No story below is Ready, Next, In Progress, or Done; each requires its own approved entry with a Definition of Ready before implementation begins.
+The Foundation Library track has started. `PF-049` is **Done**; `PF-047` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
 
-- PF-040 AggregateRoot
-- PF-041 Entity
-- PF-042 ValueObject
-- PF-043 DomainEvent
-- PF-044 BusinessIdentifier
-- PF-045 Money
-- PF-046 Result
-- PF-047 Clock
-- PF-048 UUIDv7
-- PF-049 Exception hierarchy
+- PF-040 AggregateRoot — Backlog
+- PF-041 Entity — Backlog
+- PF-042 ValueObject — Backlog
+- PF-043 DomainEvent — Backlog
+- PF-044 BusinessIdentifier — Backlog
+- PF-045 Money — Backlog
+- PF-046 Result — Backlog
+- PF-047 Clock — **Next**
+- PF-048 UUIDv7 — Backlog
+- PF-049 Exception hierarchy — **Done**
+
+### Approved Foundation execution order
+
+The numeric `PF-040`–`PF-049` list is a **story catalogue, not an execution order**. The human-approved implementation order is:
+
+**PF-049 → PF-047 → PF-042 → PF-048 → PF-044 → PF-041 → PF-043 → PF-040 → PF-045 → PF-046**
+
+Nothing was renamed, renumbered, merged, split, or deleted. See `docs/implementation/01_Implementation_Sprint_Plan.md` for the dependency reasoning and `app/Foundation/README.md` for the standing Foundation conventions.
+
+### Prohibited dependency directions (Foundation Library)
+
+These hold for every story in this track and may not be reversed without explicit human approval:
+
+- **Foundation exceptions must not depend on `BusinessIdentifier`.** The PF-049 taxonomy stays free of identifier types; PF-044 depends on PF-049, never the reverse.
+- **`Result` must not extend `ValueObject`.** PF-046 is an outcome wrapper, not a domain value; it does not inherit PF-042.
+- **Foundation primitives must not return `Result` instead of throwing for invariant violations.** A broken invariant throws a PF-049 exception. `Result` models expected, recoverable outcomes a caller is meant to branch on.
+
+### PF-049 — Foundation Exception Hierarchy — Done
+
+**Objective.** Establish the single framework-independent exception taxonomy used by Foundation primitives and extended by future module-domain exceptions, so a caller can catch every OneLegalPro domain failure through one contract without coupling the domain to Laravel, HTTP, or persistence.
+
+**Dependencies.** None inside the Foundation Library — PF-049 is the first story in the approved order and depends on no other `PF-04x` story. It depends only on the completed repository-foundation tooling track (PF-020 through PF-032) for Pint, PHPStan, tests, and the required CI checks.
+
+**Deliverables.**
+
+- `App\Foundation\Domain\Exception\FoundationException` — interface, extends `\Throwable`, no members of its own.
+- `App\Foundation\Domain\Exception\DomainException` — abstract class, extends `\RuntimeException`, implements `FoundationException`. Name deliberately retained (not `FoundationDomainException`); no custom constructor.
+- `App\Foundation\Domain\Exception\InvariantViolation` — final, extends `DomainException`, no additional behavior.
+- `App\Foundation\Domain\Exception\InvalidArgument` — final, extends `DomainException`, no additional behavior.
+- `app/Foundation/README.md` — the standing Foundation convention record, created by this story as the first Foundation story.
+- Two pure unit tests under `tests/Unit/Foundation/`.
+
+**Allowed files.**
+
+- Created: `app/Foundation/Domain/Exception/FoundationException.php`, `app/Foundation/Domain/Exception/DomainException.php`, `app/Foundation/Domain/Exception/InvariantViolation.php`, `app/Foundation/Domain/Exception/InvalidArgument.php`, `app/Foundation/README.md`, `tests/Unit/Foundation/Domain/Exception/FoundationExceptionHierarchyTest.php`, `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php`.
+- Modified, for status and sequencing only: `docs/implementation/01_Implementation_Sprint_Plan.md`, `docs/implementation/03_Engineering_Backlog.md`, `docs/PROJECT_STATUS.md`.
+
+**Forbidden files.** No dependency or lock file (`composer.json`, `composer.lock`, `package.json`, `package-lock.json`); no tooling configuration (`phpunit.xml`, `phpstan.neon.dist`, `pint.json`); no `.github/`, `.githooks/`, Docker, environment, or deployment file; no existing PHP source file; no `app/Modules`; no Dependabot branch.
+
+**Acceptance criteria.**
+
+- Exactly the four approved source types exist, with the approved inheritance, finality, and abstractness.
+- Both concrete types are catchable through `FoundationException`.
+- Nothing under `App\Foundation\Domain` references Laravel, Illuminate, Eloquent, HTTP, queues, the service container, facades, configuration helpers, or a vendor SDK.
+- Every Foundation source file declares `strict_types=1` and sits in the namespace matching its path.
+- PHP global types are referenced with a leading backslash.
+- No static named constructor (for example `because()`), no serialization API, no error-code catalogue, and no `Result` integration.
+- Pint, PHPStan (level 5, no baseline or suppression), and the test suite all pass.
+
+**Tests.**
+
+- `tests/Unit/Foundation/Domain/Exception/FoundationExceptionHierarchyTest.php` — proves `FoundationException` is an interface extending `\Throwable` and declares no members of its own; `DomainException` is abstract, extends `\RuntimeException`, and implements `FoundationException`; both concrete types are final, extend `DomainException`, and are catchable through `FoundationException`; constructor messages are preserved exactly; previous-exception chaining is preserved; neither concrete type extends the global `\DomainException`; no type implements `\JsonSerializable`; and the test itself boots no Laravel application.
+- `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php` — recursively inspects every PHP source file under `app/Foundation` and proves each declares strict types, each namespace agrees with its path under `App\Foundation`, and none references a Laravel/Illuminate/Eloquent namespace or calls a Laravel global helper. It is a **denylist, not an allowlist**, so a future explicitly approved, domain-safe direct dependency may be permitted by its own story without rewriting the guard. It adds no test dependency and boots no Laravel application.
+
+**Security requirements.**
+
+- No exception type carries a tenant identifier, actor identity, credential, session data, client or matter content, or privileged narrative.
+- Exception messages are documented as developer-facing and must never be exposed verbatim to an external caller.
+- No authentication, authorization, tenancy, or Ethical Wall decision is introduced — no `FirmId`, `FirmContext`, actor, principal, or session semantics.
+- No `AccessDenied`, `Unauthorized`, `Forbidden`, `NotFound`, `ConcurrencyConflict`, or `StaleAggregate` type is created.
+- No existing security control or required check was weakened, renamed, bypassed, or removed. The four required `Protect main` checks retain their exact names: `PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`.
+
+**Documentation impact.** `app/Foundation/README.md` created; `docs/implementation/01_Implementation_Sprint_Plan.md`, `docs/implementation/03_Engineering_Backlog.md`, and `docs/PROJECT_STATUS.md` updated for status and sequencing only.
+
+**Definition of Ready (met).** Goal clear and narrowly bounded to one taxonomy; owner identified (repository owner); dependencies resolved (none inside the Foundation Library); acceptance criteria stated above; security implications identified (developer-facing messages only, no tenancy or authorization semantics); tests specified; no architecture blocker — `app/Foundation` is the approved home for shared technical primitives per `docs/domain/06_Laravel_Module_Blueprint.md`.
+
+**Definition of Done (met).** Acceptance criteria met; `composer pint`, `composer phpstan`, and `composer test` all pass with no baseline, suppression, or ignored error; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
+
+**Explicitly not implemented by PF-049.** PF-040 through PF-048 remain unimplemented. No business module, no `app/Modules`, no production deployment, no new dependency, no exception handler/renderer/service provider/bootstrap registration, no logging, telemetry, audit, metrics, or reporting.
 
 ## Module Infrastructure
 - PF-060 through PF-063
