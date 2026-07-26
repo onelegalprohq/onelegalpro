@@ -19,8 +19,8 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-003 Repository Documentation — Done
 
 ## Development Environment
-- PF-010 Docker Development Environment — Next
-- PF-011 Local Environment & Configuration
+- PF-010 Docker Development Environment — Done
+- PF-011 Local Environment & Configuration — Next
 - PF-012 Development Tooling
 
 ## Code Quality

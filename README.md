@@ -8,10 +8,10 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
-- Five architecture tracks are **approved**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), and ARCH-005 (Practice Management Core). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002) are done, and this repository documentation story (PF-003) is part of that same foundation track.
+- Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002) and repository documentation (PF-003) are **complete**, and a Docker development environment (PF-010) is **complete** — see [Docker development environment](#docker-development-environment) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- A Docker-based development environment and a standardized local-development setup do not exist yet — see [Current limitations](#current-limitations-and-next-foundation-work) below.
+- A standardized local-development configuration workflow (PF-011) and development tooling such as Pint/PHPStan/Rector/Git hooks (PF-012) do not exist yet — see [Current limitations](#current-limitations-and-next-foundation-work) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -64,6 +64,48 @@ Verified from [`composer.json`](composer.json) and [`package.json`](package.json
 
 `composer run setup` is a provisional bootstrap script, not a documented, standardized onboarding workflow — see [Current limitations](#current-limitations-and-next-foundation-work).
 
+## Docker development environment
+
+PF-010 provides a reproducible Docker Compose development environment so the application, PostgreSQL, Redis, the queue worker, and frontend asset building can run without installing those runtimes directly on the host. It runs on both Apple Silicon and amd64 machines without a hardcoded platform.
+
+**This is development infrastructure only.** It does not deploy OneLegalPro to production, configure a public domain/DNS/SSL, or implement PF-011 (Local Environment & Configuration) or PF-012 (Development Tooling) — see [Current limitations](#current-limitations-and-next-foundation-work).
+
+Services: `app` (PHP-FPM 8.4 + Composer), `web` (Nginx, serving `public/` only), `postgres`, `redis`, `vite` (Node, frontend dev server and build), and `queue` (the Laravel queue worker, reusing the `app` image). PostgreSQL and Redis publish no host ports — they are reachable only from other containers on the internal Docker network. All published ports bind to `127.0.0.1`.
+
+```bash
+# Build the images
+docker compose build
+
+# Start the stack (detached)
+docker compose up -d
+
+# Inspect service and health status
+docker compose ps
+
+# One-time per environment: create your local .env and application key
+cp .env.example .env
+docker compose exec app php artisan key:generate
+
+# Apply database migrations (never run automatically by the containers)
+docker compose exec app php artisan migrate
+
+# On a completely fresh database, the queue container may have exited because
+# its database-backed tables (cache/jobs) didn't exist yet at first start.
+# Start it now that migrations have run, and confirm it stays up:
+docker compose up -d queue
+docker compose ps
+
+# Run the test suite
+docker compose exec app php artisan test
+
+# Application: http://127.0.0.1:8080  |  Vite dev server: http://127.0.0.1:5173
+
+# Stop the stack (keeps named volumes, e.g. Postgres data)
+docker compose down
+```
+
+`docker compose exec app composer validate --strict` and `docker compose exec vite npm run build` are also available for verifying dependency and frontend-build health. Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose.yaml` are clearly-labelled local-development-only credentials, not secrets.
+
 ## Development workflow
 
 Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
@@ -82,8 +124,8 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 ## Current limitations and next foundation work
 
-- **No Docker development environment yet.** A containerized local environment is tracked as its own upcoming story (Docker Development Environment) and does not exist in this repository today.
-- **No standardized local-development environment yet.** The `composer run setup` script provides a provisional bootstrap only; a documented, standardized local-development and configuration workflow is a separate upcoming story (Local Development Environment).
+- **No standardized local-development configuration yet.** The Docker environment above (PF-010) and the `composer run setup` script provide a provisional bootstrap only; a documented, standardized local-development and configuration workflow is a separate upcoming story — PF-011 (Local Environment & Configuration).
+- **No development tooling yet.** Laravel Pint, PHPStan, Rector, and Git hooks are deferred to PF-012 (Development Tooling) and are not configured today.
 - **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
