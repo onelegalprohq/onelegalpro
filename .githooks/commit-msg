@@ -1,0 +1,55 @@
+#!/usr/bin/env sh
+# .githooks/commit-msg
+#
+# PF-023 tracked commit-msg hook. Validates the Conventional Commits format
+# documented in CONTRIBUTING.md. Never modifies the commit message file.
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "${repo_root}"
+
+message_file="$1"
+subject="$(sed -n '1p' "${message_file}")"
+
+print_examples() {
+    printf 'Valid examples:\n' >&2
+    printf '  chore(pf-023): add tracked git hooks\n' >&2
+    printf '  fix: correct startup behavior\n' >&2
+    printf '  feat(api)!: replace deprecated contract\n' >&2
+}
+
+reject() {
+    printf 'commit-msg: rejected commit subject:\n' >&2
+    printf '  "%s"\n\n' "${subject}" >&2
+    printf '%s\n\n' "$1" >&2
+    print_examples
+    exit 1
+}
+
+# Git- and tooling-generated subjects are exempt from Conventional Commits
+# formatting - they are not authored by a developer against CONTRIBUTING.md.
+if printf '%s\n' "${subject}" | grep -Eq '^(Merge |Revert "|fixup!|squash!)'; then
+    exit 0
+fi
+
+if [ -z "${subject}" ]; then
+    reject "Commit subject must not be empty."
+fi
+
+if ! printf '%s\n' "${subject}" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\([a-zA-Z0-9_./-]+\))?!?: .+$'; then
+    reject "Commit subject must follow Conventional Commits: type(scope)?!?: description, using an allowed type (feat, fix, docs, style, refactor, perf, test, build, ci, chore)."
+fi
+
+description="$(printf '%s\n' "${subject}" | sed -E 's/^[a-z]+(\([a-zA-Z0-9_./-]+\))?!?: //')"
+
+if [ -z "${description}" ]; then
+    reject "Commit description must not be empty."
+fi
+
+case "${description}" in
+    *.)
+        reject "Commit description must not end with a trailing period."
+        ;;
+esac
+
+exit 0

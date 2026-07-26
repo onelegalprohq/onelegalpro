@@ -27,10 +27,10 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-020 Laravel Pint — Done
 - PF-021 PHPStan — Done
 - PF-022 Rector, optional — Done (reviewed and deferred; not configured)
-- PF-023 Git Hooks — Next
+- PF-023 Git Hooks — Done
 
 ## CI/CD
-- PF-030 GitHub Actions
+- PF-030 GitHub Actions — Next
 - PF-031 Quality Gates
 - PF-032 Security Scanning
 
