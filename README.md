@@ -188,7 +188,8 @@ Pint is configured and runnable, but nothing currently invokes it automatically 
 
 - **Analysis level:** 5 — Larastan's own documented starting point for a fresh Laravel project.
 - **Analyzed paths:** `app/`, `bootstrap/`, `config/`, `database/`, `routes/`.
-- **Not analyzed:** `tests/` and Blade templates are out of scope for PF-021.
+- **Excluded:** generated files under `bootstrap/cache/` are excluded from analysis (`excludePaths`). These files are machine- and run-generated (Laravel's cached package/service manifests), so their presence and exact contents vary between environments and executions — excluding them keeps the analysis scope limited to tracked, reviewable source rather than local generated state.
+- **Not analyzed:** `tests/` and Blade templates remain outside PF-021's initial scope.
 - **No baseline, suppressions, or ignored errors are configured** — the current codebase passes level 5 cleanly with no exceptions carved out.
 
 Canonical Docker command:
