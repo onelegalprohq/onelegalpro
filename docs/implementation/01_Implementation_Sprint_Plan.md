@@ -41,6 +41,16 @@ Every sprint must preserve module boundaries, Firm isolation, authorization, aud
 - PF-048 UUIDv7
 - PF-049 Exception hierarchy
 
+**The numeric `PF-040`–`PF-049` list above is a story catalogue, not an execution order.** It enumerates the approved Foundation Library stories; it does not state the sequence in which they are implemented.
+
+**Approved implementation order:**
+
+**PF-049 → PF-047 → PF-042 → PF-048 → PF-044 → PF-041 → PF-043 → PF-040 → PF-045 → PF-046**
+
+**Nothing was renamed, renumbered, merged, split, or deleted.** Every `PF-04x` number and catalogue entry above is preserved exactly as approved; only the implementation sequence is recorded, and it does not change any story's identity, scope, or number.
+
+**Dependency reason (brief).** The order follows dependency direction rather than numbering. `PF-049` (exception hierarchy) is first because every later Foundation primitive throws through it. `PF-047` (Clock) is standalone and unblocks time-dependent primitives. `PF-042` (ValueObject) precedes `PF-048` (UUIDv7) and `PF-044` (BusinessIdentifier), which build on it; identifiers in turn precede `PF-041` (Entity), which precedes `PF-043` (DomainEvent) and `PF-040` (AggregateRoot). `PF-045` (Money) builds on `PF-042`. `PF-046` (Result) is last so it is designed against primitives that already exist rather than shaping them. The standing conventions for this layer are recorded in [`app/Foundation/README.md`](../../app/Foundation/README.md).
+
 ### Sprint 0.4 — Platform Runtime
 - PF-060 Module Loader
 - PF-061 Module Service Provider
