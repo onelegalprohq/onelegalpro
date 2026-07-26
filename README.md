@@ -9,9 +9,9 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
 - Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), and standardized local environment configuration (PF-011) are **complete** — see [Local development (PF-011)](#local-development-pf-011) below.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), and development tooling readiness (PF-012) are **complete** — see [Local development (PF-011)](#local-development-pf-011) and [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- Development tooling such as Pint/PHPStan/Rector/Git hooks (PF-012) does not exist yet — see [Current limitations](#current-limitations-and-next-foundation-work) below.
+- Development tooling such as Pint, PHPStan, Rector, and Git hooks is not configured or enforced yet — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -68,7 +68,7 @@ These host-native Composer/npm scripts remain available for a developer who pref
 
 PF-010 provides a reproducible Docker Compose development environment, and PF-011 standardizes how a developer actually uses it: safe local environment values, a first-time onboarding sequence, and a repeatable daily workflow — so the application, PostgreSQL, Redis, the queue worker, and frontend asset building all run **without installing PHP, Composer, Node, PostgreSQL, or Redis directly on the host**. Git and Docker (Docker Desktop or another compatible Docker Engine with Compose) are the only prerequisites. The stack runs on both Apple Silicon and amd64 machines without a hardcoded platform.
 
-**This is local development configuration only.** It is not production deployment guidance, and it does not configure a public domain, DNS, SSL, cloud infrastructure, or production secrets. Development tooling such as Pint, PHPStan, Rector, and Git hooks remains PF-012 (Development Tooling) — future work, not implemented here.
+**This is local development configuration only.** It is not production deployment guidance, and it does not configure a public domain, DNS, SSL, cloud infrastructure, or production secrets. Development tooling such as Pint, PHPStan, Rector, and Git hooks is not configured here — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below for the current tooling inventory and which future stories own each tool.
 
 Services: `app` (PHP-FPM 8.4 + Composer), `web` (Nginx, serving `public/` only), `postgres`, `redis`, `vite` (Node, frontend dev server and build), and `queue` (the Laravel queue worker, reusing the `app` image). PostgreSQL and Redis publish no host ports — they are reachable only from other containers on the internal Docker network. All published ports bind to `127.0.0.1`.
 
@@ -139,6 +139,28 @@ docker compose logs queue --tail=50
 
 Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose.yaml` and `.env.example` are clearly-labelled local-development-only credentials, not secrets — they are meaningless outside a developer's own local Docker network.
 
+## Development tooling readiness (PF-012)
+
+PF-012 (Development Tooling) is a documentation and readiness story: it inventoried the repository's current tooling state and clarified which future story owns each tool. **It does not configure, script, or enforce any development tool.** The current inventory:
+
+- **Laravel Pint** is present in [`composer.json`](composer.json) / `composer.lock` only as a stock dependency shipped by the standard Laravel application skeleton. It has no project-specific configuration, no Composer script, and is not run in any documented workflow or CI step. Its presence in `composer.json` does **not** mean PF-020 is implemented.
+- **PHPStan** is not installed or configured.
+- **Rector** is not installed or configured.
+- **Git hooks** are not configured.
+- **GitHub Actions and other automated quality gates** are not configured — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current, unenforced state of the `Protect main` ruleset's status-check requirements.
+
+Future ownership, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
+
+- **PF-020** will configure and validate Laravel Pint as an actual formatting command.
+- **PF-021** will install and configure PHPStan.
+- **PF-022** will install and configure Rector, and remains optional unless separately approved.
+- **PF-023** will configure Git hooks.
+- **PF-030** will configure GitHub Actions.
+- **PF-031** will configure automated quality gates.
+- **PF-032** will configure security scanning.
+
+No developer should treat Pint, PHPStan, Rector, Git hooks, CI, quality gates, or security scanning as active or enforced until its owning story above is completed and merged.
+
 ## Development workflow
 
 Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
@@ -157,8 +179,8 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 ## Current limitations and next foundation work
 
-- **No development tooling yet.** Laravel Pint, PHPStan, Rector, and Git hooks are deferred to PF-012 (Development Tooling) — the current repository implementation story — and are not configured today.
-- **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **No development tooling is configured or enforced yet.** Laravel Pint, PHPStan, Rector, and Git hooks are owned by PF-020, PF-021, PF-022 (optional), and PF-023 respectively — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
+- **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories (PF-030, PF-031, PF-032) and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 
