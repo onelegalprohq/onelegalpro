@@ -20,8 +20,8 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 
 ## Development Environment
 - PF-010 Docker Development Environment — Done
-- PF-011 Local Environment & Configuration — Next
-- PF-012 Development Tooling
+- PF-011 Local Environment & Configuration — Done
+- PF-012 Development Tooling — Next
 
 ## Code Quality
 - PF-020 Laravel Pint
