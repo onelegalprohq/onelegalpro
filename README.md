@@ -89,6 +89,12 @@ docker compose exec app php artisan key:generate
 # Apply database migrations (never run automatically by the containers)
 docker compose exec app php artisan migrate
 
+# On a completely fresh database, the queue container may have exited because
+# its database-backed tables (cache/jobs) didn't exist yet at first start.
+# Start it now that migrations have run, and confirm it stays up:
+docker compose up -d queue
+docker compose ps
+
 # Run the test suite
 docker compose exec app php artisan test
 
