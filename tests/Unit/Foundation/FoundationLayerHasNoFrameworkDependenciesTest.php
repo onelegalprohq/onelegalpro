@@ -106,16 +106,62 @@ final class FoundationLayerHasNoFrameworkDependenciesTest extends TestCase
 
     public function test_no_foundation_source_file_calls_a_laravel_global_helper(): void
     {
-        $helpers = implode('|', array_map(
-            static fn (string $helper): string => preg_quote($helper, '/'),
-            self::FORBIDDEN_GLOBAL_HELPERS,
-        ));
-
         foreach ($this->foundationSourceFiles() as $relativePath => $source) {
             $this->assertDoesNotMatchRegularExpression(
-                '/(?<![A-Za-z0-9_$\\\\>])(?:'.$helpers.')\s*\(/',
+                $this->forbiddenGlobalHelperPattern(),
                 $this->withoutComments($source),
                 $relativePath.' must not call a Laravel global helper.',
+            );
+        }
+    }
+
+    /**
+     * Regression cover for the helper pattern itself.
+     *
+     * A leading backslash makes a call resolve to the *global* function, so
+     * `\config(...)` is exactly as prohibited as `config(...)` and must never
+     * become a way around the guard. An object method, a static method, and a
+     * namespaced function that merely shares the name are all different
+     * functions and must not be reported.
+     */
+    public function test_the_helper_pattern_detects_qualified_and_unqualified_global_calls(): void
+    {
+        $prohibited = [
+            "config('app.name');",
+            '\config(\'app.name\');',
+            'now();',
+            '\now();',
+            'return view($template);',
+            'return \view($template);',
+        ];
+
+        foreach ($prohibited as $snippet) {
+            $this->assertMatchesRegularExpression(
+                $this->forbiddenGlobalHelperPattern(),
+                $snippet,
+                $snippet.' is a Laravel global helper call and must be detected.',
+            );
+        }
+    }
+
+    public function test_the_helper_pattern_ignores_methods_and_namespaced_functions(): void
+    {
+        $allowed = [
+            '$service->config();',
+            'Service::config();',
+            'Vendor\config();',
+            'Vendor\Nested\now();',
+            '$this->view($template);',
+            'self::now();',
+            '$configured = true;',
+            'reconfigure();',
+        ];
+
+        foreach ($allowed as $snippet) {
+            $this->assertDoesNotMatchRegularExpression(
+                $this->forbiddenGlobalHelperPattern(),
+                $snippet,
+                $snippet.' is not a Laravel global helper call and must not be reported.',
             );
         }
     }
@@ -129,6 +175,31 @@ final class FoundationLayerHasNoFrameworkDependenciesTest extends TestCase
                 $relativePath.' must not depend on Eloquent.',
             );
         }
+    }
+
+    /**
+     * The single pattern matching a call to a prohibited Laravel global helper.
+     *
+     * Both the guard above and its regression tests use this one method, so the
+     * pattern can never drift between what is enforced and what is proven.
+     *
+     * It matches an optional leading backslash — `\config(...)` resolves to the
+     * global function just as `config(...)` does — while the lookbehinds reject
+     * the three lookalikes that are different functions entirely: an object
+     * method (`->config()`), a static method (`::config()`), and a namespaced
+     * function (`Vendor\config()`, where the backslash follows an identifier
+     * character rather than opening a fully qualified global name). A variable
+     * function (`$config()`) and a longer identifier ending in a helper name
+     * (`reconfigure()`) are rejected for the same reason.
+     */
+    private function forbiddenGlobalHelperPattern(): string
+    {
+        $helpers = implode('|', array_map(
+            static fn (string $helper): string => preg_quote($helper, '/'),
+            self::FORBIDDEN_GLOBAL_HELPERS,
+        ));
+
+        return '/(?<![A-Za-z0-9_$\\\\])(?<!->)(?<!::)\\\\?(?:'.$helpers.')\s*\(/';
     }
 
     /**
