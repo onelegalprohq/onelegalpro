@@ -77,6 +77,19 @@ Every pull request must, per the Sprint Plan's Definition of Done:
 - Update relevant documentation (module `README.md`, `docs/PROJECT_STATUS.md`, or architecture docs) whenever behavior, scope, or story status changes.
 - Pass static analysis where configured for the affected code.
 
+## Local Git hooks (PF-023)
+
+Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and check Conventional Commit formatting plus the already-configured Pint and Larastan/PHPStan commands (and the test suite) before a commit or push completes locally.
+
+- **Installation is intentional, never automatic.** Nothing installs these hooks during `composer install`, `git clone`, or Docker startup. Opt in yourself with `sh .githooks/install.sh`; check status with `sh .githooks/status.sh`; remove with `sh .githooks/uninstall.sh`. Installation only ever sets this repository's **local** `core.hooksPath` — it never modifies global, system, worktree, or user Git configuration, and it also protects any **inherited/effective** custom hooks path already configured outside this repository (global, system, or worktree) by refusing to install over it rather than silently overriding it.
+- **Status distinguishes ownership.** `sh .githooks/status.sh` reports whether PF-023 hooks are installed via this repository's local configuration, whether a different repository-local custom path is configured, or whether no local value exists but an inherited/effective hooks path applies from outside the repository (clearly reported as not owned by PF-023) — versus nothing configured anywhere.
+- **Uninstall only removes what PF-023 installed.** `sh .githooks/uninstall.sh` unsets the repository-local `core.hooksPath` only when it is exactly `.githooks`; it never touches a different repository-local value and never touches an inherited/effective value from outside the repository.
+- **Check mapping:** `pre-commit` runs `git diff --cached --check` and check-only `composer pint:test`; `commit-msg` validates the commit subject against this document's Conventional Commits rule below; `pre-push` runs `composer phpstan` and `composer test`.
+- **Conventional Commit enforcement:** the `commit-msg` hook enforces the `<type>(<scope>): <description>` format and allowed types defined above, with `Merge`, `Revert "`, `fixup! ` (space required), and `squash! ` (space required) subjects exempted since they are Git- or tooling-generated, not authored against this convention — `fixup!`/`squash!` without the trailing space are validated as ordinary commit subjects instead.
+- **Bypass acknowledgement:** `git commit --no-verify` / `git push --no-verify` skip these hooks by design — that is an intentional emergency escape hatch, not a statement that the skipped code is clean.
+- **Local hooks are not a substitute for CI.** These are fast, bypassable, machine-local feedback only. The authoritative, unbypassable checks are the `Protect main` branch ruleset above and the future PF-030 (GitHub Actions) / PF-031 (Quality Gates) CI checks — this section does not weaken any existing branch, PR, review, security, or approval rule.
+- **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (Git Bash bundled). A raw Windows shell (`cmd.exe`/PowerShell) without Git for Windows or WSL is not supported.
+
 ## AI-assisted development requirements
 
 Any AI coding assistant (Claude Code, Codex, or similar) working in this repository must follow [`AGENTS.md`](AGENTS.md) and `docs/implementation/02_AI_Developer_Playbook.md`:

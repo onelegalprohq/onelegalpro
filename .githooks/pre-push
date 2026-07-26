@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# .githooks/pre-push
+#
+# PF-023 tracked pre-push hook. Both checks are blocking. Never modifies
+# source files. Tests use SQLite ":memory:" per phpunit.xml, so this does
+# not depend on a migrated PostgreSQL database.
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "${repo_root}"
+
+# shellcheck disable=SC1091
+. "${repo_root}/.githooks/lib/common.sh"
+
+hooks_run_composer_check "phpstan"
+hooks_run_composer_check "test"
+
+printf 'pre-push: all checks passed.\n'

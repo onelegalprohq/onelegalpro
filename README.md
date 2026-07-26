@@ -9,9 +9,9 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
 - Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), and a reviewed Rector deferral decision (PF-022) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), and [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), a reviewed Rector deferral decision (PF-022), and local Git hooks (PF-023) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021), and [Local Git hooks (PF-023)](#local-git-hooks-pf-023) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- Laravel Pint and Larastan/PHPStan are configured but not yet enforced by any Git hook or CI check. Rector remains deliberately deferred (not installed or configured, per PF-022's review) and Git hooks remain unconfigured — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
+- Laravel Pint and Larastan/PHPStan are configured and now checked by local, optional Git hooks (PF-023) — but these are local feedback only, not authoritative CI or security controls. Rector remains deliberately deferred (not installed or configured, per PF-022's review) — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -68,7 +68,7 @@ These host-native Composer/npm scripts remain available for a developer who pref
 
 PF-010 provides a reproducible Docker Compose development environment, and PF-011 standardizes how a developer actually uses it: safe local environment values, a first-time onboarding sequence, and a repeatable daily workflow — so the application, PostgreSQL, Redis, the queue worker, and frontend asset building all run **without installing PHP, Composer, Node, PostgreSQL, or Redis directly on the host**. Git and Docker (Docker Desktop or another compatible Docker Engine with Compose) are the only prerequisites. The stack runs on both Apple Silicon and amd64 machines without a hardcoded platform.
 
-**This is local development configuration only.** It is not production deployment guidance, and it does not configure a public domain, DNS, SSL, cloud infrastructure, or production secrets. Development tooling (Pint, PHPStan, Rector, Git hooks) is not configured as part of this Docker environment — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below for the current tooling inventory and which future stories own each tool.
+**This is local development configuration only.** It is not production deployment guidance, and it does not configure a public domain, DNS, SSL, cloud infrastructure, or production secrets. Development tooling (Pint, PHPStan, Rector, Git hooks) is not configured as part of this Docker environment itself — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below for the current tooling inventory and which story configured or owns each tool.
 
 Services: `app` (PHP-FPM 8.4 + Composer), `web` (Nginx, serving `public/` only), `postgres`, `redis`, `vite` (Node, frontend dev server and build), and `queue` (the Laravel queue worker, reusing the `app` image). PostgreSQL and Redis publish no host ports — they are reachable only from other containers on the internal Docker network. All published ports bind to `127.0.0.1`.
 
@@ -141,22 +141,21 @@ Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose
 
 ## Development tooling readiness (PF-012)
 
-PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint, PF-021 has configured Larastan-backed PHPStan, and PF-022 reviewed Rector and deliberately deferred it. The remaining inventory:
+PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint, PF-021 has configured Larastan-backed PHPStan, PF-022 reviewed Rector and deliberately deferred it, and PF-023 has configured local, optional Git hooks. The remaining inventory:
 
 - **Laravel Pint** is configured — see [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020) below.
 - **Larastan/PHPStan** is configured — see [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
 - **Rector** is not installed, configured, runnable, or enforced. PF-022 evaluated it and found insufficient current value to justify another dependency and an automated PHP-rewriting surface: the repository currently contains only a small, modern Laravel skeleton, and Pint and Larastan/PHPStan already pass cleanly with nothing left for Rector's dead-code/modernization rules to find. This is a deliberate deferral, not a permanent rejection — Rector should be reconsidered once approved business-module implementation creates meaningful `app/Modules/` code, and that reconsideration requires a fresh analysis against the real code present at that time.
-- **Git hooks** are not configured.
+- **Git hooks** are configured, tracked, and installable — see [Local Git hooks (PF-023)](#local-git-hooks-pf-023) below. Installation is an intentional, separate developer action; nothing installs them automatically.
 - **GitHub Actions and other automated quality gates** are not configured — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current, unenforced state of the `Protect main` ruleset's status-check requirements.
 
 Future ownership, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
 
-- **PF-023** will configure Git hooks.
 - **PF-030** will configure GitHub Actions.
 - **PF-031** will configure automated quality gates and own any future PHPStan rule-level increase.
 - **PF-032** will configure security scanning.
 
-No developer should treat Rector, Git hooks, CI, quality gates, or security scanning as active or enforced until installed/configured and, where applicable, its owning story above is completed and merged. **Pint and Larastan/PHPStan are both configured but not yet enforced by any Git hook or CI check** — enforcement is PF-023 (Git hooks) and PF-030/PF-031 (GitHub Actions and quality gates) scope, not PF-020's or PF-021's.
+No developer should treat CI, quality gates, or security scanning as active or enforced until installed/configured and its owning story above is completed and merged. **Local Git hooks (PF-023) are fast local feedback, not authoritative CI or security controls** — they are bypassable with `--no-verify` by design, and the `Protect main` ruleset plus PF-030/PF-031's future CI checks remain the authoritative gate.
 
 ## Code style: Laravel Pint (PF-020)
 
@@ -179,7 +178,7 @@ composer pint:test
 composer pint
 ```
 
-Pint is configured and runnable, but nothing currently invokes it automatically — no Git hook, no GitHub Actions workflow. A developer must run `composer pint:test` (or `composer pint`) themselves. Automatic enforcement is deferred to PF-023 (Git hooks) and PF-030/PF-031 (GitHub Actions and quality gates).
+Pint is configured and runnable. `composer pint:test` also runs automatically in the `pre-commit` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. Authoritative enforcement remains PF-030/PF-031 (GitHub Actions and quality gates) scope.
 
 ## Static analysis: Larastan/PHPStan (PF-021)
 
@@ -209,7 +208,35 @@ If analysis fails with a genuine out-of-memory error, the standard Composer scri
 docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=2G
 ```
 
-PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable, but nothing currently invokes it automatically — no Git hook, no GitHub Actions workflow. Automatic enforcement is deferred to PF-023 (Git hooks) and PF-030 (GitHub Actions); PF-031 owns quality gates and any future increase to the analysis level; PF-032 owns security scanning. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
+PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable. `composer phpstan` also runs automatically in the `pre-push` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. PF-030 (GitHub Actions) and PF-031 (quality gates, and any future increase to the analysis level) remain the authoritative enforcement; PF-032 owns security scanning. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
+
+## Local Git hooks (PF-023)
+
+Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and run the already-configured Pint and Larastan/PHPStan checks (and the test suite) locally, using Docker first with a host-Composer fallback. **Installation is intentional** — nothing installs these hooks automatically, not during `composer install`, not on Docker startup.
+
+Install, check, and remove them with plain shell commands run in your normal Terminal at the repository root — **no host PHP or Composer is required to install or manage the hooks themselves**, only to run the checks they invoke (which Docker already provides):
+
+```bash
+sh .githooks/install.sh
+sh .githooks/status.sh
+sh .githooks/uninstall.sh
+```
+
+- `install.sh` sets this repository's **local** `core.hooksPath` to `.githooks` — but only when nothing else already claims that configuration. It refuses to overwrite a different repository-local custom `core.hooksPath`, and it also refuses to override an **inherited/effective** hooks path already configured outside this repository (global, system, or worktree Git configuration), reporting that value's origin when available. It never touches global, system, worktree, or user Git configuration itself, and is idempotent (safe to re-run once installed).
+- `status.sh` distinguishes four states without changing anything: PF-023 hooks installed locally (`core.hooksPath=.githooks`); a different repository-local custom hooks path; no local value but an inherited/effective hooks path from outside this repository (reported as not owned by PF-023, with its origin when available); or nothing configured at any scope.
+- `uninstall.sh` unsets `core.hooksPath` only when the **repository-local** value is exactly `.githooks` — the value PF-023 itself installed. It refuses to alter a different repository-local custom value, and if no local value exists but an inherited/effective one does, it leaves that untouched and reports that PF-023 was never installed locally. It never deletes `.git/hooks/`, `.githooks/`, or any file of yours.
+
+**What each hook checks:**
+
+- **`pre-commit`** — `git diff --cached --check` (native Git whitespace/conflict-marker check), then check-only `composer pint:test` against the full configured Pint scope. Never runs `composer pint` (the fixing command) and never modifies any file.
+- **`commit-msg`** — validates the commit subject against the Conventional Commits format documented in [`CONTRIBUTING.md`](CONTRIBUTING.md) (`type(scope)?!?: description`, an allowed type, a non-empty description, no trailing period). `Merge`, `Revert "`, `fixup! ` (with the trailing space), and `squash! ` (with the trailing space) subjects are exempt — `fixup!`/`squash!` without the following space are not exempt and are validated as ordinary Conventional Commit subjects.
+- **`pre-push`** — `composer phpstan`, then `composer test` (the project's test suite runs against SQLite `:memory:` per `phpunit.xml`, so this does not depend on a migrated PostgreSQL database). Both are blocking.
+
+If Docker is not installed, not running, or the `app` service isn't up, and no usable host Composer environment (`vendor/autoload.php` present) is found either, a hook **fails with a clear, actionable message** telling you to start Docker Desktop, run `docker compose up -d`, ensure dependencies are installed, and re-run — it never silently skips a check. `git commit --no-verify` / `git push --no-verify` remain available as an intentional emergency bypass; using them does not mean the code is clean, only that local validation was skipped.
+
+**These are local, optional hooks — not authoritative security or CI controls.** They are easily bypassed and only run on the machine where they're installed. PF-030 (GitHub Actions) and PF-031 (Quality Gates) remain responsible for the platform's authoritative, unbypassable checks; PF-032 remains responsible for security scanning; none of that is implemented by PF-023.
+
+**Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (which bundles Git Bash) — the hook scripts are POSIX `sh` and Git invokes them through whichever POSIX-compatible shell it ships with on each platform. **Not supported:** a raw Windows shell (`cmd.exe`/PowerShell) with no Git-for-Windows or WSL POSIX shell available.
 
 ## Development workflow
 
@@ -229,7 +256,7 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 ## Current limitations and next foundation work
 
-- **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured but not yet enforced.** Rector (PF-022) was reviewed and deliberately deferred rather than installed, and Git hooks remain unconfigured, owned by PF-023 — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
+- **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured and checked by local, optional Git hooks (PF-023) once installed** — but those hooks are local feedback only, bypassable with `--no-verify`, and not authoritative CI or security controls. Rector (PF-022) was reviewed and deliberately deferred rather than installed — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
 - **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories (PF-030, PF-031, PF-032) and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).

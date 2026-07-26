@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# .githooks/pre-commit
+#
+# PF-023 tracked pre-commit hook. Non-writing checks only - never modifies
+# staged or working-tree files, and never runs Pint in fixing mode.
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "${repo_root}"
+
+# shellcheck disable=SC1091
+. "${repo_root}/.githooks/lib/common.sh"
+
+printf 'Running: git diff --cached --check\n'
+git diff --cached --check
+
+hooks_run_composer_check "pint:test"
+
+printf 'pre-commit: all checks passed.\n'
