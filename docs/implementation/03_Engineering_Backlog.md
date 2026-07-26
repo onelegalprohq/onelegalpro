@@ -31,8 +31,8 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 
 ## CI/CD
 - PF-030 GitHub Actions — Done
-- PF-031 Quality Gates — Next
-- PF-032 Security Scanning
+- PF-031 Quality Gates — Done
+- PF-032 Security Scanning — Next
 
 ## Foundation Library
 - PF-040 AggregateRoot

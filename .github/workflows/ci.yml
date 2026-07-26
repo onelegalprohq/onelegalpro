@@ -4,9 +4,15 @@
 # PF-021 Larastan/PHPStan, the PHPUnit suite, and the Vite production build)
 # automatically on pull requests targeting main.
 #
-# These checks are visible but NOT yet required: configuring required status
-# checks and the "Protect main" ruleset is PF-031 (Quality Gates) scope, and
-# security scanning is PF-032 scope. Neither is implemented here.
+# PF-031 (Quality Gates) made all three of these checks REQUIRED through the
+# active "Protect main" GitHub ruleset, so a pull request targeting main cannot
+# merge until every one of them passes. That enforcement lives in GitHub's
+# repository settings, not in this file. Required checks are matched by exact
+# check name, so renaming the "PHP Code Quality", "Frontend Build", or
+# "Application Tests" job below without a corresponding human-reviewed ruleset
+# update makes the repository fail closed: GitHub keeps waiting for a required
+# check name that no longer reports. Security scanning remains PF-032 scope and
+# is not implemented here.
 #
 # This workflow calls the existing Composer/npm scripts directly. It never
 # invokes the PF-023 Git hooks, which remain optional, bypassable, local-only

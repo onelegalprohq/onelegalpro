@@ -12,17 +12,38 @@ This repository uses a **main plus feature-branch** strategy:
 
 ### Protect main (GitHub ruleset)
 
-`main` is protected by an active GitHub branch ruleset (`Protect main`), verified at PF-002 closure:
+`main` is protected by an active GitHub branch ruleset (`Protect main`), verified at PF-002 closure and extended with required status checks at PF-031 closure. **This ruleset is the authoritative enforcement boundary for `main`** — no local tool, hook, or convention substitutes for it:
 
 - A pull request is required before merging to `main`.
 - Branch deletion and force-pushes to `main` are blocked.
 - Review conversations must be resolved before a pull request can merge.
 - No bypass actor is configured — the ruleset applies to everyone, with no exceptions.
 - The required formal GitHub approval count is temporarily **0**, because this is currently a single-owner repository and GitHub does not allow an author to approve their own pull request. Human review and approval is still mandatory: record it as an explicit review comment on the pull request until a second authorized reviewer is available. Formal approving reviews (a required approval count above zero) must be configured as soon as a second authorized reviewer exists.
-- **No status check is currently required by the ruleset.** PF-030 added a GitHub Actions workflow whose checks now run automatically on every pull request targeting `main` (see [Continuous integration (PF-030)](#continuous-integration-pf-030) below), so their results are visible on the pull request — but the ruleset does not yet require any of them to pass before merging. Making specific checks required is PF-031 (Quality Gates) scope.
-- Commit signing, code scanning, code quality, and coverage requirements are **not currently enabled**. They are deferred to their own approved future stories (PF-031 Quality Gates, PF-032 Security Scanning) and must not be treated as active until those stories configure and verify them.
+- **All three PF-030 status checks are required (PF-031).** PF-030 added the GitHub Actions workflow that makes these checks *visible* on every pull request targeting `main`; PF-031 made them *mandatory*, so `main` cannot be updated until **`PHP Code Quality`**, **`Frontend Build`**, and **`Application Tests`** have all passed. GitHub Actions is their configured source. See [Continuous integration (PF-030)](#continuous-integration-pf-030) and [Required status checks (PF-031)](#required-status-checks-pf-031) below.
+- **"Require branches to be up to date before merging" is deliberately OFF.** A stale-but-green pull request may still merge. This is a considered choice for a single-owner repository with serialized pull requests, not an oversight — see [Required status checks (PF-031)](#required-status-checks-pf-031).
+- "Do not require status checks on creation" is **off**, so the requirement applies from the moment a pull request is created.
+- **Commit signing is not required.** It remains deferred pending a later ownership and signing-policy decision, and is not PF-031 scope.
+- **Linear history is not required**, deployment success is not required, no merge queue is configured, code-scanning results are not required, GitHub code-quality results are not required, code-coverage thresholds are not required, and automatic Copilot review is not enabled. None of these is active — do not treat any of them as an enforced control.
 
 This ruleset does not weaken the rule above: `main` remains deployable and protected at all times.
+
+### Required status checks (PF-031)
+
+PF-031 (Quality Gates) configured the `Protect main` ruleset to require exactly the three checks the PF-030 workflow already produced. No CI job, check name, or execution behavior changed — only the workflow's own descriptive header comment was corrected to match reality.
+
+| Required check | Source | Job ID in [`ci.yml`](.github/workflows/ci.yml) |
+|---|---|---|
+| `PHP Code Quality` | GitHub Actions | `quality` |
+| `Frontend Build` | GitHub Actions | `frontend` |
+| `Application Tests` | GitHub Actions | `tests` |
+
+- **All three are required — not a subset.** `Application Tests` declares `needs: frontend`, and GitHub Actions reports a job whose dependency failed with the conclusion `skipped`, which GitHub's required-status-check evaluation does not treat as blocking. Requiring only the final test job would therefore leave no reliable independent frontend gate: a broken production build would skip `Application Tests` and the pull request could still merge. Requiring `Frontend Build` in its own right closes that path.
+- **No aggregate or umbrella gate job exists**, and none should be added. Three hand-written, stable job names in one workflow do not need that indirection, and a naive aggregate job reintroduces the same skip-treated-as-satisfied hole.
+- **Required checks are matched by exact check name.** Renaming `PHP Code Quality`, `Frontend Build`, or `Application Tests` without a corresponding, human-reviewed update to the ruleset makes the repository **fail closed**: GitHub keeps waiting for a required check name that no longer reports, and every pull request stays blocked as "Expected". Treat a job rename as a two-part change — the workflow edit *and* the ruleset update — never one without the other.
+- **The up-to-date-branch requirement stays off for now.** Enabling it would invalidate every other open pull request on each merge to `main` and force an update-and-rerun cycle, which buys little while pull requests are authored one at a time. Revisit it alongside the second-reviewer decision above, or when approved business-module implementation makes semantic conflicts realistic.
+- **PF-031 changed no quality threshold.** PHPStan stays at level 5, no code-coverage collection or threshold is introduced, no frontend linter or type checker is introduced, and no test-count or assertion-count threshold is introduced. Introducing a threshold against the current small Laravel skeleton would create a cosmetic gate that certifies nothing.
+- **Code scanning and dependency/security automation are PF-032 scope** — CodeQL, dependency review, `composer audit`, `npm audit`, secret scanning, container scanning, and action-update automation are all still unconfigured and must not be treated as active.
+- PF-031 introduced no application code, business module, deployment pipeline, production environment, repository secret, or new dependency.
 
 ### Branch naming
 
@@ -94,7 +115,7 @@ Three stable checks appear on every pull request:
 - CI uses **PHP 8.4** and **Node 22** on `ubuntu-24.04`, matching the Docker development environment. Tests run against SQLite `:memory:` per [`phpunit.xml`](phpunit.xml) — no PostgreSQL, Redis, queue worker, or Docker service is involved.
 - **Every action is pinned to a full commit SHA**, with its human-readable release tag in an inline comment. Automated updating of those references is PF-032 scope.
 - The workflow uses **read-only permissions (`contents: read`) and no secrets**, and uses `pull_request` rather than `pull_request_target`, so pull requests from forks run safely without privileged access.
-- **These checks are visible but not yet required.** Until PF-031 configures the `Protect main` ruleset, a pull request can still be merged with a failing check — treat the results as authoritative feedback, not an enforced gate.
+- **All three checks are now required to merge (PF-031).** PF-030 made them visible; PF-031 made them mandatory through the `Protect main` ruleset, so a pull request with a failing or missing check cannot be merged into `main` — see [Required status checks (PF-031)](#required-status-checks-pf-031) above.
 - CI calls the Composer and npm scripts directly. It never invokes the PF-023 Git hooks below, and it runs regardless of whether a developer has installed them.
 
 ## Local Git hooks (PF-023)
@@ -107,7 +128,7 @@ Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and check Conven
 - **Check mapping:** `pre-commit` runs `git diff --cached --check` and check-only `composer pint:test`; `commit-msg` validates the commit subject against this document's Conventional Commits rule below; `pre-push` runs `composer phpstan` and `composer test`.
 - **Conventional Commit enforcement:** the `commit-msg` hook enforces the `<type>(<scope>): <description>` format and allowed types defined above, with `Merge`, `Revert "`, `fixup! ` (space required), and `squash! ` (space required) subjects exempted since they are Git- or tooling-generated, not authored against this convention — `fixup!`/`squash!` without the trailing space are validated as ordinary commit subjects instead.
 - **Bypass acknowledgement:** `git commit --no-verify` / `git push --no-verify` skip these hooks by design — that is an intentional emergency escape hatch, not a statement that the skipped code is clean.
-- **Local hooks are not a substitute for CI.** These are fast, bypassable, machine-local feedback only. The `Protect main` branch ruleset above and the PF-030 GitHub Actions checks run independently of them — this section does not weaken any existing branch, PR, review, security, or approval rule. Note that the PF-030 checks, while unbypassable by `--no-verify`, are not yet *required* by the ruleset; PF-031 (Quality Gates) owns that enforcement.
+- **Local hooks are not a substitute for CI, and never the merge gate.** These are fast, bypassable, machine-local feedback only — genuinely useful for catching a problem before you push, but they decide nothing about whether a change may reach `main`. The active `Protect main` ruleset above is the authoritative enforcement boundary: since PF-031 it requires the three PF-030 GitHub Actions checks, which run independently of these hooks and cannot be bypassed with `--no-verify`. This section does not weaken any existing branch, PR, review, security, or approval rule.
 - **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (Git Bash bundled). A raw Windows shell (`cmd.exe`/PowerShell) without Git for Windows or WSL is not supported.
 
 ## AI-assisted development requirements
