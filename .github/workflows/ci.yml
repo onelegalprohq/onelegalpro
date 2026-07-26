@@ -1,0 +1,141 @@
+# PF-030 GitHub Actions
+#
+# Runs the repository's already-configured checks (PF-020 Laravel Pint,
+# PF-021 Larastan/PHPStan, the PHPUnit suite, and the Vite production build)
+# automatically on pull requests targeting main.
+#
+# These checks are visible but NOT yet required: configuring required status
+# checks and the "Protect main" ruleset is PF-031 (Quality Gates) scope, and
+# security scanning is PF-032 scope. Neither is implemented here.
+#
+# This workflow calls the existing Composer/npm scripts directly. It never
+# invokes the PF-023 Git hooks, which remain optional, bypassable, local-only
+# developer feedback.
+#
+# Every third-party and official action is pinned to a full commit SHA.
+
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Read-only. No job writes to the repository, comments on a pull request,
+# publishes anything, or uses a repository secret.
+permissions:
+  contents: read
+
+# A newer commit on the same pull request cancels its superseded run, while
+# separate pull requests never cancel one another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: PHP Code Quality
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: ctype, dom, fileinfo, filter, hash, iconv, json, libxml, mbstring, openssl, pdo, pdo_sqlite, session, sqlite3, tokenizer, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Check-only. Never runs the fixing "composer pint" script.
+      - name: Check code style (Laravel Pint)
+        run: composer pint:test
+
+      - name: Run static analysis (Larastan/PHPStan)
+        run: composer phpstan
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install npm dependencies from lock file
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Verify build manifest exists
+        run: test -f public/build/manifest.json
+
+      # Build input for the "tests" job only. Not a deployment artifact and
+      # never published outside this workflow run.
+      - name: Upload build output for the tests job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-build
+          path: public/build
+          if-no-files-found: error
+          retention-days: 1
+
+  tests:
+    name: Application Tests
+    runs-on: ubuntu-24.04
+    # The Feature test renders a view containing @vite(...). A fresh runner has
+    # no Vite dev server and therefore no "public/hot" file, so Laravel resolves
+    # assets through public/build/manifest.json instead. That manifest must exist
+    # before the suite runs, which is why this job consumes the frontend build.
+    needs: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: ctype, dom, fileinfo, filter, hash, iconv, json, libxml, mbstring, openssl, pdo, pdo_sqlite, session, sqlite3, tokenizer, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # .env.example is the tracked, non-secret local-development example
+      # standardized by PF-011. No secret is used or required.
+      - name: Create environment file
+        run: cp .env.example .env
+
+      - name: Generate application key
+        run: php artisan key:generate --ansi
+
+      - name: Download frontend build output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-build
+          path: public/build
+
+      - name: Verify build manifest is present
+        run: test -f public/build/manifest.json
+
+      # Runs against SQLite ":memory:" per phpunit.xml. No PostgreSQL, Redis,
+      # queue worker, or external service is required.
+      - name: Run test suite
+        run: composer test

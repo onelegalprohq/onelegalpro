@@ -9,9 +9,9 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
 - Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), a reviewed Rector deferral decision (PF-022), and local Git hooks (PF-023) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021), and [Local Git hooks (PF-023)](#local-git-hooks-pf-023) below.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), Larastan-backed PHPStan static analysis (PF-021), a reviewed Rector deferral decision (PF-022), local Git hooks (PF-023), and GitHub Actions continuous integration (PF-030) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021), [Local Git hooks (PF-023)](#local-git-hooks-pf-023), and [Continuous integration (PF-030)](#continuous-integration-pf-030) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- Laravel Pint and Larastan/PHPStan are configured and now checked by local, optional Git hooks (PF-023) — but these are local feedback only, not authoritative CI or security controls. Rector remains deliberately deferred (not installed or configured, per PF-022's review) — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
+- Laravel Pint and Larastan/PHPStan are configured, checked by local, optional Git hooks (PF-023), and run automatically in CI on every pull request (PF-030). The local hooks remain feedback only; the CI checks are visible and unbypassable by `--no-verify` but **not yet required** to merge — PF-031 (Quality Gates) owns required status checks and PF-032 owns security scanning. Rector remains deliberately deferred (not installed or configured, per PF-022's review) — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -32,6 +32,7 @@ The full constitutional rules behind these commitments are in [`docs/architectur
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | Required reading for any AI coding assistant before changing this repository; lists the source-of-truth documents and per-module rules. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Git workflow, branch/commit/versioning conventions, PR process, and security/secret-handling rules. |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | PF-030 continuous integration: the PHP Code Quality, Frontend Build, and Application Tests checks that run on every pull request targeting `main`. |
 | [`docs/README.md`](docs/README.md) | Full, navigable documentation index. |
 | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | Authoritative, continuously updated record of current/next story and completed work. |
 | [`docs/architecture/`](docs/architecture) | Approved architecture documents (Constitution, AI Architecture, Roadmap, and the per-epic architecture documents). |
@@ -147,15 +148,15 @@ PF-012 (Development Tooling) inventoried the repository's tooling state and clar
 - **Larastan/PHPStan** is configured — see [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
 - **Rector** is not installed, configured, runnable, or enforced. PF-022 evaluated it and found insufficient current value to justify another dependency and an automated PHP-rewriting surface: the repository currently contains only a small, modern Laravel skeleton, and Pint and Larastan/PHPStan already pass cleanly with nothing left for Rector's dead-code/modernization rules to find. This is a deliberate deferral, not a permanent rejection — Rector should be reconsidered once approved business-module implementation creates meaningful `app/Modules/` code, and that reconsideration requires a fresh analysis against the real code present at that time.
 - **Git hooks** are configured, tracked, and installable — see [Local Git hooks (PF-023)](#local-git-hooks-pf-023) below. Installation is an intentional, separate developer action; nothing installs them automatically.
-- **GitHub Actions and other automated quality gates** are not configured — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current, unenforced state of the `Protect main` ruleset's status-check requirements.
+- **GitHub Actions** are configured — see [Continuous integration (PF-030)](#continuous-integration-pf-030) below. The checks run automatically on pull requests but are **not yet required** by the `Protect main` ruleset; see [`CONTRIBUTING.md`](CONTRIBUTING.md) for that ruleset's current status-check state.
+- **Automated quality gates** (required status checks, coverage thresholds, PHPStan level increases) are not configured.
 
 Future ownership, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
 
-- **PF-030** will configure GitHub Actions.
-- **PF-031** will configure automated quality gates and own any future PHPStan rule-level increase.
+- **PF-031** will configure automated quality gates, decide which CI checks become required, and own any future PHPStan rule-level increase.
 - **PF-032** will configure security scanning.
 
-No developer should treat CI, quality gates, or security scanning as active or enforced until installed/configured and its owning story above is completed and merged. **Local Git hooks (PF-023) are fast local feedback, not authoritative CI or security controls** — they are bypassable with `--no-verify` by design, and the `Protect main` ruleset plus PF-030/PF-031's future CI checks remain the authoritative gate.
+No developer should treat quality gates or security scanning as active or enforced until its owning story above is completed and merged. **Local Git hooks (PF-023) are fast local feedback, not authoritative CI or security controls** — they are bypassable with `--no-verify` by design. The PF-030 CI checks are unbypassable by `--no-verify` and run independently of local hooks, but the `Protect main` ruleset does not yet require them to pass; PF-031 owns that enforcement.
 
 ## Code style: Laravel Pint (PF-020)
 
@@ -178,7 +179,7 @@ composer pint:test
 composer pint
 ```
 
-Pint is configured and runnable. `composer pint:test` also runs automatically in the `pre-commit` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. Authoritative enforcement remains PF-030/PF-031 (GitHub Actions and quality gates) scope.
+Pint is configured and runnable. `composer pint:test` also runs automatically in the `pre-commit` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. `composer pint:test` additionally runs in CI's **PHP Code Quality** check on every pull request — see [Continuous integration (PF-030)](#continuous-integration-pf-030). Making that check a required, merge-blocking gate remains PF-031 scope.
 
 ## Static analysis: Larastan/PHPStan (PF-021)
 
@@ -208,7 +209,7 @@ If analysis fails with a genuine out-of-memory error, the standard Composer scri
 docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=2G
 ```
 
-PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable. `composer phpstan` also runs automatically in the `pre-push` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. PF-030 (GitHub Actions) and PF-031 (quality gates, and any future increase to the analysis level) remain the authoritative enforcement; PF-032 owns security scanning. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
+PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable. `composer phpstan` also runs automatically in the `pre-push` hook once a developer opts in via [Local Git hooks (PF-023)](#local-git-hooks-pf-023) — but that local hook is optional, bypassable with `--no-verify`, and not a CI/security control. `composer phpstan` additionally runs in CI's **PHP Code Quality** check on every pull request — see [Continuous integration (PF-030)](#continuous-integration-pf-030). PF-031 owns making that check required and any future increase to the analysis level; PF-032 owns security scanning. PF-022 (Rector) was reviewed and deliberately deferred — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above.
 
 ## Local Git hooks (PF-023)
 
@@ -234,9 +235,28 @@ sh .githooks/uninstall.sh
 
 If Docker is not installed, not running, or the `app` service isn't up, and no usable host Composer environment (`vendor/autoload.php` present) is found either, a hook **fails with a clear, actionable message** telling you to start Docker Desktop, run `docker compose up -d`, ensure dependencies are installed, and re-run — it never silently skips a check. `git commit --no-verify` / `git push --no-verify` remain available as an intentional emergency bypass; using them does not mean the code is clean, only that local validation was skipped.
 
-**These are local, optional hooks — not authoritative security or CI controls.** They are easily bypassed and only run on the machine where they're installed. PF-030 (GitHub Actions) and PF-031 (Quality Gates) remain responsible for the platform's authoritative, unbypassable checks; PF-032 remains responsible for security scanning; none of that is implemented by PF-023.
+**These are local, optional hooks — not authoritative security or CI controls.** They are easily bypassed and only run on the machine where they're installed. The same checks run remotely and unbypassably in CI — see [Continuous integration (PF-030)](#continuous-integration-pf-030) — though they are not yet *required* to merge; PF-031 (Quality Gates) owns that enforcement and PF-032 remains responsible for security scanning. None of that is implemented by PF-023, and CI never invokes these hook scripts.
 
 **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (which bundles Git Bash) — the hook scripts are POSIX `sh` and Git invokes them through whichever POSIX-compatible shell it ships with on each platform. **Not supported:** a raw Windows shell (`cmd.exe`/PowerShell) with no Git-for-Windows or WSL POSIX shell available.
+
+## Continuous integration (PF-030)
+
+A single tracked workflow, [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (named `CI`), runs the repository's already-configured checks automatically on GitHub. It triggers on **pull requests targeting `main`** and on manual **`workflow_dispatch`** — there is no push, scheduled, or deployment trigger.
+
+Three stable checks appear on every pull request:
+
+| Check name | Job ID | What it runs |
+|---|---|---|
+| **PHP Code Quality** | `quality` | `composer validate --strict`, `composer install`, check-only `composer pint:test`, `composer phpstan` |
+| **Frontend Build** | `frontend` | `npm ci`, `npm run build`, verifies `public/build/manifest.json`, uploads `public/build/` as a 1-day artifact |
+| **Application Tests** | `tests` | `composer install`, `.env` from `.env.example` + `php artisan key:generate`, downloads the frontend artifact, `composer test` |
+
+- **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` rather than the dev server. That manifest must exist before the test suite renders a view, so the tests job consumes the frontend job's build output instead of rebuilding it.
+- **Runtimes:** `ubuntu-24.04`, **PHP 8.4**, **Node 22**, Composer v2, coverage disabled, no version matrix — matching the Docker development environment. Tests run against SQLite `:memory:` per [`phpunit.xml`](phpunit.xml), so **no PostgreSQL, Redis, queue worker, or Docker service is required**.
+- **Every action is pinned to a full 40-character commit SHA**, with its human-readable release tag in an inline comment. Keeping those references updated automatically is PF-032 scope.
+- **Read-only and secretless:** the workflow declares `permissions: contents: read`, uses no repository secret, and uses `pull_request` rather than `pull_request_target` — so pull requests from forks run with read-only access and never gain privileged base-repository permissions. It never comments on a pull request, pushes commits or tags, publishes an artifact externally, or deploys anything.
+- **CI is independent of local Git hooks.** It calls the Composer/npm scripts directly and never invokes `.githooks/` scripts, so it runs whether or not a developer opted into [Local Git hooks (PF-023)](#local-git-hooks-pf-023).
+- **These checks are visible but not yet required.** Until PF-031 (Quality Gates) configures the `Protect main` ruleset, a failing check does not block a merge. PF-031 owns required status checks and quality thresholds; PF-032 owns security scanning — neither is implemented here, and **there is no production deployment**.
 
 ## Development workflow
 
@@ -256,8 +276,9 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 ## Current limitations and next foundation work
 
-- **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured and checked by local, optional Git hooks (PF-023) once installed** — but those hooks are local feedback only, bypassable with `--no-verify`, and not authoritative CI or security controls. Rector (PF-022) was reviewed and deliberately deferred rather than installed — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
-- **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories (PF-030, PF-031, PF-032) and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured**, checked by local, optional Git hooks (PF-023) once installed, and run automatically in CI (PF-030). The local hooks remain feedback only, bypassable with `--no-verify`, and are not authoritative controls. Rector (PF-022) was reviewed and deliberately deferred rather than installed — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
+- **CI runs, but no status-check gate is enforced yet.** PF-030's checks run on every pull request targeting `main` and their results are visible, but the `Protect main` ruleset does not require them. Required status checks, commit signing, code scanning, and coverage/quality gates are deferred to PF-031 and PF-032 and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **There is no production deployment.** CI builds and tests the application; it deploys nothing, and no deployment pipeline, environment, or infrastructure exists.
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 

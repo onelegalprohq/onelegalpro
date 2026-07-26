@@ -19,7 +19,8 @@ This repository uses a **main plus feature-branch** strategy:
 - Review conversations must be resolved before a pull request can merge.
 - No bypass actor is configured — the ruleset applies to everyone, with no exceptions.
 - The required formal GitHub approval count is temporarily **0**, because this is currently a single-owner repository and GitHub does not allow an author to approve their own pull request. Human review and approval is still mandatory: record it as an explicit review comment on the pull request until a second authorized reviewer is available. Formal approving reviews (a required approval count above zero) must be configured as soon as a second authorized reviewer exists.
-- Status checks, commit signing, code scanning, code quality, and coverage requirements are **not currently enabled**. They are deferred to their own approved future stories (CI/CD and quality-gate stories) and must not be treated as active until those stories configure and verify them.
+- **No status check is currently required by the ruleset.** PF-030 added a GitHub Actions workflow whose checks now run automatically on every pull request targeting `main` (see [Continuous integration (PF-030)](#continuous-integration-pf-030) below), so their results are visible on the pull request — but the ruleset does not yet require any of them to pass before merging. Making specific checks required is PF-031 (Quality Gates) scope.
+- Commit signing, code scanning, code quality, and coverage requirements are **not currently enabled**. They are deferred to their own approved future stories (PF-031 Quality Gates, PF-032 Security Scanning) and must not be treated as active until those stories configure and verify them.
 
 This ruleset does not weaken the rule above: `main` remains deployable and protected at all times.
 
@@ -77,6 +78,25 @@ Every pull request must, per the Sprint Plan's Definition of Done:
 - Update relevant documentation (module `README.md`, `docs/PROJECT_STATUS.md`, or architecture docs) whenever behavior, scope, or story status changes.
 - Pass static analysis where configured for the affected code.
 
+## Continuous integration (PF-030)
+
+A single tracked workflow, [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (named `CI`), runs the repository's already-configured checks automatically. It triggers on `pull_request` targeting `main` and on manual `workflow_dispatch` — there is no `push`, scheduled, or deployment trigger.
+
+Three stable checks appear on every pull request:
+
+| Check name | Job ID | What it runs |
+|---|---|---|
+| **PHP Code Quality** | `quality` | `composer validate --strict`, `composer install`, check-only `composer pint:test`, `composer phpstan` |
+| **Frontend Build** | `frontend` | `npm ci`, `npm run build`, then uploads `public/build/` as a short-retention artifact |
+| **Application Tests** | `tests` | `composer install`, `.env` from `.env.example` + `php artisan key:generate`, downloads the frontend artifact, `composer test` |
+
+- **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` instead. That manifest must exist before the suite runs, so the tests job consumes the frontend job's build output rather than rebuilding it.
+- CI uses **PHP 8.4** and **Node 22** on `ubuntu-24.04`, matching the Docker development environment. Tests run against SQLite `:memory:` per [`phpunit.xml`](phpunit.xml) — no PostgreSQL, Redis, queue worker, or Docker service is involved.
+- **Every action is pinned to a full commit SHA**, with its human-readable release tag in an inline comment. Automated updating of those references is PF-032 scope.
+- The workflow uses **read-only permissions (`contents: read`) and no secrets**, and uses `pull_request` rather than `pull_request_target`, so pull requests from forks run safely without privileged access.
+- **These checks are visible but not yet required.** Until PF-031 configures the `Protect main` ruleset, a pull request can still be merged with a failing check — treat the results as authoritative feedback, not an enforced gate.
+- CI calls the Composer and npm scripts directly. It never invokes the PF-023 Git hooks below, and it runs regardless of whether a developer has installed them.
+
 ## Local Git hooks (PF-023)
 
 Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and check Conventional Commit formatting plus the already-configured Pint and Larastan/PHPStan commands (and the test suite) before a commit or push completes locally.
@@ -87,7 +107,7 @@ Tracked, reviewable Git hooks live in [`.githooks/`](.githooks) and check Conven
 - **Check mapping:** `pre-commit` runs `git diff --cached --check` and check-only `composer pint:test`; `commit-msg` validates the commit subject against this document's Conventional Commits rule below; `pre-push` runs `composer phpstan` and `composer test`.
 - **Conventional Commit enforcement:** the `commit-msg` hook enforces the `<type>(<scope>): <description>` format and allowed types defined above, with `Merge`, `Revert "`, `fixup! ` (space required), and `squash! ` (space required) subjects exempted since they are Git- or tooling-generated, not authored against this convention — `fixup!`/`squash!` without the trailing space are validated as ordinary commit subjects instead.
 - **Bypass acknowledgement:** `git commit --no-verify` / `git push --no-verify` skip these hooks by design — that is an intentional emergency escape hatch, not a statement that the skipped code is clean.
-- **Local hooks are not a substitute for CI.** These are fast, bypassable, machine-local feedback only. The authoritative, unbypassable checks are the `Protect main` branch ruleset above and the future PF-030 (GitHub Actions) / PF-031 (Quality Gates) CI checks — this section does not weaken any existing branch, PR, review, security, or approval rule.
+- **Local hooks are not a substitute for CI.** These are fast, bypassable, machine-local feedback only. The `Protect main` branch ruleset above and the PF-030 GitHub Actions checks run independently of them — this section does not weaken any existing branch, PR, review, security, or approval rule. Note that the PF-030 checks, while unbypassable by `--no-verify`, are not yet *required* by the ruleset; PF-031 (Quality Gates) owns that enforcement.
 - **Supported environments:** macOS, Linux, WSL, and native Windows with Git for Windows (Git Bash bundled). A raw Windows shell (`cmd.exe`/PowerShell) without Git for Windows or WSL is not supported.
 
 ## AI-assisted development requirements

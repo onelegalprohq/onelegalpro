@@ -30,8 +30,8 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-023 Git Hooks — Done
 
 ## CI/CD
-- PF-030 GitHub Actions — Next
-- PF-031 Quality Gates
+- PF-030 GitHub Actions — Done
+- PF-031 Quality Gates — Next
 - PF-032 Security Scanning
 
 ## Foundation Library
