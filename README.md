@@ -9,9 +9,9 @@ This description reflects the approved architecture in [`docs/architecture/`](do
 OneLegalPro is in its **architecture-first foundation phase**. Concretely, as of this writing:
 
 - Ten architecture tracks are **approved and merged**: ARCH-001 (Thailand-First Legal Intelligence), ARCH-002 (White-Label Platform), ARCH-003 (Communications Hub), ARCH-004 (Website & Client Portal / Digital Presence), ARCH-005 (Practice Management Core), ARCH-006 (Document & Knowledge Management), ARCH-007 (Billing, Trust Accounting & Finance), ARCH-008 (Identity, Security & Access Control), ARCH-009 (API & Integration Platform), and ARCH-010 (AI Copilot & Workflow Automation). See [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) for the authoritative, up-to-date record of what each covers.
-- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), and Laravel Pint configuration (PF-020) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), and [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020) below.
+- Repository and governance foundation work is **in progress**: Git and repository standards (PF-002), repository documentation (PF-003), a Docker development environment (PF-010), standardized local environment configuration (PF-011), development tooling readiness (PF-012), Laravel Pint configuration (PF-020), and Larastan-backed PHPStan static analysis (PF-021) are **complete** — see [Local development (PF-011)](#local-development-pf-011), [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012), [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020), and [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
 - Architecture approval does not imply scheduled implementation. **No business module (Legal Intelligence, White-Label rendering, Communications, Digital Presence/Client Portal, or Practice Management) has been implemented yet**, and there is **no production deployment**. Implementation for each epic requires its own approved story in [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md).
-- Laravel Pint is configured but not yet enforced by any Git hook or CI check. PHPStan, Rector, and Git hooks remain unconfigured — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
+- Laravel Pint and Larastan/PHPStan are configured but not yet enforced by any Git hook or CI check. Rector and Git hooks remain unconfigured — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) below.
 
 For the current story, next story, and full completed/in-progress record, [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is authoritative and updated after every completed story.
 
@@ -141,24 +141,23 @@ Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose
 
 ## Development tooling readiness (PF-012)
 
-PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint, described below. The remaining inventory:
+PF-012 (Development Tooling) inventoried the repository's tooling state and clarified which story owns each tool. PF-020 has since configured Laravel Pint and PF-021 has configured Larastan-backed PHPStan, both described below. The remaining inventory:
 
 - **Laravel Pint** is configured — see [Code style: Laravel Pint (PF-020)](#code-style-laravel-pint-pf-020) below.
-- **PHPStan** is not installed or configured.
+- **Larastan/PHPStan** is configured — see [Static analysis: Larastan/PHPStan (PF-021)](#static-analysis-larastanphpstan-pf-021) below.
 - **Rector** is not installed or configured.
 - **Git hooks** are not configured.
 - **GitHub Actions and other automated quality gates** are not configured — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current, unenforced state of the `Protect main` ruleset's status-check requirements.
 
 Future ownership, per [`docs/implementation/03_Engineering_Backlog.md`](docs/implementation/03_Engineering_Backlog.md):
 
-- **PF-021** will install and configure PHPStan.
 - **PF-022** will install and configure Rector, and remains optional unless separately approved.
 - **PF-023** will configure Git hooks.
 - **PF-030** will configure GitHub Actions.
-- **PF-031** will configure automated quality gates.
+- **PF-031** will configure automated quality gates and own any future PHPStan rule-level increase.
 - **PF-032** will configure security scanning.
 
-No developer should treat PHPStan, Rector, Git hooks, CI, quality gates, or security scanning as active or enforced until its owning story above is completed and merged. **Pint itself is configured but is not yet enforced by any Git hook or CI check** — enforcement is PF-023 (Git hooks) and PF-030/PF-031 (GitHub Actions and quality gates) scope, not PF-020's.
+No developer should treat Rector, Git hooks, CI, quality gates, or security scanning as active or enforced until its owning story above is completed and merged. **Pint and Larastan/PHPStan are both configured but not yet enforced by any Git hook or CI check** — enforcement is PF-023 (Git hooks) and PF-030/PF-031 (GitHub Actions and quality gates) scope, not PF-020's or PF-021's.
 
 ## Code style: Laravel Pint (PF-020)
 
@@ -183,6 +182,35 @@ composer pint
 
 Pint is configured and runnable, but nothing currently invokes it automatically — no Git hook, no GitHub Actions workflow. A developer must run `composer pint:test` (or `composer pint`) themselves. Automatic enforcement is deferred to PF-023 (Git hooks) and PF-030/PF-031 (GitHub Actions and quality gates).
 
+## Static analysis: Larastan/PHPStan (PF-021)
+
+[`phpstan.neon.dist`](phpstan.neon.dist) configures **Larastan** (`larastan/larastan`), which brings in PHPStan (`phpstan/phpstan`) and provides Laravel-aware static analysis on top of it — understanding Eloquent models, relations, facades, and other Laravel conventions that plain PHPStan cannot resolve on its own. Both packages are development-only dependencies (`require-dev`) and are never installed in a production runtime.
+
+- **Analysis level:** 5 — Larastan's own documented starting point for a fresh Laravel project.
+- **Analyzed paths:** `app/`, `bootstrap/`, `config/`, `database/`, `routes/`.
+- **Not analyzed:** `tests/` and Blade templates are out of scope for PF-021.
+- **No baseline, suppressions, or ignored errors are configured** — the current codebase passes level 5 cleanly with no exceptions carved out.
+
+Canonical Docker command:
+
+```bash
+docker compose exec app composer phpstan
+```
+
+Host alternative, when PHP and Composer dependencies are already installed locally:
+
+```bash
+composer phpstan
+```
+
+If analysis fails with a genuine out-of-memory error, the standard Composer script is not changed — instead, run PHPStan directly with a higher memory limit as a troubleshooting step:
+
+```bash
+docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=2G
+```
+
+PHPStan is not a security scanner — it checks type and code correctness, not vulnerabilities. Larastan/PHPStan is configured and runnable, but nothing currently invokes it automatically — no Git hook, no GitHub Actions workflow. Automatic enforcement is deferred to PF-023 (Git hooks) and PF-030 (GitHub Actions); PF-031 owns quality gates and any future increase to the analysis level; PF-032 owns security scanning; PF-022 (Rector) remains separate and optional unless separately approved.
+
 ## Development workflow
 
 Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
@@ -201,7 +229,7 @@ Full detail is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In summary:
 
 ## Current limitations and next foundation work
 
-- **Laravel Pint is configured (PF-020) but not yet enforced.** PHPStan, Rector, and Git hooks remain unconfigured, owned by PF-021, PF-022 (optional), and PF-023 respectively — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
+- **Laravel Pint (PF-020) and Larastan/PHPStan (PF-021) are configured but not yet enforced.** Rector and Git hooks remain unconfigured, owned by PF-022 (optional) and PF-023 respectively — see [Development tooling readiness (PF-012)](#development-tooling-readiness-pf-012) above for the current inventory.
 - **No CI or status-check gates are active.** Status checks, commit signing, code scanning, and coverage/quality gates are deferred to their own approved future stories (PF-030, PF-031, PF-032) and must not be treated as enforced until those stories configure and verify them — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Track exactly which story is current and what comes next in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
