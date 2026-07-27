@@ -43,8 +43,6 @@ final class SystemUuidV7Generator implements UuidV7Generator
      * An instant outside it cannot be encoded, and this generator refuses to
      * try rather than truncating, wrapping, clamping, or reinterpreting it.
      */
-    private const MINIMUM_UNIX_MILLISECONDS = 0;
-
     private const MAXIMUM_UNIX_MILLISECONDS = 281474976710655;
 
     public function __construct(private readonly Clock $clock) {}
@@ -98,25 +96,51 @@ final class SystemUuidV7Generator implements UuidV7Generator
     /**
      * The clock's current instant as whole Unix milliseconds.
      *
-     * **Integer arithmetic only, and no floating point anywhere.** A float
-     * cannot hold a millisecond timestamp exactly across the whole 48-bit range
-     * — beyond 2**53 milliseconds it would start rounding, and even below that
-     * a `(float)` round-trip invites an off-by-one at a boundary. `U` yields
-     * whole seconds and `v` the millisecond component; PHP normalises an
-     * instant to a floored second plus a non-negative sub-second part, so the
-     * product is exact for instants before the epoch as well as after.
+     * **Integer arithmetic only, and no floating point anywhere — including on
+     * the rejection path.** A float cannot hold a millisecond timestamp exactly
+     * across the whole 48-bit range, and a `(float)` round trip invites an
+     * off-by-one at a boundary.
      *
-     * @return int<0, 281474976710655> whole Unix milliseconds, range-checked
+     * **The bounds are therefore checked before the multiplication, never
+     * after.** `\DateTimeImmutable` can represent instants whose Unix seconds
+     * exceed `intdiv(PHP_INT_MAX, 1000)` — `new \DateTimeImmutable('@9223372036854776')`
+     * is perfectly constructible — and for those, `$seconds * 1000` overflows
+     * the integer domain and silently becomes a float. Multiplying first would
+     * mean the guarantee above held only for inputs that were already in range,
+     * which is precisely the case where it does not matter. Comparing whole
+     * seconds first keeps every operand inside the integer domain on both the
+     * accepting and the rejecting path.
      *
-     * @throws InvariantViolation if the result is outside the 48-bit range
+     * The comparison is split across the two fields the value is assembled
+     * from: seconds against `intdiv(MAX, 1000)`, and — only on the final
+     * representable second — the millisecond remainder against `MAX % 1000`.
+     * Negative seconds are rejected outright, since `unix_ts_ms` is unsigned.
+     *
+     * `U` yields whole seconds and `v` the millisecond component. PHP
+     * normalises an instant to a floored second plus a **non-negative**
+     * sub-second part, so `$milliseconds` is always `0`–`999` and the sign of
+     * an instant lives entirely in `$seconds`.
+     *
+     * Once both checks pass, `$seconds <= 281474976710`, so the product is at
+     * most `281474976710000` and the sum at most `281474976710655` — the
+     * multiplication cannot overflow, by construction.
+     *
+     * @throws InvariantViolation if the instant is outside the 48-bit range
      */
     private function unixMilliseconds(): int
     {
         $instant = $this->clock->now();
 
-        $milliseconds = ((int) $instant->format('U')) * 1000 + ((int) $instant->format('v'));
+        $seconds = (int) $instant->format('U');
+        $milliseconds = (int) $instant->format('v');
 
-        if ($milliseconds < self::MINIMUM_UNIX_MILLISECONDS || $milliseconds > self::MAXIMUM_UNIX_MILLISECONDS) {
+        $maximumSeconds = intdiv(self::MAXIMUM_UNIX_MILLISECONDS, 1000);
+        $maximumFinalSecondMilliseconds = self::MAXIMUM_UNIX_MILLISECONDS % 1000;
+
+        if ($seconds < 0
+            || $seconds > $maximumSeconds
+            || ($seconds === $maximumSeconds && $milliseconds > $maximumFinalSecondMilliseconds)
+        ) {
             // The offending instant is deliberately absent from the message:
             // Foundation exception messages are developer-facing diagnostics
             // and carry no values read from outside this method. The bounds are
@@ -127,7 +151,7 @@ final class SystemUuidV7Generator implements UuidV7Generator
             );
         }
 
-        return $milliseconds;
+        return $seconds * 1000 + $milliseconds;
     }
 
     /**
@@ -138,7 +162,9 @@ final class SystemUuidV7Generator implements UuidV7Generator
      * necessarily zero for a value the caller has already range-checked, so
      * dropping them is lossless.
      *
-     * @param  int<0, 281474976710655>  $milliseconds
+     * @param  int  $milliseconds  already range-checked by {@see self::unixMilliseconds()}
+     *                             to `0`–`281474976710655`; this method performs no
+     *                             check of its own and is private for that reason
      */
     private function timestampBytes(int $milliseconds): string
     {

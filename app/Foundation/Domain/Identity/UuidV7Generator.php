@@ -39,8 +39,17 @@ interface UuidV7Generator
     /**
      * A new UUIDv7.
      *
-     * Each call returns a distinct value; nothing is cached, interned, or
-     * reused.
+     * Each call requests fresh bytes from the platform's cryptographically
+     * secure random source and returns a new `UuidV7` instance. **No value is
+     * cached, interned, pooled, or deliberately reused.**
+     *
+     * **That is not a guarantee of distinct output.** A collision between two
+     * generated values is extraordinarily unlikely but remains possible, so
+     * this contract promises neither distinctness across calls, nor
+     * exactly-once generation, nor collision impossibility. Uniqueness is a
+     * probabilistic property of the random bits, never a proof — an
+     * implementation cannot promise otherwise, and a caller must not build on
+     * an assumption it cannot make.
      *
      * A `RandomException` means the platform's cryptographically secure random
      * source failed. It is deliberately **not** translated into the Foundation

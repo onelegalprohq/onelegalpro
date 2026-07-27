@@ -227,6 +227,91 @@ final class SystemUuidV7GeneratorTest extends TestCase
     }
 
     /**
+     * An instant so distant that `seconds * 1000` would leave the integer domain.
+     *
+     * `\DateTimeImmutable` happily represents Unix seconds beyond
+     * `intdiv(PHP_INT_MAX, 1000)`. For those, the old
+     * `((int) format('U')) * 1000 + ((int) format('v'))` expression **overflowed
+     * to a float before the range check ran**, which contradicted PF-048's
+     * integer-only guarantee even though the resulting huge float was still
+     * rejected. The generator now compares whole seconds before multiplying, so
+     * no operand ever leaves the integer domain on either path.
+     *
+     * The first two assertions establish the premise rather than the behaviour:
+     * they prove this fixture really is in the overflowing region, so the test
+     * cannot quietly stop exercising it if PHP's date range ever changes.
+     *
+     * @param  non-empty-string  $timestamp
+     */
+    #[DataProvider('integerOverflowingInstants')]
+    public function test_an_instant_whose_seconds_would_overflow_the_multiplication_is_rejected(string $timestamp): void
+    {
+        $instant = new \DateTimeImmutable($timestamp, new \DateTimeZone('UTC'));
+        $seconds = (int) $instant->format('U');
+
+        $this->assertGreaterThan(intdiv(PHP_INT_MAX, 1000), abs($seconds));
+        $this->assertIsFloat($seconds * 1000);
+
+        $this->expectException(InvariantViolation::class);
+
+        (new SystemUuidV7Generator(new FixedClock($instant)))->generate();
+    }
+
+    /**
+     * @return iterable<string, array{non-empty-string}>
+     */
+    public static function integerOverflowingInstants(): iterable
+    {
+        yield 'one second past the positive overflow threshold' => ['@9223372036854776'];
+        yield 'far past the positive overflow threshold' => ['@10000000000000000'];
+        yield 'past the negative overflow threshold' => ['@-9223372036854776'];
+    }
+
+    /**
+     * The largest instant that does not overflow is still rejected as out of range.
+     *
+     * This sits between the encodable maximum and the overflow threshold, so it
+     * pins that the seconds comparison — not the overflow behaviour — is what
+     * rejects it.
+     */
+    public function test_the_largest_non_overflowing_instant_is_still_rejected(): void
+    {
+        $instant = new \DateTimeImmutable('@'.intdiv(PHP_INT_MAX, 1000), new \DateTimeZone('UTC'));
+
+        $this->assertIsInt(((int) $instant->format('U')) * 1000);
+
+        $this->expectException(InvariantViolation::class);
+
+        (new SystemUuidV7Generator(new FixedClock($instant)))->generate();
+    }
+
+    /**
+     * The boundary is enforced on seconds and the millisecond remainder together.
+     *
+     * The maximum encodable instant is `281474976710` whole seconds plus a
+     * `655` millisecond remainder. Within that final second, `655` is accepted
+     * and `656` is not — which is exactly the case a seconds-only comparison
+     * would get wrong in one direction and a naive whole-millisecond comparison
+     * could only get right after an overflow-prone multiplication.
+     */
+    public function test_the_final_representable_second_is_bounded_by_its_millisecond_remainder(): void
+    {
+        $maximumSeconds = intdiv(self::MAXIMUM_MILLISECONDS, 1000);
+        $maximumRemainder = self::MAXIMUM_MILLISECONDS % 1000;
+
+        $this->assertSame(281474976710, $maximumSeconds);
+        $this->assertSame(655, $maximumRemainder);
+
+        $accepted = $this->generatorAt($maximumSeconds * 1000 + $maximumRemainder)->generate()->toString();
+
+        $this->assertSame('ffffffffffff', substr($accepted, 0, 8).substr($accepted, 9, 4));
+
+        $this->expectException(InvariantViolation::class);
+
+        $this->generatorAt($maximumSeconds * 1000 + $maximumRemainder + 1)->generate();
+    }
+
+    /**
      * An out-of-range instant is refused outright, never coerced.
      *
      * Truncating, wrapping, clamping, or reinterpreting would each yield a
@@ -291,14 +376,15 @@ final class SystemUuidV7GeneratorTest extends TestCase
     // --------------------------------------------------------- random variation
 
     /**
-     * Repeated generation at one fixed millisecond produces distinct values.
+     * A thousand generations at one fixed millisecond were all distinct.
      *
-     * **This demonstrates that the random bits vary. It does not, and cannot,
-     * prove that a collision is impossible** — uniqueness is a probabilistic
-     * property of 74 cryptographically secure random bits, never a proof. No
-     * statistical or entropy claim is made or tested here.
+     * **This observes that the random bits vary. It does not, and cannot,
+     * prove that a collision is impossible**, and it is not a guarantee the
+     * contract makes — uniqueness is a probabilistic property of 74
+     * cryptographically secure random bits, never a proof. No statistical or
+     * entropy claim is made or tested here.
      */
-    public function test_repeated_generation_at_one_instant_produces_distinct_values(): void
+    public function test_repeated_generation_at_one_instant_produced_distinct_values(): void
     {
         $generator = $this->generatorAt(1_785_117_770_046);
 
