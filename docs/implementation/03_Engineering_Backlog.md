@@ -38,13 +38,13 @@ Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect 
 
 ## Foundation Library
 
-The Foundation Library track has started. `PF-049`, `PF-047`, `PF-042`, and `PF-048` are **Done**; `PF-044` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
+The Foundation Library track has started. `PF-049`, `PF-047`, `PF-042`, `PF-048`, and `PF-044` are **Done**; `PF-041` is **Next**, followed by `PF-043`. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
 
 - PF-040 AggregateRoot — Backlog
-- PF-041 Entity — Backlog
+- PF-041 Entity — **Next** (follows PF-044 in the approved order)
 - PF-042 ValueObject — **Done**
-- PF-043 DomainEvent — Backlog
-- PF-044 BusinessIdentifier — **Next** (follows PF-048 in the approved order)
+- PF-043 DomainEvent — Backlog (follows PF-041)
+- PF-044 BusinessIdentifier — **Done**
 - PF-045 Money — Backlog
 - PF-046 Result — Backlog
 - PF-047 Clock — **Done**
@@ -391,6 +391,98 @@ final class SystemUuidV7Generator implements UuidV7Generator
 **Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test` (47 files), `composer phpstan` (level 5, no errors), the full test suite (197 passed, 547 assertions), `composer audit --locked --abandoned=report`, and `npm audit --audit-level=high` all pass with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
 
 **Explicitly not implemented by PF-048.** **PF-044 `BusinessIdentifier` remains unimplemented and becomes next only after PF-048 is approved and merged.** PF-040, PF-041, PF-043, PF-045, and PF-046 also remain unimplemented — no `Entity`, `AggregateRoot`, `DomainEvent`, `BusinessIdentifier`, `Money`, `Currency`, or `Result`, and no stub, placeholder, or empty directory for any of them. No monotonic generator, no clock-rollback guard, no counter, sequence, or node identifier. No timestamp extraction, ordering, comparison, hashing, byte-level accessor, nil/max factory, serialization, persistence mapping, Eloquent cast, or API DTO. No `__toString` or `\Stringable`. No container binding, service provider, or bootstrap registration — a future binding of `UuidV7Generator` to `SystemUuidV7Generator` belongs to an approved Platform Runtime story (Sprint 0.4). No test double under `app/Foundation`. No ULID or alternative identifier format. No database column type, index strategy, or storage decision. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
+
+### PF-044 — BusinessIdentifier — Done
+
+**Objective.** Establish the single framework-independent base every OneLegalPro business identifier extends, so a module identifier is a UUIDv7 *with a type* — two different concrete identifier types never equal, even when both wrap the same UUID — instead of every module re-inventing storage, validation, and equality on a bare `UuidV7`. It gives PF-041 `Entity` one real type to express identity against.
+
+**Scope.** The Foundation Domain identifier base only: the `BusinessIdentifier` abstract class, its isolated unit test, and the Foundation documentation recording it. Nothing else. **It implements no concrete identifier and names no business identifier.**
+
+**Dependencies.** Fifth in the approved order. Depends in **code** on **PF-042** (`implements ValueObject`), **PF-048** (`UuidV7` composition and validation, `UuidV7Generator` for creation), and **PF-049** (`InvalidArgument`, `InvariantViolation`, propagated) — all Done. PF-047 is transitive only, reached through `UuidV7Generator`'s implementations. **No new dependency of any kind.**
+
+**Exact contract implemented.**
+
+```php
+abstract readonly class BusinessIdentifier implements ValueObject
+{
+    final private function __construct(private UuidV7 $value) {}
+
+    final protected static function fromUuid(UuidV7 $value): static;
+
+    /** @throws \App\Foundation\Domain\Exception\InvalidArgument */
+    final public static function fromString(string $value): static;
+
+    /**
+     * @throws \Random\RandomException
+     * @throws \App\Foundation\Domain\Exception\InvariantViolation
+     */
+    final public static function generate(UuidV7Generator $generator): static;
+
+    final public function toString(): string;
+
+    final public function __toString(): string;
+
+    /** @return list<string> */
+    final protected function equalityComponents(): array;
+
+    final public function equals(ValueObject $other): bool;
+}
+```
+
+**`implements ValueObject`, not `extends`.** `ValueObject` is an interface (PF-042), so a class satisfies it by implementation; `extends` would be a fatal error. `equals()` is implemented here rather than left to subclasses, because a concrete leaf is an **empty** marker subclass and could not supply it — and because a shared, `final`, exact-runtime-type comparison is the whole reason this base exists.
+
+**Equality semantics.** Exact runtime class, then value: `$other instanceof self && $other::class === $this::class && $other->equalityComponents() === $this->equalityComponents()`. `instanceof self` alone would be wrong on an inheritable base, exactly as PF-042 records. Cross-type comparison returns `false` in both directions and never throws a `\TypeError`. `equalityComponents()` returns the canonical text and nothing else — no cache, no derived value, no object identity. Equality is total, reflexive, symmetric, transitive, strict, and non-coercive; nothing is canonicalized at comparison time. Not constant-time; no timing guarantee.
+
+**Creation and reconstitution rules.** `generate(UuidV7Generator $generator)` for creation — the generator is a **parameter, never a held collaborator**, so nothing reads ambient time or randomness, and it is called exactly once per identifier. `fromString(string $value)` for reconstitution: it accepts **any textual UUIDv7 representation `UuidV7::fromString()` accepts, including uppercase and mixed-case hexadecimal**, and stores the canonical lowercase value that method returns; **stored and emitted output is always canonical lowercase text**. `fromUuid()` is the **protected construction seam**. The constructor is `final private`: `final` because `new static()` must never resolve to a replaced signature — a subclass declaring its own constructor would otherwise break it at runtime — and `private` because the named constructors are the only paths to an instance.
+
+**Immutability and the subclass rule.** The base is `abstract readonly`, so every concrete identifier is necessarily `readonly` (PHP rejects a non-readonly subclass) and no identifier may declare a static property (PHP rejects one in a readonly class). Every base member is `final`. **PHP enforces the private constructor, the protected seam, the immutable stored `UuidV7`, and the final factories — it does not make a subclass factory alias or an additional subclass property technically impossible.** The architectural rule, recorded in `app/Foundation/README.md` and enforced by review, is that a future production leaf is an **empty `final readonly` marker subclass** adding **no state, no invariant, no constructor parameter, no factory alias, and no behaviour**. **PF-044 creates no production leaf.**
+
+**Exception mapping.** PF-049 only; **no new exception type**. `fromString()` propagates `InvalidArgument` from `UuidV7` untouched, so the rejected input cannot reach a message constructed here — none is. `generate()` propagates `\Random\RandomException` untranslated and `InvariantViolation` from the supplied generator. `fromUuid()`, `toString()`, `__toString()`, `equalityComponents()`, and `equals()` throw nothing.
+
+**Type-safety and security requirements.** A typed identifier **prevents accidental interchange** between concrete identifier types and prevents a bare `UuidV7` standing in for one. **It does not prevent deliberate reconstruction** across types via `fromString()` on another type's canonical text, and nothing claims otherwise. **`BusinessIdentifier` is not an authorization boundary, not a security boundary, and not an ownership or referential-integrity control** — those remain the responsibility of future owning module stories and the platform's separate controls; `CheckEthicalWallAccess` remains Practice Management's alone and `FirmContext` derives only from verified identity and membership. A business identifier is **not a secret**; possession proves neither identity nor authorization. Every value **discloses its approximate creation time**, and encodes **no Firm, actor, client, matter, or privileged content**. Never a session token, API credential, magic link, recovery code, webhook secret, capability, or proof of identity. Exception messages never echo rejected input. Identifiers stay opaque externally. **The absence of `toUuid()` is an encapsulation and minimal-API decision, never a security control.**
+
+**`__toString()` — a deliberate, approved departure.** `UuidV7` declares none and is not `\Stringable`, and **that rule is unchanged**: a raw UUID must not reach a log line or a URL without someone deciding to put it there. A business identifier is a named domain type whose rendering carries its meaning with it, so string context is approved for it alone. `toString()` remains the explicit form and is preferred wherever the call site can name it. `\Stringable` appears on the type only because PHP adds it automatically to any class declaring `__toString()`.
+
+**Persistence and transport boundary.** `toString()` and `__toString()` expose canonical text; `fromString()` constructs from canonical text. **None of them defines or authorizes** a database mapping or column type, an Eloquent cast, an API DTO, an event payload field, route-model binding, an index strategy, or any serialization format. Those remain the responsibility of future repositories, adapters, and owning module stories; external representation remains `Integrations`' concern.
+
+**Allowed files.**
+
+- Created: `app/Foundation/Domain/Identity/BusinessIdentifier.php`, `tests/Unit/Foundation/Domain/Identity/BusinessIdentifierTest.php`.
+- Modified: `app/Foundation/README.md` (Foundation convention record), and — for status and sequencing only — `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`.
+
+**Forbidden files.** No dependency or lock file (`composer.json`, `composer.lock`, `package.json`, `package-lock.json`); no tooling configuration (`phpunit.xml`, `phpstan.neon.dist`, `pint.json`); no `.github/`, `.githooks/`, Docker, environment, or deployment file; no Laravel configuration, bootstrap file, service provider, container binding, route, or controller; no migration; no existing PHP source file, including the PF-049 exception classes, the PF-047 `Clock`/`SystemClock`, the PF-042 `ValueObject`, and all three PF-048 Identity types; **no change to `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php`** — the PF-049 guard passed unchanged; no change to any other existing test; no separate test-fixture file; no `README.md`, `AGENTS.md`, or `CONTRIBUTING.md`; no architecture or ADR file; no `app/Modules`; no Dependabot branch. `docs/implementation/01_Implementation_Sprint_Plan.md` is not modified: its catalogue and approved order already record PF-044 correctly and it carries no per-story status field — the same reasoning PF-047, PF-042, and PF-048 applied.
+
+**Acceptance criteria.**
+
+- Exactly one new source type exists, in `App\Foundation\Domain\Identity`, `abstract readonly`, implementing `ValueObject` and — apart from the automatic `\Stringable` — nothing else.
+- The constructor is `final private` and takes exactly one required non-nullable `UuidV7`; the sole stored property is a private, readonly, non-static `UuidV7 $value`.
+- Public members are exactly `fromString`, `generate`, `toString`, `__toString`, `equals`; protected members are exactly `fromUuid` and `equalityComponents`; **every declared member is `final`**.
+- No constant and no static property is declared.
+- `fromString()` accepts every textual form `UuidV7` accepts, uppercase and mixed case included, and always stores and emits canonical lowercase text.
+- Malformed text, non-version-7 UUIDs, and non-RFC variants are rejected with `InvalidArgument`, catchable through `DomainException`, `FoundationException`, and `\RuntimeException`; no message contains the rejected input.
+- `generate()` invokes the supplied generator exactly once, retains it nowhere, and returns the concrete class called.
+- Equality compares exact runtime class before value; two different concrete identifier types wrapping the same UUID are unequal in both directions with no `\TypeError`.
+- No `toUuid()` or other UUID-object accessor; no `jsonSerialize`, `toArray`, `toPrimitives`, `fromPrimitives`, `hash`, `compareTo`, `with*`, or `\JsonSerializable`.
+- No nil rejection, timestamp policy, tenant policy, parsing policy, or domain-specific invariant beyond the UUIDv7 validation inherited from `UuidV7`.
+- No Laravel, Illuminate, Eloquent, Symfony, Carbon, PSR, service-container, persistence, serialization, or mutable-state dependency.
+- **No concrete identifier subclass exists in production code**; `app/Modules` was not created.
+- Strict types declared; namespace matches path; PHP global types take a leading backslash.
+- The PF-049 architecture guard passes **unchanged**, as does every other pre-existing test.
+- Pint, PHPStan (level 5, no baseline or suppression), the full test suite, `composer validate --strict`, and both dependency audits pass, and all four required `Protect main` checks (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) retain their exact names.
+
+**Tests.**
+
+- `tests/Unit/Foundation/Domain/Identity/BusinessIdentifierTest.php` — 118 tests, 171 assertions. Reflection shape: abstract, readonly, implements exactly `ValueObject` and `\Stringable`, not `\JsonSerializable`; constructor final and private with one required `UuidV7`; the approved public and protected member lists exactly; **every declared member final**; static versus instance members; the `equals()` signature pinned against the `ValueObject` contract; `toString()`/`__toString()` returning non-nullable `string`; twenty-five individually named prohibited or deferred members absent; exactly one stored property, private, readonly, non-static, typed `UuidV7`, named `value`; no static property and no constant. Behavioural: valid lowercase parsing; the concrete class returned by each named constructor; uppercase and mixed-case canonicalization; case never affecting equality; the protected construction seam exercised through the approved test-only fixture; canonical round trip; a fourteen-case rejection matrix; nine wrong-version UUIDs and a non-RFC variant rejected; rejection catchable through four supertypes; the rejected text absent from the message for four distinct inputs; generation through a deterministic scripted generator; the generator invoked **exactly once** and consuming one value per call; no generator retained on the instance; same type and same UUID equal on distinct instances; same type and different UUID unequal; reflexivity and transitivity; **two different identifier types wrapping the same UUID unequal in both directions**; a foreign `ValueObject` and a bare `UuidV7` unequal in both directions; equality components being the canonical text only; string conversion, cast, and interpolation; reassignment refused **even through reflection**; no Laravel booted; `app/Modules` absent; and `App\Foundation\Domain\Identity` containing exactly the four expected files and no concrete identifier.
+- Fixtures are declared **inside the test file**: `AlphaTestIdentifier` and `BetaTestIdentifier` (empty `final readonly` markers, the approved production form), `SeamTestIdentifier` (deliberately non-final, documented as not a form to copy, exposing the protected seam — an anonymous class cannot serve, because `new class extends BusinessIdentifier` would invoke the private constructor at its declaration site), `ForeignTestValue`, and `ScriptedUuidV7Generator`. **No separate fixture file exists, and no fixture name carries business meaning.** No test asserts anything about what every potential future subclass can or cannot do.
+- It extends `PHPUnit\Framework\TestCase` directly, boots no Laravel application, and adds no test dependency.
+
+**Documentation impact.** `app/Foundation/README.md`: the namespace table and its accompanying note now record `App\Foundation\Domain\Identity` as **Implemented** — the three PF-048 types plus `BusinessIdentifier`, and no concrete identifier — plus a new **`Business identifiers`** subsection within the existing `Identity` section recording the contract, the inherited-validation and canonical-lowercase rule, the creation and seam rules, the empty-marker-subclass architectural rule and exactly what PHP does and does not enforce, the corrected type-safety position, the `__toString()` departure and the unchanged `UuidV7` rule, the persistence and transport boundary, and the exclusions. The approved-order line now records PF-044 as implemented and PF-041 as next, and the `External dependencies` section records that PF-044 introduced none. `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md` updated for status and sequencing only.
+
+**Definition of Ready (met).** Goal clear and narrowly bounded to one base type; owner identified (repository owner); dependencies resolved (PF-042, PF-048, PF-049 all Done); exact contract approved and recorded above; equality, construction, immutability, and exception semantics settled with no new exception type; the four open design decisions resolved by the repository owner (final private constructor; a documented non-final test-only fixture for the construction seam; a new `Business identifiers` subsection in the Foundation README; no `toUuid()`); security implications identified and corrected — accidental interchange only, never an authorization or security boundary; tests specified; allowed and forbidden files enumerated; no architecture blocker — `App\Foundation\Domain\Identity` is the namespace `app/Foundation/README.md` already reserved for PF-044, PF-042 explicitly reserved the `extends` slot for this base, and the PF-049 guard is a denylist that permits the new file unchanged.
+
+**Definition of Done (met).** Acceptance criteria met; validated in the canonical Docker PHP 8.4 application container — `composer validate --strict`, `composer pint:test` (47 files), `composer phpstan` (level 5, 33 files, no errors), the focused PF-044 suite (118 passed, 171 assertions), the full test suite (315 passed, 735 assertions), `composer audit --locked --abandoned=report`, and `npm audit --audit-level=high` all pass with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
+
+**Explicitly not implemented by PF-044.** **No concrete identifier subclass in production code, of any kind, and no business identifier name invented** — the only leaves that exist are test-only fixtures inside the PF-044 test file. PF-041, PF-043, PF-040, PF-045, and PF-046 remain unimplemented — no `Entity`, `AggregateRoot`, `DomainEvent`, `Money`, `Currency`, or `Result`, and no stub, placeholder, or empty directory for any of them. No `toUuid()` or other UUID-object accessor. No ordering, comparison, hashing, or timestamp extraction. No serialization, persistence mapping, database column type, migration, Eloquent cast, API DTO, event payload contract, or route-model binding. No container binding, service provider, or bootstrap registration. No test double under `app/Foundation`. No authorization, ownership, or referential-integrity check. No nil rejection, timestamp policy, tenant policy, or parsing policy of its own. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
 
 ## Module Infrastructure
 - PF-060 through PF-063
