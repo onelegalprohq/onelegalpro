@@ -2,7 +2,7 @@
 
 **Sprint 0.3 — Foundation Library (PF-040 through PF-049).**
 
-This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, and **PF-048 — UUIDv7**, the fourth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
+This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, and **PF-044 — BusinessIdentifier**, the fifth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
 
 ## What Foundation is
 
@@ -23,12 +23,12 @@ The approved concern namespaces, and the PF story that owns each, are:
 | `App\Foundation\Domain\Exception` | PF-049 — Exception hierarchy | Implemented |
 | `App\Foundation\Domain\Time` | PF-047 — Clock | Implemented |
 | `App\Foundation\Domain\Model` | PF-040 — AggregateRoot, PF-041 — Entity, PF-042 — ValueObject | **Partially implemented** — `ValueObject` (PF-042) only |
-| `App\Foundation\Domain\Identity` | PF-044 — BusinessIdentifier, PF-048 — UUIDv7 | **Partially implemented** — `UuidV7`, `UuidV7Generator`, `SystemUuidV7Generator` (PF-048) only |
+| `App\Foundation\Domain\Identity` | PF-044 — BusinessIdentifier, PF-048 — UUIDv7 | Implemented |
 | `App\Foundation\Domain\Event` | PF-043 — DomainEvent | Reserved |
 | `App\Foundation\Domain\Money` | PF-045 — Money | Reserved |
 | `App\Foundation\Domain\Result` | PF-046 — Result | Reserved |
 
-**`App\Foundation\Domain\Exception` and `App\Foundation\Domain\Time` are implemented. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and nothing else — `Entity` (PF-041) and `AggregateRoot` (PF-040) remain reservations and do not exist. `App\Foundation\Domain\Identity` is likewise only partially implemented: it contains `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` (PF-048) and nothing else — `BusinessIdentifier` (PF-044) remains a reservation and does not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
+**`App\Foundation\Domain\Exception`, `App\Foundation\Domain\Time`, and `App\Foundation\Domain\Identity` are implemented — the last containing `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` (PF-048) plus `BusinessIdentifier` (PF-044), and no concrete identifier of any kind. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and nothing else — `Entity` (PF-041) and `AggregateRoot` (PF-040) remain reservations and do not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
 
 **Each story creates only its own files.** Never pre-create another story's type, stub, placeholder, or empty directory. A namespace comes into existence when its owning story implements it.
 
@@ -37,6 +37,8 @@ The approved concern namespaces, and the PF story that owns each, are:
 The `PF-040`–`PF-049` numbers are a **story catalogue, not an execution order**. Nothing has been renamed, renumbered, merged, split, or deleted. The human-approved serial order is:
 
 **PF-049 → PF-047 → PF-042 → PF-048 → PF-044 → PF-041 → PF-043 → PF-040 → PF-045 → PF-046**
+
+`PF-049`, `PF-047`, `PF-042`, `PF-048`, and `PF-044` are implemented; `PF-041` is next.
 
 The order follows dependency direction: the exception taxonomy comes first because every later primitive throws through it; `Clock` is standalone; `ValueObject` precedes the identifier work that builds on it; identifiers precede `Entity`, which precedes `DomainEvent` and `AggregateRoot`; `Money` builds on `ValueObject`; and `Result` comes last, because it must be designed against primitives that already exist rather than shaping them.
 
@@ -84,7 +86,7 @@ The order follows dependency direction: the exception taxonomy comes first becau
 
 ## Identity
 
-`App\Foundation\Domain\Identity` holds the platform's identifier primitives. **Only the PF-048 UUIDv7 types exist.** **`BusinessIdentifier` (PF-044) is a reservation in the same namespace and has not been implemented** — no `BusinessIdentifier`, no module identifier, and no stub, placeholder, or empty directory for either.
+`App\Foundation\Domain\Identity` holds the platform's identifier primitives: the PF-048 UUIDv7 types and the PF-044 `BusinessIdentifier` base. **No concrete identifier exists here, and none ever will** — a concrete business identifier belongs to the module that owns it, under that module's own approved story.
 
 ### UUIDv7
 
@@ -107,11 +109,29 @@ The order follows dependency direction: the exception taxonomy comes first becau
 - **No test double belongs in `app/Foundation`.** PF-048's fixed-time and scripted `Clock` fixtures live inside its own test files under `tests/`, per the Time rule above.
 - **Breaking changes to the published `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` contracts require explicit human approval**, as for every published Foundation type.
 
+### Business identifiers
+
+- **`BusinessIdentifier` is the base every business identifier extends (PF-044).** An `abstract readonly class` implementing `ValueObject` (PF-042) and nothing else, storing exactly one private `UuidV7`. It declares five public members — `fromString()`, `generate()`, `toString()`, `__toString()`, `equals()` — plus two protected ones, `fromUuid()` and `equalityComponents()`. Every one of them is `final`, and so is the **private** constructor.
+- **A business identifier is a UUIDv7 with a type.** Two different concrete identifier types wrapping the identical UUID are never equal, because `equals()` compares the exact runtime class — `$other::class === $this::class` — before it compares any value. `instanceof self` would be wrong on an inheritable base, exactly as the `ValueObject` contract warns.
+- **It prevents accidental interchange — nothing more.** Deliberate reconstruction across types, by passing one identifier's canonical text to another type's `fromString()`, remains possible and is not prevented. Any type with a reconstitution path has that property necessarily. **`BusinessIdentifier` is not an authorization boundary, not a security boundary, and not an ownership or referential-integrity control.** Authorization, aggregate ownership, and referential integrity remain the responsibility of the owning module's own approved stories and the platform's separate controls; `CheckEthicalWallAccess` remains Practice Management's alone, and `FirmContext` still derives only from verified identity and membership.
+- **Validation is inherited whole from `UuidV7` and is never extended.** `fromString()` accepts **any textual UUIDv7 representation `UuidV7::fromString()` accepts, including uppercase and mixed-case hexadecimal**, and stores the canonical lowercase value that method returns; **stored and emitted output is always canonical lowercase text**. `BusinessIdentifier` adds no nil rejection, no timestamp policy, no tenant policy, no parsing policy, and no domain-specific invariant of its own. It constructs no exception message, so the rejected input cannot reach one.
+- **Creation is `generate(UuidV7Generator $generator)`, and the generator is a parameter, never a held collaborator.** Nothing here reads ambient time or ambient randomness, and no static factory, clock, or entropy source exists anywhere on the type. `generate()` calls the supplied generator exactly once. `\Random\RandomException` propagates untranslated, as it does from `UuidV7Generator` itself.
+- **`fromUuid()` is the protected construction seam**, so a subclass can build itself from an already-valid `UuidV7` without construction from an arbitrary object ever becoming public.
+- **Concrete identifiers are empty `final readonly` marker subclasses, and that is an architectural rule the language only partly enforces.** PHP does enforce the private base constructor, the protected construction seam, the immutability of the stored `UuidV7` (`readonly` is viral, so no subclass may be mutable, and a `readonly` class may declare no static property), and the finality of every base member. **PHP does not make a subclass factory alias or an additional subclass property technically impossible.** A future production leaf must therefore, by rule and by review, **add no state, no invariant, no constructor parameter, no factory alias, and no behaviour**. Nothing in this document authorizes such a leaf: each one needs its own approved module story.
+- **`toString()` is the explicit rendering, and `__toString()` renders the same canonical text in string context.** This is a deliberate, approved departure from the `UuidV7` rule above, and it changes nothing about `UuidV7`, which still declares no `__toString()` and is still not `\Stringable`: a raw UUID must not reach a log line or a URL without someone deciding to put it there, whereas a business identifier is a named domain type whose rendering carries its meaning with it. `toString()` remains preferred wherever the call site can name it. `\Stringable` appears on the type only because PHP adds it automatically to any class declaring `__toString()`; it is not separately declared.
+- **`toString()` and `__toString()` expose canonical text and authorize no mapping.** Neither they nor `fromString()` define or authorize a database column type or mapping, an Eloquent cast, an API DTO, an event payload field, route-model binding, an index strategy, or any serialization format. **Those remain the responsibility of future repositories, adapters, and owning module stories**, and external representation remains `Integrations`' concern. Accepting text is a reconstitution path, not ownership of a persistence or transport contract.
+- **No `toUuid()` or other UUID-object accessor.** The composed `UuidV7` is an encapsulated implementation detail, and the public API is deliberately minimal. One may be added later only if an approved consumer demonstrates a real requirement — additive then, whereas removal would be breaking. **Its absence is not a security control and must never be described as one.**
+- **`equals()` is `final` and delegates its state to `equalityComponents()`**, which returns the canonical text and nothing else — no cache, no derived value, no object identity. Comparison never canonicalises; the stored value was canonicalised on the creation path, which is what keeps equality transitive. **Not constant-time, and no timing guarantee is made** — an identifier is not secret material.
+- **A business identifier is not a secret.** Possession proves neither identity nor authorization. Every value discloses its approximate creation time to millisecond precision, and encodes no Firm, actor, client, matter, or privileged content. It is never a session token, API credential, magic link, recovery code, webhook secret, capability, or proof of identity, and identifiers stay opaque externally per [`docs/architecture/07_API_Standards.md`](../../docs/architecture/07_API_Standards.md) §3 and §5.
+- **`BusinessIdentifier` is not** a serialization, persistence, transport, hashing, ordering, or timestamp-extraction API. It declares no `jsonSerialize`, `toArray`, `toPrimitives`, `fromPrimitives`, `hash`, `compareTo`, or `with*`, and implements no `\JsonSerializable`.
+- **No test double belongs in `app/Foundation`.** PF-044's marker, construction-seam, foreign-value, and scripted-generator fixtures live inside its own test file under `tests/`, per the same rule PF-047 and PF-048 followed.
+- **Breaking changes to the published `BusinessIdentifier` contract require explicit human approval**, as for every published Foundation type.
+
 ## External dependencies
 
 - **A domain-safe external library requires explicit human approval and must be declared as a direct dependency** in `composer.json` before any Foundation code uses it.
 - **A transitive dependency authorizes nothing.** A package that happens to be installed because something else requires it is not an approved dependency, and Foundation must never reach for it.
-- PF-049, PF-047, PF-042, and PF-048 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. PF-048 deliberately did **not** adopt `ramsey/uuid` or `symfony/uid`: both support UUIDv7 and both are installed, but **only transitively via `laravel/framework`**. Adopting any of them later would require its own approved story and a direct `composer.json` declaration.
+- PF-049, PF-047, PF-042, PF-048, and PF-044 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. PF-048 deliberately did **not** adopt `ramsey/uuid` or `symfony/uid`: both support UUIDv7 and both are installed, but **only transitively via `laravel/framework`**. Adopting any of them later would require its own approved story and a direct `composer.json` declaration.
 
 ## What never belongs in Foundation Domain
 
