@@ -38,17 +38,17 @@ Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect 
 
 ## Foundation Library
 
-The Foundation Library track has started. `PF-049`, `PF-047`, and `PF-042` are **Done**; `PF-048` is **Next**, followed by `PF-044`. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
+The Foundation Library track has started. `PF-049`, `PF-047`, `PF-042`, and `PF-048` are **Done**; `PF-044` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
 
 - PF-040 AggregateRoot — Backlog
 - PF-041 Entity — Backlog
 - PF-042 ValueObject — **Done**
 - PF-043 DomainEvent — Backlog
-- PF-044 BusinessIdentifier — Backlog (follows PF-048 in the approved order)
+- PF-044 BusinessIdentifier — **Next** (follows PF-048 in the approved order)
 - PF-045 Money — Backlog
 - PF-046 Result — Backlog
 - PF-047 Clock — **Done**
-- PF-048 UUIDv7 — **Next**
+- PF-048 UUIDv7 — **Done**
 - PF-049 Exception hierarchy — **Done**
 
 ### Approved Foundation execution order
@@ -272,6 +272,125 @@ interface ValueObject
 **Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test`, `composer phpstan` (level 5, no errors), the full test suite, `composer audit`, and `npm audit --audit-level=high` all pass with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
 
 **Explicitly not implemented by PF-042.** PF-040, PF-041, PF-043, PF-044, PF-045, PF-046, and PF-048 remain unimplemented — **no `Entity`, `AggregateRoot`, `DomainEvent`, `BusinessIdentifier`, `Money`, `Currency`, `Result`, or `UuidV7`**, and no stub, placeholder, or empty directory for any of them. No abstract `ValueObject` class, no shared equality trait, no `equalityComponents()`, and no shared equality implementation — **that is deferred until real consumers demonstrate an identical reusable requirement**, and adding one then is additive rather than breaking. No serialization, persistence mapping, Eloquent cast, API DTO, ordering, hashing, or localization. No container binding, service provider, or bootstrap registration. No test double under `app/Foundation`. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
+
+### PF-048 — UUIDv7 — Done
+
+**Objective.** Establish the single framework-independent UUIDv7 identifier primitive every OneLegalPro identifier is built from, so PF-044 `BusinessIdentifier` and every future module identifier share one validated, canonical, time-sortable value type and one injectable generation contract — instead of each inventing its own format, validation, and time source.
+
+**Scope.** The Foundation Domain UUIDv7 primitive only: the `UuidV7` value object, the `UuidV7Generator` contract, the native `SystemUuidV7Generator` implementation, their isolated unit tests, and the Foundation documentation recording all of it. Nothing else. **It implements no `BusinessIdentifier` and no module identifier.**
+
+**Dependencies.** Fourth in the approved order. Depends in **code** on **PF-042** (`UuidV7 implements ValueObject`), **PF-047** (`SystemUuidV7Generator` receives a `Clock`), and **PF-049** (`InvalidArgument`, `InvariantViolation`) — all Done. PF-048 is the first Foundation story to depend on an earlier one in code rather than only in documentation, which is why PF-042 and PF-047 were sequenced ahead of it. It further depends on the completed repository-foundation tooling track (PF-020 through PF-032) and on the standing conventions in `app/Foundation/README.md`. **No new dependency of any kind.**
+
+**Deliverables.**
+
+- `App\Foundation\Domain\Identity\UuidV7` — `final readonly class`, implements `ValueObject`. Private constructor; one static named constructor `fromString()`; `toString()`; `equals()`. No other public member.
+- `App\Foundation\Domain\Identity\UuidV7Generator` — interface. Exactly one public method, `generate(): UuidV7`. No constant, property, constructor, trait, parent interface, or additional method.
+- `App\Foundation\Domain\Identity\SystemUuidV7Generator` — `final class`, implements `UuidV7Generator`. One constructor parameter, `Clock $clock`. PHP standard library only.
+- Three pure unit tests under `tests/Unit/Foundation/Domain/Identity/`, with all fixtures declared inside their own test files.
+- `app/Foundation/README.md` updated for the partially implemented `App\Foundation\Domain\Identity` namespace and the identifier conventions.
+
+**Exact published contracts.**
+
+```php
+final readonly class UuidV7 implements ValueObject
+{
+    private function __construct(private string $value) {}
+
+    /** @throws \App\Foundation\Domain\Exception\InvalidArgument */
+    public static function fromString(string $uuid): self;
+
+    public function toString(): string;
+
+    public function equals(ValueObject $other): bool;
+}
+
+interface UuidV7Generator
+{
+    /**
+     * @throws \Random\RandomException
+     * @throws \App\Foundation\Domain\Exception\InvariantViolation
+     */
+    public function generate(): UuidV7;
+}
+
+final class SystemUuidV7Generator implements UuidV7Generator
+{
+    public function __construct(private readonly Clock $clock) {}
+
+    public function generate(): UuidV7;
+}
+```
+
+**A native implementation deliberately, rather than a library.** `ramsey/uuid 4.9.3` and `symfony/uid v8.1.0` both support UUIDv7 and are both installed, but **only transitively via `laravel/framework`**, and a transitive dependency authorizes nothing — the same rule PF-047 applied when declining PSR-20 and Carbon. Their one real advantage, same-millisecond monotonic increment, holds only within a single process and could not be promised platform-wide anyway; and `ramsey/uuid`'s parser is lenient (it accepts brace-wrapped, `urn:uuid:`, unhyphenated, nil, wrong-version, and wrong-variant input), so a wrapper would implement strict validation regardless. Because generation sits behind `UuidV7Generator`, adopting a library later is **additive**, not breaking. `Illuminate\Support\Str::uuid7()` is prohibited: `Illuminate\` is on the PF-049 guard's denylist, and it honours the global mutable `Str::$uuidFactory` hook, which would let unrelated framework test state change a Foundation primitive's output.
+
+**Generation is a separate injectable contract, deliberately.** Not a static on the value object: `UuidV7::generate()` would read ambient time and ambient randomness inside a value object, contradicting the PF-047 rule that domain code never reads ambient system time, and making the timestamp bits untestable. The generator receives a `Clock` by constructor injection so `generate()` stays parameterless, keeping a future stateful or monotonic implementation unconstrained. **No separate randomness abstraction was introduced** — a substitutable randomness source is a security footgun, and every property that matters is provable without controlling the random bytes.
+
+**Time semantics — the published wording.** A UUIDv7 is **time-sortable**, and that is the only term this story's code and documentation use for it. Specifically:
+
+- Values whose encoded millisecond timestamps differ **sort according to those timestamps**, both lexically as canonical strings and bytewise.
+- **Values created within the same millisecond have no defined relative order.**
+- **No monotonicity is promised**, in any scope — the generator holds no counter, sequence, or last-seen timestamp.
+- **Clock rollback is permitted and unguarded.** `Clock` is a wall clock that may be corrected backwards, so a value created later may sort before one created earlier; nothing detects, corrects, or reports that.
+- **No global, cross-process, or cross-host ordering is promised.** There is no coordination, no shared state, and no node identifier.
+
+**Timestamp range.** RFC 9562 §5.7 defines `unix_ts_ms` as a **48-bit unsigned** count of Unix milliseconds, so the representable range is `0` through `281474976710655` inclusive. `SystemUuidV7Generator` **explicitly verifies the injected clock's instant against that inclusive range and throws `InvariantViolation` when it falls outside.** Range checking and timestamp assembly use **integer arithmetic only, with no floating-point timestamp arithmetic anywhere — on the accepting and the rejecting path alike**, because a float cannot hold the whole range exactly and invites a boundary off-by-one. **The bounds are checked before the multiplication, never after.** `\DateTimeImmutable` can represent instants whose Unix seconds exceed `intdiv(PHP_INT_MAX, 1000)` — `new \DateTimeImmutable('@9223372036854776')` is constructible — and for those, a `seconds * 1000` product overflows the integer domain and silently becomes a float, so multiplying first would leave the guarantee holding only for inputs that were already in range. The generator therefore reads whole seconds and the millisecond remainder as separate integers and compares them before combining: seconds against `intdiv(281474976710655, 1000)` (`281474976710`), and — only on that final representable second — the remainder against `281474976710655 % 1000` (`655`). Negative seconds are rejected outright, `unix_ts_ms` being unsigned. Only once both checks pass is `seconds * 1000 + remainder` evaluated, which by construction cannot overflow. An out-of-range instant is **never truncated, wrapped, clamped, or reinterpreted**: each of those would return a syntactically valid UUID carrying a silently wrong timestamp, which is the worst available outcome. The six timestamp bytes are produced with `pack('J', …)`, which states big-endian explicitly, so assembly never depends on host byte order.
+
+**Allowed files.**
+
+- Created: `app/Foundation/Domain/Identity/UuidV7.php`, `app/Foundation/Domain/Identity/UuidV7Generator.php`, `app/Foundation/Domain/Identity/SystemUuidV7Generator.php`, `tests/Unit/Foundation/Domain/Identity/UuidV7Test.php`, `tests/Unit/Foundation/Domain/Identity/UuidV7GeneratorTest.php`, `tests/Unit/Foundation/Domain/Identity/SystemUuidV7GeneratorTest.php`.
+- Modified: `app/Foundation/README.md` (Foundation convention record), and — for status and sequencing only — `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`.
+
+**Forbidden files.** No dependency or lock file (`composer.json`, `composer.lock`, `package.json`, `package-lock.json`); no tooling configuration (`phpunit.xml`, `phpstan.neon.dist`, `pint.json`); no `.github/`, `.githooks/`, Docker, environment, or deployment file; no Laravel configuration, bootstrap file, service provider, or container binding; no migration; no existing PHP source file, including the PF-049 exception classes, the PF-047 `Clock`/`SystemClock`, and the PF-042 `ValueObject`; **no change to `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php`** — the PF-049 guard must pass unchanged; no change to any other existing Foundation test; no separate test-fixture file; no `README.md`, `AGENTS.md`, or `CONTRIBUTING.md`; no architecture or ADR file; no `app/Modules`; no Dependabot branch. `docs/implementation/01_Implementation_Sprint_Plan.md` is not modified: its catalogue and approved order already record PF-048 correctly and it carries no per-story status field — the same reasoning PF-047 and PF-042 applied.
+
+**Acceptance criteria.**
+
+- Exactly the three approved source types exist, with the approved namespace, finality, readonly-ness, and signatures.
+- `UuidV7` is `final readonly`, implements `ValueObject`, and implements nothing else — in particular neither `\Stringable` nor `\JsonSerializable`.
+- Its constructor is **private**; `fromString()` is the only path from text.
+- Every reachable instance is a valid RFC 9562 version 7 UUID with variant `0b10`; `toString()` always returns canonical lowercase hyphenated form.
+- `fromString()` rejects malformed text, non-hexadecimal characters, wrong length, misplaced or absent hyphens, brace-wrapped and `urn:uuid:` forms, surrounding whitespace, the nil and max UUIDs, every non-7 version, and every non-RFC variant — each with `InvalidArgument`. Hexadecimal is accepted in either case and normalised to lowercase on the creation path.
+- No exception message contains the rejected input or the offending instant.
+- `equals()` matches the PF-042 signature exactly and uses exact runtime type; cross-class comparison returns `false` rather than throwing.
+- `UuidV7Generator` declares exactly one method, `generate(): UuidV7`, and nothing else.
+- `SystemUuidV7Generator` is final, takes exactly one `Clock` constructor parameter, reads no ambient time, and declares no static property and no mutable state.
+- The 48-bit timestamp range is verified with integer arithmetic and violations raise `InvariantViolation`; no value is produced for an unencodable instant.
+- The random bits come from `random_bytes()`. No `mt_rand`, `rand`, `uniqid`, `str_shuffle`, `array_rand`, or seedable engine appears anywhere.
+- No `__toString`, `\Stringable`, `jsonSerialize`, `toArray`, `toBytes`, `fromBytes`, `timestamp`, `compareTo`, `isBefore`, `nil`, `max`, `hash`, `with*`, or `notEquals` is added.
+- No monotonicity, exactly-once generation, collision-impossibility, global-ordering, or index-performance behaviour is added, and **no such claim is documented**. **"Time-sortable" is the term used throughout**, in source, tests, and documentation alike; the stronger ordering wording it replaces appears nowhere.
+- Native PHP only. No Laravel global helper, Carbon, Symfony, Ramsey, PSR interface, package, or vendor SDK. No vendor object appears in any published signature. No `composer.json` or lock-file change.
+- Nothing under `App\Foundation\Domain\Identity` references Laravel, Illuminate, Eloquent, HTTP, queues, the service container, facades, or configuration helpers.
+- Every new source file declares `strict_types=1` and sits in the namespace matching its path; PHP global types take a leading backslash.
+- No tenant, `FirmId`, `FirmContext`, actor, principal, session, authentication, authorization, or Ethical Wall semantics are introduced.
+- No serialization, persistence mapping, Eloquent cast, API DTO, or localization behaviour is added.
+- No `BusinessIdentifier`, module identifier, container binding, service provider, or test double is created under `app/Foundation`.
+- The PF-049 architecture guard passes **unchanged**.
+- Pint, PHPStan (level 5, no baseline or suppression), the full test suite, `composer validate --strict`, and both dependency audits pass, and all four required `Protect main` checks (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) retain their exact names.
+
+**Tests.**
+
+- `tests/Unit/Foundation/Domain/Identity/UuidV7Test.php` — proves by reflection that the class is `final` and `readonly`, implements `ValueObject` and nothing else, is neither `\Stringable` nor `\JsonSerializable`, has a **private** constructor, declares exactly `equals`, `fromString`, and `toString` as public methods, and declares none of nineteen individually named prohibited or deferred members. Pins each signature exactly. Behavioural coverage: canonical round trip; canonical output pattern; version nibble `7`; every RFC variant nibble accepted; uppercase and mixed-case input normalised to lowercase; case never affecting equality, proving canonicalisation is on the creation path; a **39-case rejection matrix** covering empty and whitespace-only input, leading/trailing/internal whitespace, a trailing newline, arbitrary text, off-by-one lengths, a non-hexadecimal character, misplaced and absent hyphens, brace-wrapped and `urn:uuid:` forms, the nil and max UUIDs, versions 0–6, 8 and f, and all twelve non-RFC variant nibbles; rejection catchable through `InvalidArgument`, `DomainException`, `FoundationException`, and `\RuntimeException`; the rejected input absent from the message for four distinct inputs; reflexive, symmetric equality; distinct-but-equal instances; cross-class comparison `false` in both directions with no `\TypeError`; and reassignment refused even through reflection, isolating `readonly` from mere privacy.
+- `tests/Unit/Foundation/Domain/Identity/UuidV7GeneratorTest.php` — proves by reflection that `UuidV7Generator` is an interface extending no interface, declaring exactly one method named `generate` that is public, non-static, takes no parameter, and returns exactly non-nullable `UuidV7`, with no constant and no property.
+- `tests/Unit/Foundation/Domain/Identity/SystemUuidV7GeneratorTest.php` — proves the class is final, implements the contract, takes exactly one required non-nullable `Clock`, and **declares no static property**. Behavioural coverage: canonical output with version and variant bits; a generated value round-tripping through `fromString()`; the leading 48 bits equalling the clock instant at seven points including **minimum `0`** (`000000000000`) and **maximum `281474976710655`** (`ffffffffffff`), each expected prefix computed independently of the implementation's arithmetic; milliseconds rather than seconds encoded; **five out-of-range instants rejected with `InvariantViolation`**, including one below the minimum, one above the maximum, and far-out values in both directions; **three instants so distant that `seconds * 1000` overflows the integer domain rejected**, each with premise assertions proving the fixture really is in the overflowing region; the largest non-overflowing instant still rejected, pinning that the seconds comparison rather than the overflow does the rejecting; the final representable second bounded by its millisecond remainder, with `655` accepted and `656` refused; that rejection catchable through the Foundation taxonomy; the offending instant absent from the message; **no value produced at all for an unencodable instant**, proving nothing is truncated, wrapped, or clamped; the injected clock used rather than ambient time; ambient default timezone irrelevant, with the original restored in `finally`; 1000 generations at one fixed instant all distinct, **documented as demonstrating that the random bits vary and explicitly not as a collision-impossibility proof**; values at one instant sharing a timestamp while differing in their random bits; four values from four different milliseconds sorting by their timestamps; **clock rollback permitted, with the later-generated value asserted to sort earlier**, pinning the non-guarantee so a future silent introduction of monotonic state fails here; and two generators sharing one clock producing independent values.
+- All three extend `PHPUnit\Framework\TestCase` directly, boot no Laravel application, and add no test dependency. The fixed-time `FixedClock` and sequence-driven `ScriptedClock` fixtures are declared inside `SystemUuidV7GeneratorTest.php`, and the foreign `ValueObject` fixture inside `UuidV7Test.php`; no separate fixture file exists. **No test uses `sleep()`, `usleep()`, `hrtime()`, a real elapsed-time tolerance, a statistical randomness claim, or an ordering assertion between two values generated in the same millisecond.**
+
+**Security requirements.**
+
+- **UUIDs are identifiers, not secrets**, and never an authorization decision. Possession grants nothing.
+- **A UUID never replaces Firm isolation, Ethical Walls, or access checks.** `CheckEthicalWallAccess` remains Practice Management's sole authority; `FirmContext` derives only from verified identity and membership.
+- **A UUIDv7 exposes its approximate creation timestamp** to anyone holding it. Owning modules and `Integrations` decide deliberately what to expose externally; `docs/architecture/07_API_Standards.md` §3 and §5 already require identifiers to be opaque externally and never a basis for enumeration or ordering assumptions.
+- **No Firm, actor, client, matter, or privileged content is encoded** — timestamp bits and CSPRNG bits only. UUIDv7 has **no node field**, so no host identity leaks.
+- **Cryptographically secure randomness is mandatory** for the random portion; `random_bytes()` is the only source used.
+- **Never a session token, API credential, magic link, recovery code, webhook secret, capability, or proof of identity.** The 48-bit prefix is fully predictable by construction.
+- Exception messages are developer-facing diagnostics and never echo the rejected input or the offending instant, and never carry a tenant identifier, actor identity, or client or matter content.
+- No existing security control or required check was weakened, renamed, bypassed, or removed. The four required `Protect main` checks retain their exact names.
+
+**Documentation impact.** `app/Foundation/README.md`: the namespace table and its accompanying note now record `Identity` as **partially implemented** — `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` only, with **`BusinessIdentifier` (PF-044) still a reservation that does not exist** — plus a new `Identity` section recording the UUIDv7 conventions, the time-sortability wording, the timestamp-range rule, the security rules, and the exclusions. The `External dependencies` section now records that PF-048 introduced no dependency and deliberately declined `ramsey/uuid` and `symfony/uid` as transitive-only. `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md` updated for status and sequencing only.
+
+**Definition of Ready (met).** Goal clear and narrowly bounded to one identifier primitive; owner identified (repository owner); dependencies resolved (PF-042, PF-047, PF-049 all Done); dependency strategy analysed and approved with no new dependency; exact contracts approved and recorded above; acceptance criteria stated; semantic guarantees **and** explicit non-guarantees stated, including the mandated time-sortable wording and the 48-bit range rule; security implications identified; exception mapping onto the existing PF-049 taxonomy settled with no new exception type; tests specified; allowed and forbidden files enumerated; no architecture blocker — `App\Foundation\Domain\Identity` is the namespace `app/Foundation/README.md` already reserves, and the PF-049 guard is a denylist that permits these three files unchanged.
+
+**Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test` (47 files), `composer phpstan` (level 5, no errors), the full test suite (197 passed, 547 assertions), `composer audit --locked --abandoned=report`, and `npm audit --audit-level=high` all pass with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
+
+**Explicitly not implemented by PF-048.** **PF-044 `BusinessIdentifier` remains unimplemented and becomes next only after PF-048 is approved and merged.** PF-040, PF-041, PF-043, PF-045, and PF-046 also remain unimplemented — no `Entity`, `AggregateRoot`, `DomainEvent`, `BusinessIdentifier`, `Money`, `Currency`, or `Result`, and no stub, placeholder, or empty directory for any of them. No monotonic generator, no clock-rollback guard, no counter, sequence, or node identifier. No timestamp extraction, ordering, comparison, hashing, byte-level accessor, nil/max factory, serialization, persistence mapping, Eloquent cast, or API DTO. No `__toString` or `\Stringable`. No container binding, service provider, or bootstrap registration — a future binding of `UuidV7Generator` to `SystemUuidV7Generator` belongs to an approved Platform Runtime story (Sprint 0.4). No test double under `app/Foundation`. No ULID or alternative identifier format. No database column type, index strategy, or storage decision. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
 
 ## Module Infrastructure
 - PF-060 through PF-063
