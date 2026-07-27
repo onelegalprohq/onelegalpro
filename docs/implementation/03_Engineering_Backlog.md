@@ -38,17 +38,17 @@ Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect 
 
 ## Foundation Library
 
-The Foundation Library track has started. `PF-049` and `PF-047` are **Done**; `PF-042` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
+The Foundation Library track has started. `PF-049`, `PF-047`, and `PF-042` are **Done**; `PF-048` is **Next**, followed by `PF-044`. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
 
 - PF-040 AggregateRoot — Backlog
 - PF-041 Entity — Backlog
-- PF-042 ValueObject — **Next**
+- PF-042 ValueObject — **Done**
 - PF-043 DomainEvent — Backlog
-- PF-044 BusinessIdentifier — Backlog
+- PF-044 BusinessIdentifier — Backlog (follows PF-048 in the approved order)
 - PF-045 Money — Backlog
 - PF-046 Result — Backlog
 - PF-047 Clock — **Done**
-- PF-048 UUIDv7 — Backlog
+- PF-048 UUIDv7 — **Next**
 - PF-049 Exception hierarchy — **Done**
 
 ### Approved Foundation execution order
@@ -190,6 +190,88 @@ interface Clock
 **Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test` (36 files), `composer phpstan` (level 5, no errors), `php artisan test` (41 passed, 193 assertions), `composer audit`, and `npm audit --audit-level=high` all passed with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
 
 **Explicitly not implemented by PF-047.** PF-040 through PF-046 and PF-048 remain unimplemented. No `FrozenClock`, `MutableClock`, or production test double. No container binding, service provider, or bootstrap registration — a future Laravel binding of `Clock` to `SystemClock` belongs to an approved Platform Runtime story (Sprint 0.4), not to this one. No PSR-20 adoption: `psr/clock` is present only transitively, and a transitive package authorizes nothing. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
+
+### PF-042 — ValueObject — Done
+
+**Objective.** Establish the single framework-independent contract every OneLegalPro value object satisfies, so identifiers, monetary amounts, and module-owned values share one equality-by-value semantic instead of each type inventing its own — without imposing an inheritance, immutability, serialization, or transport obligation on any of them.
+
+**Scope.** The Foundation Domain value-object contract only. This story owns the `ValueObject` interface, its isolated unit test, and the Foundation documentation recording the conventions. Nothing else. **It implements no value object.**
+
+**Dependencies.** None inside the Foundation Library that block it — `PF-042` is the third story in the approved order. It references the PF-049 exception taxonomy in **documentation only**: no import, no code dependency, no `use` statement. It does not depend on PF-047. It depends on the completed repository-foundation tooling track (PF-020 through PF-032) for Pint, PHPStan, tests, and the required CI checks, and on the standing conventions PF-049 recorded in `app/Foundation/README.md`.
+
+**Deliverables.**
+
+- `App\Foundation\Domain\Model\ValueObject` — interface. Exactly one public method, `equals(ValueObject $other): bool`. No constant, property, constructor, trait, parent interface, or additional method.
+- One pure unit test under `tests/Unit/Foundation/Domain/Model/`, with its two reference fixtures declared inside the test file itself.
+- `app/Foundation/README.md` updated for the partially implemented `App\Foundation\Domain\Model` namespace and the value-object conventions.
+
+**Exact published contract.**
+
+```php
+interface ValueObject
+{
+    public function equals(ValueObject $other): bool;
+}
+```
+
+`ValueObject $other` deliberately rather than `self $other`: `self` inside an interface resolves to the interface, and because PHP parameter types are contravariant, an implementation that writes `self` is a fatal error. Naming the interface explicitly makes the signature copy-pasteable verbatim into every implementation.
+
+**An interface deliberately rather than an abstract class.** PHP's `readonly` inheritance is viral and bidirectionally exclusive — a non-readonly class cannot extend a readonly class, and a readonly class cannot extend a non-readonly class **even when the parent declares no properties**. Any abstract-class base would therefore force one permanent, platform-wide choice: every value object must be `readonly`, or none ever may be. An `abstract readonly class` would additionally forbid static properties in every value object, foreclosing an interned-instance `Currency` for PF-045. An interface imposes neither constraint and leaves each value object's single `extends` slot free, which PF-044 `BusinessIdentifier` needs for its own abstract identifier base.
+
+**Equality semantics the contract documents.** Equality is by value, never by identity, and is total, reflexive, symmetric, transitive, strict, and non-coercive. **Differently typed value objects are unequal, and a cross-class comparison returns `false` rather than throwing a `TypeError`.** Implementations must use **exact runtime-type** semantics. `$other instanceof self` achieves that for a **final leaf implementation**, because such a class cannot have subclasses — it is **not** a universally sufficient technique. Any future inheritable base that implements `equals()` on behalf of its subclasses — such as PF-044's possible `BusinessIdentifier` base — must compare the runtime classes explicitly, for example `$other::class === $this::class`, before comparing value state. Canonicalization belongs to the concrete value-object story, not to this contract, and caches and derived properties never participate in equality. **PF-042 supplies no production equality implementation.**
+
+**Construction and invariants the contract documents.** Every approved creation or reconstitution path must enforce the concrete type's invariants, and a value object must never be observable in an invalid state. **Whether creation uses a public constructor, a named constructor, a factory, or another explicit mechanism is the concrete story's decision** — this contract requires none of them. Implementations report failure through the PF-049 taxonomy: `InvalidArgument` for an unacceptable supplied argument, `InvariantViolation` for a broken domain guarantee. **PF-042's interface itself throws nothing, and PF-042 adds no factory, `fromPrimitives()`, or reconstitution API.**
+
+**Allowed files.**
+
+- Created: `app/Foundation/Domain/Model/ValueObject.php`, `tests/Unit/Foundation/Domain/Model/ValueObjectTest.php`.
+- Modified: `app/Foundation/README.md` (Foundation convention record), and — for status and sequencing only — `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`.
+
+**Forbidden files.** No dependency or lock file (`composer.json`, `composer.lock`, `package.json`, `package-lock.json`); no tooling configuration (`phpunit.xml`, `phpstan.neon.dist`, `pint.json`); no `.github/`, `.githooks/`, Docker, environment, or deployment file; no Laravel configuration, bootstrap file, or service provider; no migration; no existing PHP source file, including the PF-049 exception classes and the PF-047 `Clock`/`SystemClock`; **no change to `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php`** — the PF-049 guard must pass unchanged; no separate test-fixture file; no `README.md`, `AGENTS.md`, or `CONTRIBUTING.md`; no `app/Modules`; no Dependabot branch. `docs/implementation/01_Implementation_Sprint_Plan.md` is not modified: its catalogue and approved order already record PF-042 correctly and it carries no per-story status field — the same reasoning PF-047 applied.
+
+**Acceptance criteria.**
+
+- Exactly one approved source type exists, with the approved namespace, form, and method signature.
+- `ValueObject::equals()` is declared exactly `public function equals(ValueObject $other): bool;` — one required, non-nullable, non-variadic, not-by-reference parameter with no default, and a non-nullable `bool` return.
+- The interface declares no constant, no property, and no second method, and **extends nothing** — in particular neither `\Stringable` nor `\JsonSerializable`.
+- The interface imposes no `readonly` constraint: a `final readonly class` and a plain `final class` can each implement it.
+- No `notEquals`, `toPrimitives`, `fromPrimitives`, `toArray`, `jsonSerialize`, `__toString`, `hash`, `copy`, `with*`, `equalityComponents`, or validation helper is added.
+- No abstract `ValueObject` class, no shared equality trait, no static factory, and no test double is created under `app/Foundation`.
+- **No comparison logic is implemented in production code by this story**, and no reflection-based, serialization-based, or hash-based equality mechanism exists anywhere.
+- Native PHP only. No Laravel global helper, Carbon, Symfony, Ramsey, PSR interface, package, vendor SDK, configuration read, service-provider registration, or container binding. No `composer.json` or lock-file change.
+- Nothing under `App\Foundation\Domain\Model` references Laravel, Illuminate, Eloquent, HTTP, queues, the service container, facades, or configuration helpers.
+- The new source file declares `strict_types=1` and sits in the namespace matching its path; PHP global types are referenced with a leading backslash.
+- No tenant, `FirmId`, `FirmContext`, actor, principal, session, authentication, authorization, or Ethical Wall semantics are introduced.
+- No serialization, persistence, mapping, transport, ordering, hashing, localization, or constant-time-comparison behavior is added, and no such claim is documented.
+- The published documentation does not force a public constructor and does not forbid a future approved named constructor or factory.
+- The PF-049 architecture guard passes **unchanged**.
+- Pint, PHPStan (level 5, no baseline or suppression), the full test suite, `composer validate --strict`, and both dependency audits pass, and all four required `Protect main` checks (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) are green.
+
+**Tests.**
+
+- `tests/Unit/Foundation/Domain/Model/ValueObjectTest.php` — proves by reflection that `ValueObject` is an interface that extends no interface and declares exactly one method; that the method is named `equals`, is public and non-static, and takes exactly one parameter; that the parameter is required, non-nullable, not variadic, not passed by reference, has no default, and is typed exactly `App\Foundation\Domain\Model\ValueObject`; that the return type is exactly non-nullable `bool`; and that the interface declares no constant or property and extends neither `\Stringable` nor `\JsonSerializable`.
+- **Two minimal reference implementations are declared inside the test file itself** — one `final readonly class` and one plain `final class` — proving both forms may implement the contract, which is the property the interface exists to preserve. No separate fixture file is created.
+- Behavioral assertions against those reference implementations cover reflexivity; distinct instances holding the same value comparing equal while not being identical; different values comparing unequal; cross-class comparison returning `false` in **both** directions with no `TypeError`; string `'1'` not equalling integer `1`; and a write to the readonly fixture's property throwing `\Error`.
+- **These behavioral assertions demonstrate the documented reference semantics.** A PHP interface cannot mechanically enforce each implementation's internal comparison algorithm, and this test makes no such claim. The fixtures are `final`, so `instanceof self` is exact-class-correct **for them**; that technique is not represented as universally sufficient for an inheritable class.
+- The test extends `PHPUnit\Framework\TestCase` directly, boots no Laravel application, and adds no test dependency.
+
+**Security requirements.**
+
+- No tenant identifier, `FirmId`, `FirmContext`, actor, principal, or session semantics; no authentication, authorization, or Ethical Wall decision. A value object is never a capability or authorization token.
+- No credential, secret, client or matter content, or privileged narrative is created, read, stored, or logged, and no confidential value appears in any exception message.
+- **No `__toString`, `\Stringable`, `jsonSerialize`, `toArray`, `toPrimitives`, or `hash` on the contract**, so no value object becomes implicitly stringable, serializable, loggable, or safe for external transport. Whether a given type is any of those is decided by the type that owns it; external representation remains `Integrations`' concern per `docs/architecture/07_API_Standards.md` §2 and §19, and `app/Foundation/README.md` continues to prohibit a serialization API in Foundation Domain.
+- **`equals()` is documented as not constant-time, and no timing guarantee is made.** Constant-time comparison remains type-specific: a value object holding secret or privileged material implements `equals()` with `hash_equals()` or an equivalent under its own explicitly approved story, and preferably does not retain retrievable secret material at all, consistent with `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §49.
+- No reflection-, serialization-, or hash-based comparison is introduced, so no comparison reads private state, materializes secret values into strings, or leaks object-graph size through timing.
+- Untrusted external input reaches a value object only through the owning module's Application layer; every approved creation path enforces the type's invariants, and this story adds no permissive factory, `fromPrimitives()`, or reconstitution path that could bypass them.
+- No existing security control or required check is weakened, renamed, bypassed, or removed. The four required `Protect main` checks retain their exact names: `PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`.
+
+**Documentation impact.** `app/Foundation/README.md` updated: the namespace table and its accompanying note now record `Exception` and `Time` as implemented and `Model` as **partially** implemented — `ValueObject` only, with `Entity` (PF-041) and `AggregateRoot` (PF-040) still reservations — plus a new `Model` section recording the value-object conventions and exclusions. `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md` updated for status and sequencing only.
+
+**Definition of Ready (met).** Goal clear and narrowly bounded to one contract; owner identified (repository owner); dependencies resolved (no blocking Foundation dependency — PF-049 is referenced in documentation only); exact contract approved and recorded above; acceptance criteria stated; security implications identified (no tenancy, authorization, serialization, stringification, or constant-time-comparison semantics); tests specified; no architecture blocker — `App\Foundation\Domain\Model` is the namespace `app/Foundation/README.md` already reserves for PF-042, and the PF-049 guard already permits an `equals()` method declaration.
+
+**Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test`, `composer phpstan` (level 5, no errors), the full test suite, `composer audit`, and `npm audit --audit-level=high` all pass with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
+
+**Explicitly not implemented by PF-042.** PF-040, PF-041, PF-043, PF-044, PF-045, PF-046, and PF-048 remain unimplemented — **no `Entity`, `AggregateRoot`, `DomainEvent`, `BusinessIdentifier`, `Money`, `Currency`, `Result`, or `UuidV7`**, and no stub, placeholder, or empty directory for any of them. No abstract `ValueObject` class, no shared equality trait, no `equalityComponents()`, and no shared equality implementation — **that is deferred until real consumers demonstrate an identical reusable requirement**, and adding one then is additive rather than breaking. No serialization, persistence mapping, Eloquent cast, API DTO, ordering, hashing, or localization. No container binding, service provider, or bootstrap registration. No test double under `app/Foundation`. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
 
 ## Module Infrastructure
 - PF-060 through PF-063
