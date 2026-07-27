@@ -38,16 +38,16 @@ Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect 
 
 ## Foundation Library
 
-The Foundation Library track has started. `PF-049` is **Done**; `PF-047` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
+The Foundation Library track has started. `PF-049` and `PF-047` are **Done**; `PF-042` is **Next**. Every other story below remains Backlog — none is Ready, In Progress, or Done, and each still requires its own approved entry with a Definition of Ready before implementation begins.
 
 - PF-040 AggregateRoot — Backlog
 - PF-041 Entity — Backlog
-- PF-042 ValueObject — Backlog
+- PF-042 ValueObject — **Next**
 - PF-043 DomainEvent — Backlog
 - PF-044 BusinessIdentifier — Backlog
 - PF-045 Money — Backlog
 - PF-046 Result — Backlog
-- PF-047 Clock — **Next**
+- PF-047 Clock — **Done**
 - PF-048 UUIDv7 — Backlog
 - PF-049 Exception hierarchy — **Done**
 
@@ -119,6 +119,77 @@ These hold for every story in this track and may not be reversed without explici
 **Definition of Done (met).** Acceptance criteria met; `composer pint`, `composer phpstan`, and `composer test` all pass with no baseline, suppression, or ignored error; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
 
 **Explicitly not implemented by PF-049.** PF-040 through PF-048 remain unimplemented. No business module, no `app/Modules`, no production deployment, no new dependency, no exception handler/renderer/service provider/bootstrap registration, no logging, telemetry, audit, metrics, or reporting.
+
+### PF-047 — Clock — Done
+
+**Objective.** Establish the single framework-independent time abstraction Foundation primitives and future modules depend on, so domain code never reads ambient system time directly and every timestamp originates from one injectable contract that always returns an explicit UTC instant.
+
+**Scope.** Foundation Domain time abstraction only. This story owns the `Clock` contract, the native UTC `SystemClock` implementation, its isolated unit tests, and the Foundation documentation recording both. Nothing else.
+
+**Dependencies.** None inside the Foundation Library — `PF-047` is the second story in the approved order and is standalone; it depends on no other `PF-04x` story and references no PF-049 exception type. It depends only on the completed repository-foundation tooling track (PF-020 through PF-032) for Pint, PHPStan, tests, and the required CI checks, and on the standing conventions PF-049 recorded in `app/Foundation/README.md`.
+
+**Deliverables.**
+
+- `App\Foundation\Domain\Time\Clock` — interface. Exactly one public method, `now(): \DateTimeImmutable`. No constants, properties, constructor, trait, or additional method.
+- `App\Foundation\Domain\Time\SystemClock` — final class, implements `Clock`, returns a newly created `\DateTimeImmutable` for the current instant in explicit UTC. No constructor argument, configuration, mutable property, or dependency.
+- Two pure unit tests under `tests/Unit/Foundation/Domain/Time/`.
+- `app/Foundation/README.md` updated for the newly implemented `App\Foundation\Domain\Time` namespace and the Clock conventions.
+
+**Exact published contract.**
+
+```php
+interface Clock
+{
+    public function now(): \DateTimeImmutable;
+}
+```
+
+`\DateTimeImmutable` deliberately rather than `\DateTimeInterface`: the wider interface is satisfied by the mutable `\DateTime`, which would let an implementation hand back an object a caller can mutate in place, contradicting the Foundation immutability convention.
+
+**Allowed files.**
+
+- Created: `app/Foundation/Domain/Time/Clock.php`, `app/Foundation/Domain/Time/SystemClock.php`, `tests/Unit/Foundation/Domain/Time/ClockTest.php`, `tests/Unit/Foundation/Domain/Time/SystemClockTest.php`.
+- Modified: `app/Foundation/README.md` (Foundation convention record), and — for status and sequencing only — `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`.
+
+**Forbidden files.** No dependency or lock file (`composer.json`, `composer.lock`, `package.json`, `package-lock.json`); no tooling configuration (`phpunit.xml`, `phpstan.neon.dist`, `pint.json`); no `.github/`, `.githooks/`, Docker, environment, or deployment file; no Laravel configuration, bootstrap file, or service provider; no migration; no existing PHP source file, including the PF-049 exception classes; **no change to `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php`** — the PF-049 guard must pass unchanged; no `app/Modules`; no Dependabot branch. `docs/implementation/01_Implementation_Sprint_Plan.md` is not modified: its catalogue and approved order already record PF-047 correctly and it carries no per-story status field.
+
+**Acceptance criteria.**
+
+- Exactly the two approved source types exist, with the approved namespace, finality, and method signature.
+- `Clock::now()` is declared exactly `public function now(): \DateTimeImmutable;` — not `\DateTimeInterface`, not nullable, with no parameter.
+- `SystemClock::now()` returns a value whose timezone name is `UTC` and whose offset is `0`, and each call returns a fresh instance.
+- The returned timezone and offset are unaffected by PHP's ambient default timezone.
+- Native PHP standard library only. No Laravel global helper, Carbon, PSR-20, package, vendor SDK, configuration read, service-provider registration, or container binding.
+- Nothing under `App\Foundation\Domain\Time` references Laravel, Illuminate, Eloquent, HTTP, queues, the service container, facades, or configuration helpers.
+- Every new Foundation source file declares `strict_types=1` and sits in the namespace matching its path; PHP global types are referenced with a leading backslash.
+- No scheduling, timer, timeout, deadline, recurrence, business-calendar, timezone-conversion, distributed-ordering, or monotonic-time behavior is added, and no such claim is documented.
+- No tenant, Firm, actor, authentication, authorization, or session semantics are introduced.
+- No production `FrozenClock`, `MutableClock`, or other test double is created.
+- The PF-049 architecture guard passes **unchanged**.
+- Pint, PHPStan (level 5, no baseline or suppression), the full test suite, `composer validate --strict`, and both dependency audits pass, and all four required `Protect main` checks (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) are green.
+
+**Tests.**
+
+- `tests/Unit/Foundation/Domain/Time/ClockTest.php` — proves by reflection that `Clock` is an interface declaring exactly one method; that the method is named `now`, is public, and takes no parameter; that its return type is exactly non-nullable `\DateTimeImmutable`; that the interface declares no constant; and that the test boots no Laravel application.
+- `tests/Unit/Foundation/Domain/Time/SystemClockTest.php` — proves `SystemClock` is final and implements `Clock`; that `now()` returns a `\DateTimeImmutable` whose timezone name is `UTC` and whose offset is `0`; that separate calls return separate instances; that the returned instant is bracketed by native UTC readings taken immediately before and after the call; that changing PHP's ambient default timezone changes neither the returned timezone nor the offset, with the original restored in a `finally` block; and that the test boots no Laravel application.
+- Both extend `PHPUnit\Framework\TestCase` directly, boot no Laravel application, and add no test dependency. Neither uses `sleep()`/`usleep()`, a fixed elapsed-time tolerance, a strict-increase assertion, a non-decreasing-successive-reading assertion, a nonzero-microseconds assertion, or a Laravel helper. **`Clock` is a wall clock, not a monotonic clock** — the host clock may be corrected backwards, so no test asserts that successive readings cannot decrease.
+
+**Security requirements.**
+
+- No tenant identifier, `FirmId`, `FirmContext`, actor, principal, or session semantics; no authentication, authorization, or Ethical Wall decision.
+- No credential, secret, client or matter content, or privileged narrative is created, read, stored, or logged.
+- Clock output is a source of the current time only. It is **not** trusted, authenticated, or tamper-evident input, and is never evidence, a non-repudiation artifact, or proof of ordering. Bounded clock-skew tolerance for session and token expiry remains IdentityAccess's concern per `docs/architecture/16_Identity_Security_Access_Control_Architecture.md`, not this primitive's.
+- Explicit UTC output removes the daylight-saving ambiguity a server-local wall clock would introduce, consistent with the UTC transport rule in `docs/architecture/07_API_Standards.md`.
+- Firm office timezones, court-deadline timezones, and any other business-timezone meaning stay with the owning business modules and are never added to this contract.
+- No existing security control or required check is weakened, renamed, bypassed, or removed. The four required `Protect main` checks retain their exact names.
+
+**Documentation impact.** `app/Foundation/README.md` updated for the implemented `App\Foundation\Domain\Time` namespace and the Clock conventions; `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md` updated for status and sequencing only.
+
+**Definition of Ready (met).** Goal clear and narrowly bounded to one time abstraction; owner identified (repository owner); dependencies resolved (none — the story is standalone); exact contract approved and recorded above; acceptance criteria stated; security implications identified (no tenancy, authorization, or trusted-time semantics); tests specified; no architecture blocker — `App\Foundation\Domain\Time` is the namespace `app/Foundation/README.md` already reserves for PF-047, and the PF-049 guard already permits a `Clock::now()` method declaration while continuing to prohibit the `now()` global helper.
+
+**Definition of Done (met).** Acceptance criteria met; `composer validate --strict`, `composer pint:test` (36 files), `composer phpstan` (level 5, no errors), `php artisan test` (41 passed, 193 assertions), `composer audit`, and `npm audit --audit-level=high` all passed with no baseline, suppression, or ignored error; the PF-049 architecture guard passed unchanged; security and architecture reviewed; documentation updated; no critical defect; human approval recorded on the pull request before merge.
+
+**Explicitly not implemented by PF-047.** PF-040 through PF-046 and PF-048 remain unimplemented. No `FrozenClock`, `MutableClock`, or production test double. No container binding, service provider, or bootstrap registration — a future Laravel binding of `Clock` to `SystemClock` belongs to an approved Platform Runtime story (Sprint 0.4), not to this one. No PSR-20 adoption: `psr/clock` is present only transitively, and a transitive package authorizes nothing. No business module, no `app/Modules`, no production deployment, no new dependency, no logging, telemetry, audit, metrics, or reporting.
 
 ## Module Infrastructure
 - PF-060 through PF-063
