@@ -2,7 +2,7 @@
 
 **Sprint 0.3 — Foundation Library (PF-040 through PF-049).**
 
-This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, and **PF-042 — ValueObject**, the third. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
+This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, and **PF-048 — UUIDv7**, the fourth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
 
 ## What Foundation is
 
@@ -23,12 +23,12 @@ The approved concern namespaces, and the PF story that owns each, are:
 | `App\Foundation\Domain\Exception` | PF-049 — Exception hierarchy | Implemented |
 | `App\Foundation\Domain\Time` | PF-047 — Clock | Implemented |
 | `App\Foundation\Domain\Model` | PF-040 — AggregateRoot, PF-041 — Entity, PF-042 — ValueObject | **Partially implemented** — `ValueObject` (PF-042) only |
-| `App\Foundation\Domain\Identity` | PF-044 — BusinessIdentifier, PF-048 — UUIDv7 | Reserved |
+| `App\Foundation\Domain\Identity` | PF-044 — BusinessIdentifier, PF-048 — UUIDv7 | **Partially implemented** — `UuidV7`, `UuidV7Generator`, `SystemUuidV7Generator` (PF-048) only |
 | `App\Foundation\Domain\Event` | PF-043 — DomainEvent | Reserved |
 | `App\Foundation\Domain\Money` | PF-045 — Money | Reserved |
 | `App\Foundation\Domain\Result` | PF-046 — Result | Reserved |
 
-**`App\Foundation\Domain\Exception` and `App\Foundation\Domain\Time` are implemented. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and nothing else — `Entity` (PF-041) and `AggregateRoot` (PF-040) remain reservations and do not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
+**`App\Foundation\Domain\Exception` and `App\Foundation\Domain\Time` are implemented. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and nothing else — `Entity` (PF-041) and `AggregateRoot` (PF-040) remain reservations and do not exist. `App\Foundation\Domain\Identity` is likewise only partially implemented: it contains `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` (PF-048) and nothing else — `BusinessIdentifier` (PF-044) remains a reservation and does not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
 
 **Each story creates only its own files.** Never pre-create another story's type, stub, placeholder, or empty directory. A namespace comes into existence when its owning story implements it.
 
@@ -82,11 +82,36 @@ The order follows dependency direction: the exception taxonomy comes first becau
 - **Breaking changes to the published `ValueObject` contract require explicit human approval**, as for every published Foundation type.
 - **No value object belongs in `app/Foundation` without its own approved story.** PF-042 created the contract and no implementation of it; the reference implementations used to prove the contract's shape live in its test file, not here.
 
+## Identity
+
+`App\Foundation\Domain\Identity` holds the platform's identifier primitives. **Only the PF-048 UUIDv7 types exist.** **`BusinessIdentifier` (PF-044) is a reservation in the same namespace and has not been implemented** — no `BusinessIdentifier`, no module identifier, and no stub, placeholder, or empty directory for either.
+
+### UUIDv7
+
+- **`UuidV7` is the validated identifier value object.** A `final readonly class` implementing `ValueObject` (PF-042) and nothing else. It declares exactly three public methods — `fromString()`, `toString()`, `equals()` — with a **private constructor**, so `fromString()` is the only path from text and an instance is never observable in an invalid state.
+- **`UuidV7Generator` is the injectable creation contract**, declaring exactly one method, `generate(): UuidV7`. **`SystemUuidV7Generator` is the native implementation**, receiving a `Clock` by constructor injection. Domain code depends on the contract; it never calls a static factory and never reads ambient system time.
+- **Generation is deliberately not a static method on `UuidV7`.** A static factory would read ambient time and ambient randomness from inside a value object — untestable, unsubstitutable, and contrary to the Clock rule above.
+- **Native PHP standard library only** — `random_bytes()`, `pack()`, `bin2hex()`. `ramsey/uuid` and `symfony/uid` both support UUIDv7 and are both installed, but **only transitively via the framework, and a transitive dependency authorizes nothing**. `Illuminate\Support\Str::uuid7()` is prohibited outright: it is a framework dependency, and it honours the global mutable `Str::$uuidFactory` hook, which would let unrelated framework test state change a Foundation primitive's output.
+- **Validation is strict and total.** One canonical pattern enforces exact length, canonical hyphen positions, hexadecimal-only content, the version nibble `7`, and an RFC variant nibble (`8`, `9`, `a`, `b`). Surrounding whitespace, brace-wrapped and `urn:uuid:` forms, the unhyphenated form, the nil and max UUIDs, every other version, and every reserved variant are all rejected.
+- **Hexadecimal is accepted in either case and normalised to lowercase on the creation path**, as RFC 9562 §4 requires — never during comparison, because a comparison-time fix-up is what breaks transitivity.
+- **A UUIDv7 is time-sortable, and that is the only term to use for it.** Values whose encoded millisecond timestamps differ sort by those timestamps, both lexically and bytewise. **Values created within the same millisecond have no defined relative order. No monotonicity is promised in any scope. Clock rollback is permitted and unguarded** — the generating clock is a wall clock that may be corrected backwards, so a value created later may sort before one created earlier, and nothing detects, corrects, or reports that. **No global, cross-process, or cross-host ordering is promised**; there is no coordination, no shared state, and no node identifier.
+- **The generator is stateless between calls, deliberately** — no counter, no sequence, no last-seen timestamp, no static property. Two instances sharing one clock are fully independent. Same-millisecond monotonic increment would be a **new implementation behind the same contract** under its own approved story, never a change to this one.
+- **The timestamp field is a 48-bit unsigned count of Unix milliseconds** (RFC 9562 §5.7), so the representable range is `0` through `281474976710655` inclusive. `SystemUuidV7Generator` **verifies the clock's instant against that range using integer arithmetic only** and throws `InvariantViolation` when it falls outside. It never truncates, wraps, clamps, or reinterprets an unencodable instant — each of those would yield a syntactically valid UUID carrying a silently wrong timestamp. No floating-point timestamp arithmetic is used anywhere.
+- **Uniqueness is probabilistic, not proven.** Seventy-four bits of cryptographically secure randomness per millisecond make a collision negligibly unlikely, not impossible. **No exactly-once generation and no collision-impossibility claim is made.**
+- **Exceptions follow the PF-049 taxonomy, and no new exception type was added.** `InvalidArgument` for caller-supplied text that is not a canonical version 7 UUID; `InvariantViolation` for an unencodable clock instant or for generated data that somehow fails validation, retaining the original as the previous exception. **`\Random\RandomException` propagates untranslated**: a CSPRNG failure is a catastrophic environment failure, not a domain condition, and must not be swallowed by a handler catching `FoundationException`.
+- **No exception message ever contains the rejected input or the offending instant.** Input arrives from outside the domain and may be attacker-controlled; the fixed range bounds are literals and leak nothing.
+- **A UUID is an identifier, never a secret.** Its 48-bit timestamp prefix is fully predictable by construction, and every value discloses its creation time to millisecond precision to anyone holding it. **Possessing one is never an authorization decision**, and it never substitutes for Firm isolation, an Ethical Wall check, or any access control — `CheckEthicalWallAccess` remains Practice Management's alone. It is never a session token, API credential, magic link, recovery code, webhook secret, capability, or proof of identity. It encodes no Firm, actor, client, matter, or privileged content, and UUIDv7 has **no node field**, so no host identity leaks.
+- **No `__toString()` and no `\Stringable`.** Implicit stringification is how an identifier reaches a log line, an exception message, a URL, or a concatenated query with nobody having decided to put it there. Rendering is an explicit act through `toString()`.
+- **`UuidV7` is not** a serialization, persistence, transport, hashing, ordering, or timestamp-extraction API. Timestamp extraction, comparison and ordering methods, byte-level accessors, nil/max factories, and serialization interfaces are all **deferred** — each is additive later, whereas removing one would be breaking. External representation remains `Integrations`' concern, and identifiers are opaque externally per [`docs/architecture/07_API_Standards.md`](../../docs/architecture/07_API_Standards.md) §3 and §5.
+- **No container binding or service provider was registered.** A future Laravel binding of `UuidV7Generator` to `SystemUuidV7Generator` belongs to an approved Platform Runtime story (Sprint 0.4), exactly as for `Clock`.
+- **No test double belongs in `app/Foundation`.** PF-048's fixed-time and scripted `Clock` fixtures live inside its own test files under `tests/`, per the Time rule above.
+- **Breaking changes to the published `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` contracts require explicit human approval**, as for every published Foundation type.
+
 ## External dependencies
 
 - **A domain-safe external library requires explicit human approval and must be declared as a direct dependency** in `composer.json` before any Foundation code uses it.
 - **A transitive dependency authorizes nothing.** A package that happens to be installed because something else requires it is not an approved dependency, and Foundation must never reach for it.
-- PF-049, PF-047, and PF-042 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. Adopting either later would require its own approved story and a direct `composer.json` declaration.
+- PF-049, PF-047, PF-042, and PF-048 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. PF-048 deliberately did **not** adopt `ramsey/uuid` or `symfony/uid`: both support UUIDv7 and both are installed, but **only transitively via `laravel/framework`**. Adopting any of them later would require its own approved story and a direct `composer.json` declaration.
 
 ## What never belongs in Foundation Domain
 
