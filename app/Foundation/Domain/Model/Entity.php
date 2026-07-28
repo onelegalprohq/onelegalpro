@@ -31,15 +31,17 @@ use App\Foundation\Domain\Identity\BusinessIdentifier;
  * Reversing this later would be a breaking change requiring explicit human
  * approval.
  *
- * **Identity is stable, not unforgeable.** Once constructed, an instance's
- * identifier can never be replaced — a within-instance guarantee only.
- * {@see BusinessIdentifier::fromString()} permits reconstructing an *equal
- * identifier value* from its canonical text — it says nothing about whether an
- * *entity* carrying that identifier can be constructed: that is a decision the
- * owning module's own construction rules make, not this base. **"Same
- * identity" is never proof of provenance, authenticity, ownership,
- * authorization, or entitlement**, and comparing two entities performs no
- * tenant, ownership, or Ethical Wall authorization.
+ * **Identity is stable, not unforgeable.** Once a correctly constructed
+ * instance's identifier is initialized, it can never be reassigned — a
+ * within-instance guarantee only; see {@see self::__construct()} for what
+ * that guarantee does and does not cover against reflection-based
+ * construction bypass. {@see BusinessIdentifier::fromString()} permits
+ * reconstructing an *equal identifier value* from its canonical text — it
+ * says nothing about whether an *entity* carrying that identifier can be
+ * constructed: that is a decision the owning module's own construction rules
+ * make, not this base. **"Same identity" is never proof of provenance,
+ * authenticity, ownership, authorization, or entitlement**, and comparing
+ * two entities performs no tenant, ownership, or Ethical Wall authorization.
  *
  * **This class owns identity storage and identity comparison, and nothing
  * else.** No state beyond the identifier, no mutation helper, no change
@@ -100,8 +102,20 @@ use App\Foundation\Domain\Identity\BusinessIdentifier;
 abstract class Entity
 {
     /**
-     * Identity is supplied once, at construction, and can never be replaced —
-     * not by a subclass, not by this class, not through reflection.
+     * Identity is supplied once, at construction, and — for an
+     * already-initialized instance — can never be reassigned: not by a
+     * subclass, not by this class, and not through
+     * {@see \ReflectionProperty::setValue()} against that initialized
+     * property. **This is a within-instance stability guarantee only, not a
+     * construction-integrity, provenance, authenticity, or unforgeability
+     * guarantee.** {@see \ReflectionClass::newInstanceWithoutConstructor()}
+     * followed by reflection assignment, and a crafted `unserialize()`
+     * input, can each still produce a *different*, forged instance carrying
+     * an arbitrary identifier by bypassing normal construction — neither
+     * mechanism reassigns an already-initialized instance's identity, and a
+     * forged instance grants no authorization, ownership, entitlement, or
+     * proof of provenance. PHP cannot make construction itself unforgeable,
+     * and this base does not attempt to.
      *
      * Deliberately **not** `final`: an entity legitimately carries its own
      * state, so a subclass declares its own constructor and calls
@@ -111,12 +125,18 @@ abstract class Entity
      *
      * **A subclass that omits `parent::__construct()` fails latently, not
      * immediately.** The object constructs successfully and remains usable;
-     * only when {@see self::id()} or {@see self::sameIdentityAs()} is first
-     * reached does PHP raise `\Error: Typed property must not be accessed
-     * before initialization`. No guard, null check, or nullable type may
-     * soften this — each would trade a loud late failure for a silent wrong
-     * one. Every concrete entity must therefore have a test that constructs it
-     * and then reads `id()`.
+     * only when {@see self::id()} is first reached does PHP raise `\Error:
+     * Typed property must not be accessed before initialization`.
+     * {@see self::sameIdentityAs()} reaches the same uninitialized property
+     * and raises the identical `\Error` **only when the exact-runtime-class
+     * check it performs first has already matched** — comparing against an
+     * `Entity` of a *different* runtime class returns `false` at that check
+     * without ever reading either identifier, so it never raises. That
+     * short-circuit is expected behaviour, not a workaround or an identity
+     * fallback. No guard, null check, or nullable type may soften the
+     * underlying failure — each would trade a loud late failure for a silent
+     * wrong one. Every concrete entity must therefore have a test that
+     * constructs it and then reads `id()`.
      *
      * **A subclass may also declare its own property named `id`.** PHP keeps
      * the two separately — distinct mangled property names — and this
@@ -158,7 +178,13 @@ abstract class Entity
      * alone would conflate them. Identifier comparison then delegates to
      * {@see BusinessIdentifier::equals()}, which itself compares exact
      * identifier class before canonical value — so a differently typed
-     * identifier can never produce a false positive.
+     * identifier can never produce a false positive. Because the class check
+     * runs first, a comparison involving an instance whose identifier was
+     * never initialized — for example a subclass that omitted
+     * `parent::__construct()` — reaches that uninitialized identifier, and
+     * raises PHP's uninitialized-property `\Error`, **only if** the two
+     * runtime classes already match; a mismatched-class comparison returns
+     * `false` first and never reads either identifier.
      *
      * **Entity state never participates.** Two instances of one entity type
      * carrying one identifier are the same entity however far their

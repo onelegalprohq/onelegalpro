@@ -252,7 +252,18 @@ final class EntityTest extends TestCase
         $this->assertInstanceOf(AlphaTestIdentifier::class, $entity->id());
     }
 
-    public function test_identity_cannot_be_reassigned_even_through_reflection(): void
+    /**
+     * Scope: an *already-initialized* instance's identifier cannot be
+     * reassigned through {@see \ReflectionProperty::setValue()}. This is a
+     * within-instance stability guarantee only — it says nothing about
+     * {@see \ReflectionClass::newInstanceWithoutConstructor()} or a crafted
+     * `unserialize()` input, both of which bypass construction entirely to
+     * produce a *different*, forged instance rather than reassigning this
+     * one. See `Entity`'s constructor docblock for that distinction; PF-041
+     * does not add production code to prevent construction bypass, because
+     * PHP cannot make it impossible.
+     */
+    public function test_initialized_identity_cannot_be_reassigned_through_reflection(): void
     {
         $entity = new PrimaryTestEntity(AlphaTestIdentifier::fromString(self::VALID));
         $property = (new \ReflectionClass(Entity::class))->getProperty('id');
@@ -326,6 +337,38 @@ final class EntityTest extends TestCase
         $this->expectException(\Error::class);
 
         $entity->id();
+    }
+
+    /**
+     * `sameIdentityAs()` reaches the same uninitialized property `id()`
+     * raises on above — but only once its exact-runtime-class check has
+     * already matched. Two `ForgetfulTestEntity` instances share a runtime
+     * class, so the check passes and the uninitialized read is reached.
+     */
+    public function test_same_identity_as_between_two_same_class_forgetful_entities_raises_error(): void
+    {
+        $first = new ForgetfulTestEntity;
+        $second = new ForgetfulTestEntity;
+
+        $this->expectException(\Error::class);
+
+        $first->sameIdentityAs($second);
+    }
+
+    /**
+     * The exact-runtime-class check short-circuits before either identifier
+     * is read, so comparing the forgetful fixture against a *differently*
+     * typed, correctly constructed entity returns `false` in both
+     * directions and never raises `\Error`. This short-circuit is expected
+     * behaviour, not a workaround or an identity fallback.
+     */
+    public function test_same_identity_as_between_a_forgetful_entity_and_a_different_class_returns_false_without_error(): void
+    {
+        $forgetful = new ForgetfulTestEntity;
+        $primary = new PrimaryTestEntity(AlphaTestIdentifier::fromString(self::VALID));
+
+        $this->assertFalse($forgetful->sameIdentityAs($primary));
+        $this->assertFalse($primary->sameIdentityAs($forgetful));
     }
 
     // ----------------------------------------------------------- equality
@@ -580,8 +623,12 @@ final class OtherIdentifierTestEntity extends Entity
  *
  * **Deliberately broken, and not a form to copy.** It exists solely to prove
  * that the resulting failure is latent — construction succeeds, and only
- * `id()` (or `sameIdentityAs()`) raises PHP's uninitialised-readonly-property
- * `\Error` — never to demonstrate a pattern a real entity should follow.
+ * `id()` raises PHP's uninitialised-readonly-property `\Error`.
+ * `sameIdentityAs()` raises the identical `\Error` only when compared
+ * against another instance of the *same* runtime class, because its
+ * exact-class check runs first and short-circuits to `false` — without
+ * reading either identifier — against a differently typed entity. Never a
+ * pattern a real entity should follow.
  *
  * @extends Entity<AlphaTestIdentifier>
  */
