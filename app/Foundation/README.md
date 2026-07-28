@@ -2,7 +2,7 @@
 
 **Sprint 0.3 — Foundation Library (PF-040 through PF-049).**
 
-This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, and **PF-044 — BusinessIdentifier**, the fifth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
+This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, **PF-044 — BusinessIdentifier**, the fifth, and **PF-041 — Entity**, the sixth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. It is not a status page — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for story status.
 
 ## What Foundation is
 
@@ -22,13 +22,13 @@ The approved concern namespaces, and the PF story that owns each, are:
 | --- | --- | --- |
 | `App\Foundation\Domain\Exception` | PF-049 — Exception hierarchy | Implemented |
 | `App\Foundation\Domain\Time` | PF-047 — Clock | Implemented |
-| `App\Foundation\Domain\Model` | PF-040 — AggregateRoot, PF-041 — Entity, PF-042 — ValueObject | **Partially implemented** — `ValueObject` (PF-042) only |
+| `App\Foundation\Domain\Model` | PF-040 — AggregateRoot, PF-041 — Entity, PF-042 — ValueObject | **Partially implemented** — `ValueObject` (PF-042) and `Entity` (PF-041) only |
 | `App\Foundation\Domain\Identity` | PF-044 — BusinessIdentifier, PF-048 — UUIDv7 | Implemented |
 | `App\Foundation\Domain\Event` | PF-043 — DomainEvent | Reserved |
 | `App\Foundation\Domain\Money` | PF-045 — Money | Reserved |
 | `App\Foundation\Domain\Result` | PF-046 — Result | Reserved |
 
-**`App\Foundation\Domain\Exception`, `App\Foundation\Domain\Time`, and `App\Foundation\Domain\Identity` are implemented — the last containing `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` (PF-048) plus `BusinessIdentifier` (PF-044), and no concrete identifier of any kind. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and nothing else — `Entity` (PF-041) and `AggregateRoot` (PF-040) remain reservations and do not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
+**`App\Foundation\Domain\Exception`, `App\Foundation\Domain\Time`, and `App\Foundation\Domain\Identity` are implemented — the last containing `UuidV7`, `UuidV7Generator`, and `SystemUuidV7Generator` (PF-048) plus `BusinessIdentifier` (PF-044), and no concrete identifier of any kind. `App\Foundation\Domain\Model` is only partially implemented: it contains `ValueObject` (PF-042) and `Entity` (PF-041) and nothing else — `AggregateRoot` (PF-040) remains a reservation and does not exist.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
 
 **Each story creates only its own files.** Never pre-create another story's type, stub, placeholder, or empty directory. A namespace comes into existence when its owning story implements it.
 
@@ -38,7 +38,7 @@ The `PF-040`–`PF-049` numbers are a **story catalogue, not an execution order*
 
 **PF-049 → PF-047 → PF-042 → PF-048 → PF-044 → PF-041 → PF-043 → PF-040 → PF-045 → PF-046**
 
-`PF-049`, `PF-047`, `PF-042`, `PF-048`, and `PF-044` are implemented; `PF-041` is next.
+`PF-049`, `PF-047`, `PF-042`, `PF-048`, `PF-044`, and `PF-041` are implemented in the current source; `PF-043` follows `PF-041` in the approved order. This document is a convention record, not the authoritative story-status page — see `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` for whether a given story is Ready, In Progress, or Done.
 
 The order follows dependency direction: the exception taxonomy comes first because every later primitive throws through it; `Clock` is standalone; `ValueObject` precedes the identifier work that builds on it; identifiers precede `Entity`, which precedes `DomainEvent` and `AggregateRoot`; `Money` builds on `ValueObject`; and `Result` comes last, because it must be designed against primitives that already exist rather than shaping them.
 
@@ -67,7 +67,7 @@ The order follows dependency direction: the exception taxonomy comes first becau
 
 ## Model
 
-`App\Foundation\Domain\Model` holds the platform's domain-model contracts. **Only `ValueObject` (PF-042) exists.** `Entity` (PF-041) and `AggregateRoot` (PF-040) are reservations in the same namespace and have not been implemented.
+`App\Foundation\Domain\Model` holds the platform's domain-model contracts. **`ValueObject` (PF-042) and `Entity` (PF-041) exist.** `AggregateRoot` (PF-040) is a reservation in the same namespace and has not been implemented.
 
 ### Value objects
 
@@ -83,6 +83,25 @@ The order follows dependency direction: the exception taxonomy comes first becau
 - **Implementations report failure through the PF-049 taxonomy** — `InvalidArgument` for an unacceptable supplied argument, `InvariantViolation` for a broken domain guarantee. The interface itself throws nothing.
 - **Breaking changes to the published `ValueObject` contract require explicit human approval**, as for every published Foundation type.
 - **No value object belongs in `app/Foundation` without its own approved story.** PF-042 created the contract and no implementation of it; the reference implementations used to prove the contract's shape live in its test file, not here.
+
+### Entities
+
+- **`Entity` is the base every OneLegalPro domain entity extends (PF-041).** An `abstract class`, **not** `readonly`, storing exactly one `private readonly BusinessIdentifier`. It declares exactly two public members, `id()` and `sameIdentityAs()`, both `final`, and one `protected`, **non-final** constructor.
+- **Identity, not value, is the whole of this contract — the other side of the distinction PF-042 draws.** Two entities are the same entity when they are the same type and carry the same identifier, never because their attributes match, and never ceasing to be the same entity when an attribute changes. **`Entity` does not implement `ValueObject`, deliberately**: value equality and identity equality are different relations, and a type offering both would let a caller pick the wrong one.
+- **Not `readonly`, and that is a permanent architectural trade-off, not a free choice.** `readonly` is viral, so a readonly base would make every entity on the platform permanently immutable. A non-readonly base instead **permits** mutable lifecycle state and **permanently prohibits `readonly` entity subclasses** — PHP forbids a readonly class extending a non-readonly one, even when the parent declares no property. An entity is not required to be mutable: an immutable entity is expressed with private properties and no mutators, never with the `readonly` modifier. Reversing this later would be a breaking change.
+- **Identity is stable, not unforgeable.** Once constructed, an instance's identifier can never be replaced — a within-instance guarantee only. `BusinessIdentifier::fromString()` permits reconstructing an *equal identifier value* from its canonical text — it says nothing about whether an *entity* carrying that identifier can be constructed: that is a decision the owning module's own construction rules make, not this base. **"Same identity" is never proof of provenance, authenticity, ownership, authorization, or entitlement.**
+- **The constructor is `protected` and deliberately not `final`**, diverging from `BusinessIdentifier`'s `final private` constructor: an entity legitimately carries its own state, so a subclass declares its own constructor and calls `parent::__construct($id)`. Two limits of the language follow from this, and both are documented rather than claimed away:
+  - **A subclass that omits `parent::__construct()` fails latently, not immediately.** The object constructs successfully and remains usable; only when `id()` or `sameIdentityAs()` is first reached does PHP raise `\Error: Typed property must not be accessed before initialization`. No guard, null check, or nullable type may soften this. **Every concrete entity must have a test that constructs it and then reads `id()`.**
+  - **Property shadowing is possible.** A subclass may declare its own property named `id`; PHP keeps the two separately (distinct mangled names), and the base's property still governs `id()` and `sameIdentityAs()` regardless — the subclass can neither access nor replace it. Harmless to the contract, confusing in `var_dump` and array casts, and **prohibited by convention, not by the language**.
+- **`sameIdentityAs()` — deliberately not named `equals()`, which belongs to `ValueObject` and means something else.** Exact runtime **entity** class first (`$other::class === $this::class`), then identifier equality through `BusinessIdentifier::equals()`, which itself compares exact **identifier** class before canonical value. The entity-class check is not redundant: nothing prevents two entity types from sharing an identifier type, and identifier equality alone would conflate them. **Entity state never participates.** Cross-type or unrelated comparisons return `false` in both directions and never throw a `\TypeError`. Total, reflexive, symmetric, transitive, strict, non-coercive. **Not constant-time, carries no timing guarantee, and is not an authorization check.**
+- **The template is invariant, and stays invariant.** `@template TIdentifier of BusinessIdentifier` is declared; `@template-covariant` is **prohibited** — it would also satisfy PHPStan, since constructors are exempt from its variance check, but it would permanently forbid any future method consuming the template in a parameter, for no gain. `sameIdentityAs()` declares **`@param Entity<*> $other`**, verified clean at PHPStan levels 5 and 6 while accepting an entity of any template argument. `Entity<BusinessIdentifier>` is **prohibited**: because the template is invariant, it fails at level 5 and rejects *every* concrete entity, including comparing an entity with itself. `Entity<mixed>` is likewise prohibited — `mixed` is not a subtype of the `of BusinessIdentifier` bound. `self` inside this generic base infers as the bare, unparametrized `Entity`, so it is not an alternative either.
+- **Every concrete entity must declare `@extends Entity<ConcreteIdentifier>`.** A static-analysis-only guarantee — PHP has no runtime generics — but it also delivers construction-site checking once declared. **A missing `@extends` is reported only from PHPStan level 6, not from this project's level 5**, so its presence is a standing review obligation rather than something the current toolchain enforces. A concrete entity's own constructor should additionally narrow its native parameter type to the exact identifier subtype it accepts — recommended for runtime enforcement, not load-bearing for the static guarantee above.
+- **`Entity` adds no custom stringification, serialization, or debugging API.** No `__toString()`, `\Stringable`, `\JsonSerializable`, `__debugInfo()`, `toArray()`, or dump helper — a **deliberate divergence from `BusinessIdentifier`**, which carries an approved `__toString()`. **The absence of these members is not a confidentiality control**: standard PHP debugging, `var_dump()`, reflection, or careless logging can still expose an entity's internal state regardless of what this base declares. An entity must never be dumped, interpolated, serialized, or logged as though this base made that safe — that discipline belongs to the calling code and the owning module. `BusinessIdentifier` is not a secret, but an identifier can still be sensitive metadata and is not automatically safe to log or disclose; its approved `__toString()` does not make identifier text safe to log, disclose, or use for authorization.
+- **`Entity` is not** a serialization, persistence, transport, or event API. No timestamp, version, event recording/release/clearing, soft-delete, or persistence hook of any kind. Auditing, tenancy, authorization, and Ethical Wall decisions all belong to later, separately approved stories.
+- **PF-041 throws nothing, and invents no validation to justify throwing.** No PF-049 exception is imported, raised, or documented as thrown, and no new exception type was created. The only reachable runtime error is PHP's own uninitialised-property `\Error`, a programming mistake rather than a domain condition.
+- **No test double belongs in `app/Foundation`.** PF-041's identifier markers, its primary, secondary, and differently-identifier-typed entity fixtures, and its deliberately non-conforming forgetful and shadowing fixtures all live inside its own test file under `tests/`, per the same rule PF-047, PF-048, and PF-044 followed.
+- **No concrete entity belongs in `app/Foundation`.** PF-041 created the base and no implementation of it — no Client, Matter, User, Firm, Task, Document, or any other business entity. A concrete entity belongs to the module that owns it, under that module's own approved story.
+- **Breaking changes to the published `Entity` contract require explicit human approval**, as for every published Foundation type.
 
 ## Identity
 
@@ -131,7 +150,7 @@ The order follows dependency direction: the exception taxonomy comes first becau
 
 - **A domain-safe external library requires explicit human approval and must be declared as a direct dependency** in `composer.json` before any Foundation code uses it.
 - **A transitive dependency authorizes nothing.** A package that happens to be installed because something else requires it is not an approved dependency, and Foundation must never reach for it.
-- PF-049, PF-047, PF-042, PF-048, and PF-044 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. PF-048 deliberately did **not** adopt `ramsey/uuid` or `symfony/uid`: both support UUIDv7 and both are installed, but **only transitively via `laravel/framework`**. Adopting any of them later would require its own approved story and a direct `composer.json` declaration.
+- PF-049, PF-047, PF-042, PF-048, PF-044, and PF-041 each introduced no dependency of any kind. PF-047 deliberately did **not** adopt PSR-20 (`Psr\Clock\ClockInterface`) or Carbon: both are present only transitively, and PSR-20 additionally makes no UTC guarantee. PF-048 deliberately did **not** adopt `ramsey/uuid` or `symfony/uid`: both support UUIDv7 and both are installed, but **only transitively via `laravel/framework`**. Adopting any of them later would require its own approved story and a direct `composer.json` declaration.
 
 ## What never belongs in Foundation Domain
 
