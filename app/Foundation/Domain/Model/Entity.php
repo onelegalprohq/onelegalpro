@@ -46,8 +46,12 @@ use App\Foundation\Domain\Identity\BusinessIdentifier;
  * **This class owns identity storage and identity comparison, and nothing
  * else.** No state beyond the identifier, no mutation helper, no change
  * tracking, no timestamp, no version, no event recording, no persistence hook.
- * Domain events belong to PF-043, aggregate versioning and event release to
- * PF-040, and every other concern to the module that owns it.
+ * Domain events belong to PF-043, and event recording and release to PF-040's
+ * {@see AggregateRoot}. **Aggregate versioning belongs to neither of them, and
+ * to no Foundation story:** optimistic-concurrency versioning exists to
+ * reconcile a write against what a store already holds, so it is a persistence
+ * concern owned by a later, separately approved persistence story, outside
+ * Foundation entirely. Every other concern belongs to the module that owns it.
  *
  * **This class adds no custom stringification, serialization, or debugging
  * API.** It declares no `__toString()`, implements neither `\Stringable` nor
