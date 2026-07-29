@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Awaiting explicit human review and approval. This ADR is **not Accepted** and authorizes no implementation.
+**Accepted.** Explicit owner approval recorded on PR #30 on 29 July 2026. Acceptance authorizes the architectural decision only; it does not authorize implementation, deployment, or production access.
 
 ## Context
 
@@ -109,7 +109,7 @@ This ADR does **not**: implement anything; create modules, source files, schemas
 
 ## Implementation status
 
-This ADR is **conceptual architecture only** and is **Proposed, not Accepted**. It authorizes no application code, authentication code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No control described here is claimed to be implemented.**
+This ADR is **Accepted conceptual architecture only**. It authorizes no application code, authentication code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No control described here is claimed to be implemented.**
 
 Because operator-assisted onboarding and privileged access are authentication and authorization capabilities, every implementing story additionally requires the explicit human approval gate in `AGENTS.md` and `docs/implementation/01_Implementation_Sprint_Plan.md` before merge, regardless of this ADR's eventual status.
 

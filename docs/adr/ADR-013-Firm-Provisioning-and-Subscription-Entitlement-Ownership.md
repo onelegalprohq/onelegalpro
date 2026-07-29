@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Awaiting explicit human review and approval. This ADR is **not Accepted** and authorizes no implementation.
+**Accepted.** Explicit owner approval recorded on PR #30 on 29 July 2026. Acceptance authorizes the architectural decision only; it does not authorize implementation, deployment, or production access.
 
 ## Context
 
@@ -127,7 +127,7 @@ This ADR does **not**: implement anything; create modules, source files, schemas
 
 ## Implementation status
 
-This ADR and `docs/architecture/19_Platform_Administration_Architecture.md` are **conceptual architecture only** and are **Proposed, not Accepted**. They authorize no application code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No capability described here is claimed to be implemented.**
+This ADR and `docs/architecture/19_Platform_Administration_Architecture.md` are **Accepted conceptual architecture only**. They authorize no application code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No capability described here is claimed to be implemented.**
 
 EPIC-012 is recorded as **proposed, not scheduled** in `docs/architecture/08_Roadmap.md`; every story is **Backlog** and requires its own approved entry and Definition of Ready. **`PF-040` — AggregateRoot remains the next code story and remains Backlog. No story is In Progress.**
 

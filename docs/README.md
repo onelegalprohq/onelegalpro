@@ -26,8 +26,8 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 
 | Document | Status |
 |---|---|
-| [`01_OneLegalPro_Constitution.md`](architecture/01_OneLegalPro_Constitution.md) | **Articles 1–44: Approved** — constitutional; prevails over all other architecture. **Articles 45–48: Proposed, pending explicit human sign-off** (added by ARCH-011; not yet constitutional, and they change nothing in Articles 1–44). |
-| [`02_Product_Requirements.md`](architecture/02_Product_Requirements.md) | **Proposed, not yet approved** — **release-scoped** Release 0.1 product requirements (the OneLegalPro Matter Desk). Populated by ARCH-011. Not a full product specification, and it schedules nothing. |
+| [`01_OneLegalPro_Constitution.md`](architecture/01_OneLegalPro_Constitution.md) | **Articles 1–48: Approved** — constitutional; prevails over all other architecture. Articles 45–48 were added by ARCH-011 through explicit owner approval recorded on PR #30; they change nothing in Articles 1–44. |
+| [`02_Product_Requirements.md`](architecture/02_Product_Requirements.md) | **Approved** — **release-scoped** Release 0.1 product requirements (the OneLegalPro Matter Desk). Populated by ARCH-011. Not a full product specification, and it schedules nothing. |
 | [`03_Database_Design.md`](architecture/03_Database_Design.md) | Empty placeholder, pending its own dedicated story. |
 | [`04_Security_Architecture.md`](architecture/04_Security_Architecture.md) | **Approved** — platform-wide security baseline (principles, protected assets, threat model, trust boundaries, control families, classification, failure handling, compliance posture). Populated by ARCH-008. |
 | [`05_AI_Architecture.md`](architecture/05_AI_Architecture.md) | Approved — AI governance for Legal Intelligence, Communications Hub, Document Intelligence, Knowledge Intelligence/RAG, and Financial AI. |
@@ -44,7 +44,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`16_Identity_Security_Access_Control_Architecture.md`](architecture/16_Identity_Security_Access_Control_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`17_API_Integration_Platform_Architecture.md`](architecture/17_API_Integration_Platform_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`18_AI_Copilot_Workflow_Automation_Architecture.md`](architecture/18_AI_Copilot_Workflow_Automation_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
-| [`19_Platform_Administration_Architecture.md`](architecture/19_Platform_Administration_Architecture.md) | **Proposed, not yet approved** (conceptual architecture) — the `PlatformAdministration` bounded context, owning exactly `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`. Authored by ARCH-011; implementation stages are proposed only. |
+| [`19_Platform_Administration_Architecture.md`](architecture/19_Platform_Administration_Architecture.md) | **Approved** conceptual architecture — the `PlatformAdministration` bounded context, owning exactly `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`. Authored by ARCH-011; implementation stages remain proposed only. |
 
 ## Architecture Decision Records
 
@@ -63,10 +63,10 @@ Records of specific architecture decisions. Each ADR is referenced from the arch
 | [`ADR-009-Identity-Security-Access-Control.md`](adr/ADR-009-Identity-Security-Access-Control.md) | Accepted. |
 | [`ADR-010-API-Integration-Platform.md`](adr/ADR-010-API-Integration-Platform.md) | Accepted. |
 | [`ADR-011-AI-Copilot-Workflow-Automation.md`](adr/ADR-011-AI-Copilot-Workflow-Automation.md) | Accepted. |
-| [`ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`](adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md) | **Proposed** — awaiting explicit human review. Release 0.1 scope, the reduced Matter lifecycle, the bounded white-label posture, and the operator-website boundary. |
-| [`ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md`](adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md) | **Proposed** — awaiting explicit human review. `PlatformAdministration` owning `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`; entitlement is never billing. |
-| [`ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`](adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md) | **Proposed** — awaiting explicit human review. Operator support access through IdentityAccess `PrivilegedAccessGrant`, with Firm-visible append-only history; break-glass excluded as a capability. |
-| [`ADR-015-Deferred-Professional-Responsibility-Controls.md`](adr/ADR-015-Deferred-Professional-Responsibility-Controls.md) | **Proposed** — awaiting explicit human review. Ethical Walls and automated conflict checking absent from Release 0.1, never approximated, and disclosed; manual conflict attestation. |
+| [`ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`](adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md) | **Accepted** — Release 0.1 scope, the reduced Matter lifecycle, the bounded white-label posture, and the operator-website boundary. |
+| [`ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md`](adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md) | **Accepted** — `PlatformAdministration` owning `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`; entitlement is never billing. |
+| [`ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`](adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md) | **Accepted** — Operator support access through IdentityAccess `PrivilegedAccessGrant`, with Firm-visible append-only history; break-glass excluded as a capability. |
+| [`ADR-015-Deferred-Professional-Responsibility-Controls.md`](adr/ADR-015-Deferred-Professional-Responsibility-Controls.md) | **Accepted** — Ethical Walls and automated conflict checking absent from Release 0.1, never approximated, and disclosed; manual conflict attestation. |
 
 ## Domain design
 
@@ -92,4 +92,4 @@ If a request conflicts with approved architecture, stop and request an architect
 
 **A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-012) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
 
-**Proposed architecture is not approved architecture.** `architecture/02_Product_Requirements.md`, `architecture/19_Platform_Administration_Architecture.md`, Constitution Articles 45–48, the EPIC-012 staging, and ADR-012 through ADR-015 were all authored by story **ARCH-011**, which is **In Review — not approved and not Completed**. Treat none of them as settled until the human owner's approval is recorded. **Constitution Articles 1–44 are unaffected by them.**
+`architecture/02_Product_Requirements.md`, `architecture/19_Platform_Administration_Architecture.md`, Constitution Articles 45–48, and ADR-012 through ADR-015 were authored by story **ARCH-011** and approved through explicit owner approval recorded on PR #30 on 29 July 2026. **The EPIC-012 implementation staging remains proposed and unscheduled**; architecture approval starts no story and authorizes no implementation, deployment, or production access. **Constitution Articles 1–44 are unaffected by Articles 45–48.**

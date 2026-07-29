@@ -1,6 +1,6 @@
 # ARCH-019 — Platform Administration Architecture
 
-**Status:** Proposed (conceptual architecture) — **not yet approved**. Implementation stages are **proposed, not scheduled**. **`PF-040` — AggregateRoot remains the next repository implementation story and remains Backlog.** No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this document. See `docs/architecture/08_Roadmap.md`.
+**Status:** **Approved conceptual architecture.** Explicit owner approval recorded on PR #30 on 29 July 2026. Implementation stages remain **proposed, not scheduled**. **`PF-040` — AggregateRoot remains the next repository implementation story and remains Backlog.** No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this document. See `docs/architecture/08_Roadmap.md`.
 
 ## 1. Purpose and scope
 

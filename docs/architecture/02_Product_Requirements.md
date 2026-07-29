@@ -1,6 +1,6 @@
 # OneLegalPro Product Requirements
 
-**Status:** Proposed (release-scoped product requirements) — **not yet approved**. Populated by **ARCH-011 — Release 0.1 Rescope**; see `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`.
+**Status:** **Approved release-scoped product requirements.** Populated by **ARCH-011 — Release 0.1 Rescope** and approved by explicit owner approval recorded on PR #30 on 29 July 2026; see `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`. Approval schedules no implementation.
 
 **Scope relationship.** This document records the **Release 0.1 product scope only**. It is not a full product specification for OneLegalPro, and it does not describe, schedule, or supersede any epic in `docs/architecture/08_Roadmap.md`. Where it appears to differ from an approved architecture document, the architecture document governs — this file records *what the first release contains*, never *what the platform is*.
 

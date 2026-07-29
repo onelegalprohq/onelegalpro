@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Awaiting explicit human review and approval. This ADR is **not Accepted** and authorizes no implementation.
+**Accepted.** Explicit owner approval recorded on PR #30 on 29 July 2026. Acceptance authorizes the architectural decision only; it does not authorize implementation, deployment, or production access.
 
 ## Context
 
@@ -140,7 +140,7 @@ This ADR does **not**: implement anything; create modules, source files, schemas
 
 ## Implementation status
 
-This ADR is **conceptual architecture only** and is **Proposed, not Accepted**. It authorizes no application code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No capability described here is claimed to be implemented.**
+This ADR is **Accepted conceptual architecture only**. It authorizes no application code, schema, migration, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No capability described here is claimed to be implemented.**
 
 EPIC-012 — Platform Administration & Release 0.1 Matter Desk is recorded as **proposed, not scheduled** in `docs/architecture/08_Roadmap.md`; none of its stages carries an approved story ID or a Definition of Ready. **`PF-040` — AggregateRoot remains the next code story and remains Backlog**, requiring its own approved entry before implementation begins. **No story is In Progress.**
 

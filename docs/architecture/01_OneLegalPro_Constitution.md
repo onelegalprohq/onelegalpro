@@ -1,6 +1,6 @@
 # ARCH-001 — OneLegalPro Constitution
 
-**Status:** **Articles 1–44: Approved.** **Articles 45–48: Proposed, pending explicit human sign-off** — added by story ARCH-011 and not yet constitutional; see the status banner above Article 45 and the Amendment section. Articles 1–44 are unchanged, unweakened, and not reinterpreted by Articles 45–48.
+**Status:** **Articles 1–48: Approved.** Articles 45–48 were added by story ARCH-011 and became constitutional through explicit owner approval recorded on PR #30 on 29 July 2026. Articles 1–44 are unchanged, unweakened, and not reinterpreted by Articles 45–48.
 
 ## Purpose
 
@@ -261,7 +261,7 @@ Workflow retry and deduplication prevent a duplicate consequential effect within
 
 `Workflow` and the AI Copilot may expose operational projections of run status, wait time, failure rate, and approval workload; they do not define or absorb a future Reporting bounded context's domain analytics or financial reporting. Marketplace publication, monetization, partner certification, and cross-Firm workflow-template distribution remain out of scope of this Constitution's Workflow and AI Copilot articles and require their own separately approved architecture, consistent with Article 37's deferred-scope principle, before any such capability exists. A workflow definition is Firm-owned and never becomes cross-Firm merely because its structure appears reusable.
 
-> **Status of Articles 45–48 — Proposed, not yet approved.** The four articles below are added by story **ARCH-011** and depend on `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`, `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md`, `docs/adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`, and `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`, **all four of which are Proposed and not yet Accepted**. They become constitutional on explicit human sign-off, per the Amendment section below. **Articles 1–44 are unchanged, unweakened, and not reinterpreted by any of them.**
+> **Status of Articles 45–48 — Approved and constitutional.** The four articles below were added by story **ARCH-011** and depend on `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md`, `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md`, `docs/adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`, and `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`, **all four Accepted through explicit owner approval recorded on PR #30 on 29 July 2026**. **Articles 1–44 are unchanged, unweakened, and not reinterpreted by any of them.**
 
 ## Article 45 — Platform Administration as a narrowly bounded supporting context
 
