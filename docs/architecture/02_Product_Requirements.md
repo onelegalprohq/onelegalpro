@@ -27,7 +27,7 @@ It is deliberately narrower than any single approved epic, and it is a **slice a
 | 7 | Firm-bound sessions | IdentityAccess (EPIC-009) |
 | 8 | Firm membership, with **per-principal** suspension and revocation | IdentityAccess (EPIC-009) |
 | 9 | Firm Admin and Member capability bundles | IdentityAccess (EPIC-009) |
-| 10 | Subscription term, status, and seat-limit enforcement at the authentication and membership boundaries | IdentityAccess (EPIC-009), consuming EPIC-012 |
+| 10 | Subscription term, status, and seat-limit enforcement — at the **authentication / session-issuance** gate and the **membership-activation** gate only (§5) | IdentityAccess (EPIC-009), consuming EPIC-012 |
 | 11 | Secure operator-assisted onboarding and recovery, with Firm-visible support-access history | IdentityAccess (EPIC-009) |
 | 12 | Client management | Practice Management (EPIC-006) |
 | 13 | Matter management with the reduced lifecycle (§4) | Practice Management (EPIC-006) |
@@ -73,7 +73,10 @@ Prospective, Opened → Cancelled (terminal)
 - **Firm membership suspension or revocation is a distinct, individual security event** and terminates **that principal's** sessions **immediately**.
 - The two **never share code, audit meaning, or policy semantics**.
 - **Seat limits are enforced at membership activation**, deterministically, and **never retroactively**. A seat limit reduced below the active count never silently revokes anyone; the condition is surfaced for an authorized human.
-- Entitlement grants no access by itself; it composes into the authorization decision and can only narrow it.
+- **Entitlement is evaluated at exactly two gates.** At **authentication**, only after successful credential and any required MFA verification and **before a session is issued** — checking earlier would let an unauthenticated caller learn whether a Firm exists or whether its subscription is active. And at **membership activation**, for the seat limit.
+- **Failure responses are enumeration-resistant in text, response shape, and practicable timing.** A **verified** user may receive the minimum safe operational instruction needed to seek help; it reveals nothing about any other Firm or account.
+- **Entitlement is never a per-request resource-authorization input for an already-issued, valid session** — that session runs to its normal expiry by policy. **Session renewal, reauthentication, and any new Firm-bound session are new authentication decisions and re-check entitlement.**
+- Entitlement grants **no resource access** by itself and is **not a term in the Constitution Article 28 authorization composition**, which remains owned by IdentityAccess and the domain modules.
 
 ## 6. Absent professional-responsibility controls and mandatory disclosures
 

@@ -26,7 +26,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 
 | Document | Status |
 |---|---|
-| [`01_OneLegalPro_Constitution.md`](architecture/01_OneLegalPro_Constitution.md) | Approved — constitutional; prevails over all other architecture. |
+| [`01_OneLegalPro_Constitution.md`](architecture/01_OneLegalPro_Constitution.md) | **Articles 1–44: Approved** — constitutional; prevails over all other architecture. **Articles 45–48: Proposed, pending explicit human sign-off** (added by ARCH-011; not yet constitutional, and they change nothing in Articles 1–44). |
 | [`02_Product_Requirements.md`](architecture/02_Product_Requirements.md) | **Proposed, not yet approved** — **release-scoped** Release 0.1 product requirements (the OneLegalPro Matter Desk). Populated by ARCH-011. Not a full product specification, and it schedules nothing. |
 | [`03_Database_Design.md`](architecture/03_Database_Design.md) | Empty placeholder, pending its own dedicated story. |
 | [`04_Security_Architecture.md`](architecture/04_Security_Architecture.md) | **Approved** — platform-wide security baseline (principles, protected assets, threat model, trust boundaries, control families, classification, failure handling, compliance posture). Populated by ARCH-008. |

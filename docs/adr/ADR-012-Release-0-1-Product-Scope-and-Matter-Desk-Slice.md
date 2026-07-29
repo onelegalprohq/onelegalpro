@@ -79,7 +79,7 @@ Automated billing, payments, invoicing, and trust/client-money accounting (Billi
 | Concept | Owner | Release 0.1 relationship |
 |---|---|---|
 | `Firm`, `FirmProvisioning`, `SubscriptionEntitlement` | **`PlatformAdministration`** (ADR-013) | New, narrowly bounded supporting context |
-| Principals, membership, credentials, MFA, sessions, recovery, invitations, capabilities, privileged-access grants | **IdentityAccess** (ADR-009) | Unchanged owner; enforces entitlement and seat limits at the authentication and membership boundaries |
+| Principals, membership, credentials, MFA, sessions, recovery, invitations, capabilities, privileged-access grants | **IdentityAccess** (ADR-009) | Unchanged owner; evaluates entitlement and seat limits at the **session-issuance** and **membership-activation** gates only |
 | `Client`, `Matter`, `MatterClient` and `MatterTeam` as Matter-owned entities, `Task` as an independent aggregate referencing `Matter` | **Practice Management** (ADR-006) | Unchanged owner and unchanged aggregate shape |
 | `FirmContext`, tenant resolution, tenant middleware | **Platform Foundation** (PF-080/PF-081/PF-082) | Mandatory in Release 0.1; consumes verified identity and membership, resolves neither |
 | Invoices, payments, ledgers, client money, tax, `Money`/`Currency` | **Billing** (ADR-008) and **Foundation `PF-045`** | Not built in Release 0.1; ownership unchanged and unshared |
@@ -127,7 +127,7 @@ Automated billing, payments, invoicing, and trust/client-money accounting (Billi
 ## Integration consequences
 
 - **`PlatformAdministration`** publishes `Firm` identity and entitlement state; it never authenticates, never holds a credential or session, and never reaches into a Firm's business data (ADR-013).
-- **IdentityAccess** consumes entitlement state at the authentication and membership boundaries and remains the sole owner of credentials, sessions, membership, MFA, recovery, invitations, and privileged-access grants. It gains no new authority from Release 0.1.
+- **IdentityAccess** consumes entitlement state at the **authentication / session-issuance** gate (only after credential and any required MFA verification, before a session is issued) and at the **membership-activation** gate — **never as a per-request resource-authorization input** (`docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Decision 8). It remains the sole owner of credentials, sessions, membership, MFA, recovery, invitations, and privileged-access grants, and gains no new authority from Release 0.1.
 - **Practice Management** consumes actor references and `FirmContext`; it owns `Client`, `Matter`, `MatterClient`, `MatterTeam`, and `Task` exactly as `docs/adr/ADR-006-Practice-Management-Core.md` already defines them, and remains the sole future authority for Ethical Walls and conflict checking.
 - **Billing** is untouched. Nothing in Release 0.1 owns, duplicates, or approximates an invoice, payment, ledger entry, client-money balance, tax treatment, or monetary amount.
 - **Branding** is untouched. Release 0.1 introduces one replaceable presentation indirection that EPIC-003 replaces; it defines no theme token schema and no `BrandProfile`.

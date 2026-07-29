@@ -120,7 +120,7 @@ Requested → Provisioned → Active → Closed (terminal)
 
 **Why the prohibition is structural, not stylistic.** Constitution Articles 22–25 place every monetary concern in Billing under a specific discipline — immutable posted records, append-only ledgers, no direct balance mutation, exact decimal with explicit currency, and `Money`/`Currency` as Foundation primitives governed by `PF-045` that **no module may duplicate**. An entitlement record carrying an amount would be a financial record that satisfies none of that discipline, and would introduce a second money type `AGENTS.md` prohibits outright. Independently: `PF-045` is Backlog and deferred, so no monetary primitive exists to carry a value correctly.
 
-**Entitlement is not authorization.** A valid entitlement grants nothing by itself. It is one composed input to IdentityAccess's decision (§11) and can only ever narrow.
+**Entitlement is not authorization.** A valid entitlement grants nothing by itself. It is a **gate on session issuance and on membership activation** (§11, §10) — **not a term in the per-request authorization composition** — and it never grants resource access.
 
 ## 9. Entitlement lifecycle and lapse semantics
 
@@ -156,6 +156,7 @@ Active → Closed    (terminal, with the Firm)
 - **Enforcement is never retroactive.** A seat limit later reduced below the current active count **never silently revokes anyone**. The over-limit condition is surfaced for an authorized human to resolve; the platform never chooses which lawyer loses access to live matters.
 - **Seat accounting is administrative, never professional.** Being within a seat limit says nothing about qualification, authority, Matter access, or any future Ethical Wall outcome.
 - **Seat limits are not usage metering, licence metering, or billing.** No consumption is measured, priced, or reported.
+- **The seat limit is not a per-request authorization input.** It is evaluated when a membership is activated, not when an already-active member makes a request (§11).
 
 ## 11. Relationship to IdentityAccess
 
@@ -163,7 +164,10 @@ Active → Closed    (terminal, with the Firm)
 
 - `PlatformAdministration` publishes `Firm` identity and entitlement state as queries. **It performs no authentication, holds no credential, session, MFA factor, recovery secret, or invitation, and makes no authorization decision.**
 - `FirmMembership` references `FirmId` **by identifier only**. IdentityAccess never embeds, copies, or duplicates a `Firm` record.
-- **IdentityAccess enforces entitlement at the authentication and membership boundaries** — the only places it can be enforced without creating a second authorization authority. The result composes into the existing decision in `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §24 and **can only narrow**; it never widens, and never substitutes for membership, capability, or domain authorization.
+- **IdentityAccess evaluates entitlement at exactly two gates, and nowhere else** — the **authentication / session-issuance gate** and the **membership-activation / seat-limit gate** (§10). These are the only places it can be applied without creating a second authorization authority.
+- **At the authentication gate, entitlement is evaluated only after successful credential verification and any required MFA verification, and before a session is issued.** Evaluating it earlier would let an unauthenticated caller probe whether a Firm exists or whether its entitlement is active; evaluating it later would issue a session the entitlement does not support. **Failure responses stay enumeration-resistant in text, in response shape, and in practicable timing** (§17). A **verified** user may receive the **minimum safe operational instruction** needed to seek help, revealing nothing about any other Firm or account.
+- **Entitlement is not a per-request resource-authorization input for an already-issued, valid session.** It cannot be: the approved lapse policy (§9) deliberately lets such a session run to its normal expiry, and re-checking per request would terminate exactly the sessions that policy protects. **Session renewal, reauthentication, and issuance of any new Firm-bound session are new authentication decisions and re-check entitlement.**
+- **Resource authorization remains owned and composed by IdentityAccess and the domain modules** under Constitution Article 28 and `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §24. **Entitlement is not a term in that composition and never grants resource access.** It never substitutes for membership, capability, or domain authorization, and it never widens anything.
 - **`PlatformAdministration` never calls IdentityAccess to authorize anything.** There is no circular ownership and no mutual dependency.
 - **First-admin onboarding** is provisioning plus invitation: `PlatformAdministration` provisions; IdentityAccess issues a Firm-bound, purpose-scoped, time-limited, single-use invitation; the invitee establishes their own factors to the Firm's policy (ARCH-016 §9). **An invitation is an offer, not proof of identity or entitlement.**
 - **Operator support access is IdentityAccess's `PrivilegedAccessGrant` and nothing else** (§15, `docs/adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`).
@@ -213,9 +217,10 @@ Active → Closed    (terminal, with the Firm)
 
 ## 17. Security
 
-- **Entitlement decisions fail closed.** When entitlement state cannot be authoritatively determined, **new authentication is refused** (`docs/architecture/04_Security_Architecture.md` §8). An already-issued session continues only within its own validity and satisfied revocation requirements. **Availability never outranks Firm isolation or authorization.**
-- **Successful entitlement is not authentication; successful authentication is not authorization** (Constitution Article 28).
-- **Denied and unauthenticated callers receive no existence confirmation.** Whether a Firm exists, whether it holds an entitlement, and whether that entitlement has lapsed are not disclosed — including through error text, response shape, timing, or account-discovery and recovery responses (ARCH-016 §42).
+- **Entitlement decisions fail closed.** When entitlement state cannot be authoritatively determined, **no session is issued** (`docs/architecture/04_Security_Architecture.md` §8) — and the same applies to renewal, reauthentication, and any new Firm-bound session, each of which is a fresh authentication decision. An already-issued session continues only within its own validity and satisfied revocation requirements. **Availability never outranks Firm isolation or authorization.**
+- **Successful entitlement is not authentication; successful authentication is not authorization** (Constitution Article 28). Entitlement gates session issuance; it is never a per-request resource-authorization input (§11).
+- **The evaluation ordering is itself a confidentiality control.** Entitlement is checked **only after credential and required MFA verification, and before session issuance** (§11), so an unauthenticated caller can never learn from an entitlement outcome whether a Firm exists or whether its subscription is active.
+- **Denied and unauthenticated callers receive no existence confirmation.** Whether a Firm exists, whether it holds an entitlement, and whether that entitlement has lapsed are not disclosed — including through error text, response shape, practicable timing, or account-discovery and recovery responses (ARCH-016 §42). **Failure responses are enumeration-resistant in text, shape, and timing alike**; where a **verified** user needs to act, the minimum safe operational instruction is given and it reveals nothing about another Firm or account.
 - **No credential, reusable secret, session token, MFA secret, or recovery material** is stored, logged, cached, or carried in any `PlatformAdministration` record, event, or audit payload.
 - **Every provisioning, entitlement, and seat-limit change requires explicit human authorization** and is refused when the authorizing decision is unavailable.
 - **No standing operator access to Firm data is created anywhere in this context** (§15).
@@ -319,7 +324,9 @@ Rules, per `docs/domain/06_Laravel_Module_Blueprint.md` unchanged:
 - Entitlement lapse and membership revocation never share code, audit meaning, or policy semantics.
 - Seat-limit enforcement occurs at membership activation, is deterministic, and is never retroactive.
 - A seat-limit reduction never silently revokes an existing membership.
-- Entitlement grants no access by itself and can only narrow an authorization decision.
+- Entitlement is evaluated only after credential and required MFA verification and before session issuance, and at membership activation — never as a per-request resource-authorization input for an already-issued valid session.
+- Session renewal, reauthentication, and issuance of any new Firm-bound session are new authentication decisions and re-check entitlement.
+- Entitlement grants no resource access by itself and is never a term in the Article 28 authorization composition.
 - Owning or provisioning a `Firm` confers no access to Firm data.
 - No second authentication, authorization, or privileged-access path exists in this context.
 - Audit records are append-only; closing a Firm never destroys audit history.
