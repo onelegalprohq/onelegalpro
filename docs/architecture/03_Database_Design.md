@@ -1,6 +1,6 @@
 # ARCH-012 — Data & Persistence Architecture
 
-**Status:** **Proposed.** Not approved. This document and `docs/adr/ADR-016-Tenant-Isolation-Model.md` through `docs/adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md` remain **Proposed until explicit owner approval is recorded**. Nothing here is scheduled, implemented, or authorized. **`PF-040` — AggregateRoot remains the next repository implementation story and remains Backlog.** No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this document.
+**Status:** **Proposed.** Not approved. This document and `docs/adr/ADR-016-Tenant-Isolation-Model.md` through `docs/adr/ADR-021-Idempotency-Persistence.md` remain **Proposed until explicit owner approval is recorded**. Nothing here is scheduled, implemented, or authorized. No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this document, and **no story's status is asserted here — `docs/PROJECT_STATUS.md` is the authoritative record of what is current, next, and complete.**
 
 **Document numbering.** The story ID is **ARCH-012**. Unlike ARCH-006 through ARCH-011, which each created the next sequential architecture document, this story populates the **pre-reserved placeholder `docs/architecture/03_Database_Design.md`**; no new document number is allocated. The file's name is retained unchanged; its subject is the platform's data and persistence architecture, of which database design is the largest part.
 
@@ -14,7 +14,7 @@
 
 This is the **platform-wide data and persistence baseline**, binding every bounded context, on the same footing as `docs/architecture/04_Security_Architecture.md` (security) and `docs/architecture/07_API_Standards.md` (external contracts). It owns no domain data and defines no bounded context. It defines **how** approved domain models are persisted in PostgreSQL, and **which persistence patterns are required, permitted, and prohibited**.
 
-**In scope:** the shared-schema tenancy model; mandatory `firm_id` scoping and PostgreSQL Row-Level Security as defence in depth; connection roles and transaction-scoped Firm context; module schema and migration ownership; identifier persistence and UUIDv7 rules; baseline columns, time representation, and concurrency control; referential integrity and cross-bounded-context reference rules; indexes, Firm-scoped uniqueness, text encoding and collation; destructive-cascade policy; transaction boundaries and locking; append-only audit persistence; transactional-outbox persistence; idempotency persistence; migration and schema-evolution policy; PostgreSQL testing obligations; the backup and restore properties that constrain persistence design; prohibited patterns; non-goals; and the security and professional-responsibility consequences of all of the above.
+**In scope:** the shared-schema tenancy model; the three relation classes; mandatory `firm_id` scoping and PostgreSQL Row-Level Security as defence in depth; connection roles and transaction-scoped Firm context; module schema and migration ownership; identifier persistence and UUIDv7 rules; baseline columns, time representation, and concurrency control; referential integrity and cross-bounded-context reference rules; indexes, Firm-scoped uniqueness, text encoding and collation; destructive-cascade policy; transaction boundaries and locking; append-only audit persistence; transactional-outbox persistence; idempotency persistence; migration and schema-evolution policy; PostgreSQL testing obligations; the backup and restore properties that constrain persistence design; prohibited patterns; non-goals; and the security and professional-responsibility consequences of all of the above.
 
 **Out of scope:** everything in §19, and specifically — **which** aggregates, attributes, states, or events exist (owned by each context's own approved architecture); hosting, deployment, infrastructure, connection pooling, backup, monitoring, and secret-management **products and providers**; capacity, sizing, and performance targets; the physical data model of any specific module; search, analytics, and vector storage; and any Reporting capability, which Constitution Article 44 reserves for a future bounded context this document neither approves nor prohibits.
 
@@ -34,16 +34,16 @@ This is the **platform-wide data and persistence baseline**, binding every bound
 | Constitution Article 30 | Append-only security audit; operational logs are never the sole authoritative security record; fail closed |
 | Constitution Articles 34, 43 | At-least-once delivery, no exactly-once and no global-ordering claim; external calls never inside a database transaction |
 | Constitution Articles 45–48 | `PlatformAdministration` owns exactly three concepts; no record, query, cache, projection, index, or event spans Firms |
-| `docs/domain/06_Laravel_Module_Blueprint.md` | Tenant isolation enforced in application logic, repositories, **database policy**, and tests — **global scopes alone are insufficient**; state changes and outbox records commit atomically; unapproved destructive cascades are a prohibited pattern |
+| `docs/domain/06_Laravel_Module_Blueprint.md` | Tenant isolation enforced in application logic, repositories, **"database policy where appropriate"**, and tests — **global scopes alone are insufficient**; state changes and outbox records commit atomically; unapproved destructive cascades are a prohibited pattern |
 | `docs/architecture/04_Security_Architecture.md` §5, §7, §8 | Firm isolation, encryption, environment separation, data classification, backup integrity, fail-closed behaviour |
 | `docs/architecture/07_API_Standards.md` §10, §12 | Idempotency scoping and re-authorization on replay; at-least-once delivery |
 | `AGENTS.md` | PostgreSQL and UUIDv7; never edit historical migrations; approval gates for database redesign, authorization changes, and destructive operations |
 | `docs/architecture/02_Product_Requirements.md` §8, §9 | Firm isolation enforced in database policy; Thai text correctness; an **executed** restore test as production-access evidence; PostgreSQL CI before `PF-080` |
-| `app/Foundation` (PF-042, PF-043, PF-044, PF-047, PF-048, PF-049 — Done) | `ValueObject`, `DomainEvent`, `BusinessIdentifier`, `Clock`, `UuidV7`, exception taxonomy — consumed, never duplicated |
+| `app/Foundation` (`PF-042`, `PF-043`, `PF-044`, `PF-047`, `PF-048`, `PF-049`) | `ValueObject`, `DomainEvent`, `BusinessIdentifier`, `Clock`, `UuidV7`, exception taxonomy — consumed, never duplicated. See `docs/PROJECT_STATUS.md` for each story's status. |
 
 ### 1.4 What this document does not unblock
 
-Approving this document would satisfy **one** of the production-access evidence items listed in `docs/architecture/02_Product_Requirements.md` §8 — "an approved database design". It would not satisfy any other. An approved deployment architecture, an **executed and recorded** restore test, operational monitoring, a documented incident procedure, completed Thai-qualified legal review, and every applicable `AGENTS.md` approval gate all remain outstanding and are not addressed here.
+Approving this document would satisfy **one** of the production-access evidence items listed in `docs/architecture/02_Product_Requirements.md` §8 — "an approved database design". It would not satisfy any other. An approved deployment architecture, an **executed and recorded** restore test, operational monitoring, a documented incident procedure, completed Thai-qualified legal review, and every applicable `AGENTS.md` approval gate all remain outstanding and are not addressed here. **Eight legal questions this document raises are unresolved and are listed in §22.2.**
 
 ---
 
@@ -55,34 +55,52 @@ Approving this document would satisfy **one** of the production-access evidence 
 
 ### 2.2 Why
 
-- **Platform-global data exists and cannot be partitioned by Firm.** Constitution Article 5 requires official legislation, regulations, official publications, reference translations, and licensed court decisions to exist **once, for every Firm**. A schema- or database-per-Firm model forces that data either to be duplicated per Firm — which Article 5 forbids in substance, since it would make a platform-global source a Firm-owned artefact — or to live in a shared location that every per-Firm connection must additionally reach, reintroducing the shared-schema problem alongside the per-Firm one.
-- **Migration fan-out multiplies the highest-risk operation on the platform.** Expand/contract migration (§15) applied across N schemas produces N partial-failure states and N drift surfaces. A single schema has one migration state, verifiable in one place.
-- **Connection and cache multiplication.** Per-Firm schemas or databases multiply connections, prepared-statement caches, and pooler slots by tenant count, and make a shared query planner cache impossible.
-- **Restore is a whole-database operation regardless.** Physical recovery does not become per-Firm merely because schemas are separate; per-Firm recovery requires logical export/import in either model (§17).
+**Constitution Article 5 does not compel any physical storage model.** It is an *ownership and isolation* rule: platform-global legal reference data must not use `FirmContext` as its ownership boundary, and Firm-owned data must be strictly isolated by it. Several physical models can satisfy it, and this document does not claim otherwise. In particular, **database-per-Firm with a separate platform-reference database would satisfy Article 5** — the reference data would exist once, in its own database, owned by nobody's `FirmContext`, with Firm-owned annotations over it living in each Firm's own database and referencing it by identifier. **That model is rejected for operational reasons, not constitutional ones:**
+
+- **Migration fan-out multiplies the highest-risk operation on the platform.** Expand/contract migration (§15) applied across N databases or schemas produces N partial-failure states and N drift surfaces. A single shared schema has one migration state, verifiable in one place.
+- **Connection and cache multiplication.** Per-Firm databases or schemas multiply connections, prepared-statement caches, and pooler slots by tenant count, and make a shared query-planner cache impossible.
+- **Cross-database reference cost.** Firm annotations over platform-reference data would span two databases, so referential integrity, joins, and transactional consistency between them would all become application concerns — the same "identifier-only, validated by the owner" discipline §8.2 already applies across bounded contexts, but imposed on every reference-data read.
+- **Restore is a whole-database operation in either model.** Physical recovery does not become per-Firm merely because databases are separate for *other* reasons; a per-Firm restore still requires logical export and import (§17.2).
+- **Fit to the current stage.** Database-per-Firm's genuine benefit — the strongest available physical isolation — is real and would be the right answer for a small number of very large tenants. It is the wrong answer for a founding-firm pilot expected to onboard many small firms, where the operational surface would dominate.
 
 ### 2.3 The cost, stated plainly
 
-**In a shared schema, a single missing `firm_id` predicate is a cross-Firm disclosure.** For a legal-practice platform, that is not a data-quality defect; it is a confidentiality and conflicts incident affecting parties who never consented to it, and it may be unremediable once it has occurred.
+**In a shared schema, a single missing `firm_id` predicate is a cross-Firm disclosure.** For a legal-practice platform, that is a **security and confidentiality incident requiring legal assessment**, not a data-quality defect: it exposes information about parties who never consented to the exposure, and the parties on either side of the boundary may be adverse to one another.
 
-That cost is the entire justification for the four-layer isolation model in §3: **application logic, repositories, PostgreSQL policy, and tests, each independently sufficient to stop the same mistake.** A schema-per-Firm model would make the same mistake harder to make but would not remove it — a query executed in the wrong schema search path is the same failure — and would replace it with a migration and operations surface that is harder to verify.
+**This document makes no legal characterization of such an incident.** Whether it is remediable, what notification duties (if any) arise, and what professional-conduct consequences follow are questions for **Thai-qualified legal review** and its own approved policy; **no conclusion is asserted here** (§17.5, §22).
+
+That cost is the entire justification for the four-layer isolation model in §3: **application logic, repositories, PostgreSQL policy, and tests, each independently constraining the same mistake.** A per-Firm physical model would make that mistake harder to make but would not remove it — a query executed against the wrong database or schema search path is the same failure — and would replace it with a migration and operations surface that is harder to verify.
 
 **Revisiting this decision is a database redesign** under the `AGENTS.md` approval gate, not an implementation choice.
 
-### 2.4 Two relation classes, explicitly classified
+### 2.4 Three relation classes, explicitly classified
 
-Every relation is **exactly one** of the following, declared explicitly in the migration that creates it and in the owning module's documentation. **There is no third, "sometimes-scoped", class.**
+Every relation is **exactly one** of the following, declared explicitly in the migration that creates it and in the owning module's documentation. **There is no fourth, "sometimes-scoped", class**, and a relation never changes class silently.
 
 | Class | Definition | `firm_id` | Row-Level Security |
 |---|---|---|---|
 | **Firm-scoped** | Holds data belonging to exactly one Firm | `uuid NOT NULL`, immutable | **Enabled and forced** (§3) |
-| **Platform-global** | Holds data that exists once for every Firm — Constitution Article 5 reference data, and static configuration such as seeded taxonomies and scheme templates | **Absent — never nullable, never a sentinel** | Not applicable; read-only to the application runtime role |
+| **Firm-identifying** | **The Firm registry only** — the relation whose rows *are* Firms. Exactly one row per Firm | **Absent** — a Firm's own identity is its primary key, not a tenancy column | Enabled; access constrained by privilege and by the narrow read paths below |
+| **Platform-global** | Data that exists once for every Firm — Constitution Article 5 reference data, and static configuration such as seeded taxonomies and scheme templates | **Absent — never nullable, never a sentinel** | Not applicable; read-only to the application runtime role |
 
-**Rules**
+**Why the Firm-identifying class exists.** Tenant resolution and per-Firm background work face a genuine ordering problem: to establish Firm context you must first know which Firms exist, and a relation that could only be read *with* Firm context already established could never answer that. Rather than resolving it with a `BYPASSRLS` grant, a permissive policy, or a nullable `firm_id`, the registry is named as its own narrow class with explicit limits.
+
+**Firm-identifying rules — deliberately narrow**
+
+- **The class contains exactly one relation: the Firm registry**, owned by `PlatformAdministration` (`docs/architecture/19_Platform_Administration_Architecture.md` §6). **Nothing else is ever placed in this class**, and adding a second relation to it requires its own approved decision.
+- **It carries no Firm business data of any kind** — no `Client`, `Matter`, `Task`, document, communication, or financial content, and no field from which any could be reconstructed. It carries Firm identity, canonical name, jurisdiction reference, and lifecycle state, exactly as ARCH-019 §6 defines.
+- **It is never a cross-Firm bridge.** No query joins it to reach one Firm's rows from another Firm's context, and no projection, view, index, cache, or report derives cross-Firm content through it.
+- **It is readable before Firm context is established only by (a) the tenant resolver, and (b) narrowly authorized `PlatformAdministration` paths.** No domain module reads it pre-context, and no Firm-facing surface enumerates it.
+- **Enumerating Firms is not a capability granted to anything Firm-facing.** A Firm-facing caller never receives a list, count, or existence signal about another Firm, and `FirmContext` is still built only from verified identity and membership (Constitution Article 27) — registry readability is not membership and proves nothing.
+- **Per-Firm outbox claiming reads the registry** to iterate Firms, and nothing more (§13.6).
+
+**Platform-global rules**
 
 - A platform-global relation **never** carries a nullable `firm_id`, a zero/sentinel UUID, or a "shared Firm" row. A nullable tenancy column is the single most common way a shared-schema isolation model fails, because every policy and predicate then needs an `OR firm_id IS NULL` branch that is trivially wrong.
-- A platform-global relation is **written only by an authorized platform data-management path** and is read-only to the application runtime role. Firm-owned annotations, bookmarks, notes, and saved research **over** platform-global data are Firm-scoped relations that reference the global row by identifier (Article 5).
-- A join between a Firm-scoped relation and a platform-global relation is permitted; a join that would place another Firm's row on either side is not, and no query may use a platform-global relation as a bridge between two Firms.
-- Reclassifying a relation from one class to the other is a **database redesign and a security change**, requiring both approval gates.
+- It is **written only by an authorized platform data-management path** and is read-only to the application runtime role. Firm-owned annotations, bookmarks, notes, and saved research **over** platform-global data are Firm-scoped relations referencing the global row by identifier (Article 5).
+- A join between a Firm-scoped relation and a platform-global relation is permitted; a join that would place another Firm's row on either side is not, and **no query uses a platform-global relation as a bridge between two Firms**.
+
+**Reclassifying a relation between any two classes is a database redesign and a security change**, requiring both approval gates.
 
 ---
 
@@ -90,7 +108,7 @@ Every relation is **exactly one** of the following, declared explicitly in the m
 
 ### 3.1 Four layers, each independently sufficient
 
-`docs/domain/06_Laravel_Module_Blueprint.md` requires tenant isolation in application logic, repositories, database policy, and tests, and states that **global scopes alone are insufficient**. This document makes each layer explicit and assigns it a distinct failure mode:
+`docs/domain/06_Laravel_Module_Blueprint.md` requires tenant isolation "enforced in application logic, repositories, **database policy where appropriate**, and tests", and states that **global scopes alone are insufficient**. This document decides that, for every Firm-scoped relation, database policy **is** appropriate, and makes each layer explicit with a distinct failure mode:
 
 | Layer | Obligation | The mistake it catches |
 |---|---|---|
@@ -121,13 +139,26 @@ For every Firm-scoped relation:
 5. **The application runtime role is neither the relation's owner, a superuser, nor a `BYPASSRLS` role** (§4.1). A policy applied to a role that can bypass it is decoration.
 6. **A default-deny posture for new relations.** Enabling Row-Level Security with no policy denies all access, which is the correct default; the testing obligation in §16 additionally asserts that no Firm-scoped relation exists without both RLS forced and a policy, so a new table cannot silently ship unprotected.
 
-### 3.4 Unset Firm context fails closed
+### 3.4 Unset Firm context fails closed — enforced before the first statement
 
 **When the Firm context is unset, empty, or unparseable, every access to a Firm-scoped relation fails.** It does not return all rows, and it does not return zero rows silently.
 
-- The policy predicate resolves Firm context through a function that **raises** when the setting is absent or empty, rather than through a bare `current_setting(..., true)` that returns `NULL`. A `NULL` comparison yields no rows — which is safe for reads but hides a real defect, and would let a write attempt fail with a confusing policy violation rather than the true cause.
-- A silent empty result is specifically rejected as a design: it converts a missing-context bug into a plausible-looking "no records found" screen, which in a legal practice is a professionally dangerous outcome — a lawyer told a Matter has no tasks behaves differently from a lawyer told the system failed.
-- **Reads are not exempt.** A read outside a transaction with Firm context set has no context to fail on, so §4.4 requires that every statement touching a Firm-scoped relation run inside a transaction with the context established.
+**The primary enforcement point is the application, before the first statement of the transaction.** `PF-073` (Transaction Manager) and `PF-082` (Tenant Middleware) establish Firm context as part of opening the transaction and **raise before any statement touching a Firm-scoped relation is issued** if context is absent, empty, or unparseable. That is where the fail-loud guarantee lives, because it is the only place that holds unconditionally.
+
+**A raising policy predicate is defence in depth, and it cannot be relied on as the guarantee.** Two limits, stated plainly:
+
+- **A row policy is only evaluated when rows are examined.** On an **empty relation** — a new deployment, a new Firm, a relation not yet populated — a `SELECT` may return zero rows without the predicate ever being evaluated, so a missing-context defect produces a plausible empty result and no error. The application-side check has no such gap.
+- Predicate evaluation is a planner and execution concern, not a contract. Designing the fail-loud property around it would make correctness depend on whether any row happened to be examined.
+
+**Therefore both are required, and their roles are not interchangeable:**
+
+- The policy predicate resolves Firm context through a function that **raises** when the setting is absent, empty, or unparseable, rather than through a bare `current_setting(..., true)` returning `NULL`. A `NULL` comparison yields no rows, which is safe for reads but hides the defect and turns a write into a confusing policy violation rather than the true cause. This catches statements that reached the database despite the application-side check being bypassed.
+- **The application-side pre-statement check is what guarantees the failure occurs at all**, including on empty relations.
+
+**Testing obligation:** the fail-closed behaviour is tested on **both an empty and a populated relation** (§16.3). An empty-relation test is what proves the guarantee does not depend on rows existing; a populated-relation test is what proves the policy predicate is genuinely raising rather than quietly filtering.
+
+- **A silent empty result is specifically rejected as a design.** It converts a missing-context defect into a plausible-looking "no records found" screen, which in a legal practice is a professionally dangerous outcome — a lawyer told a Matter has no tasks behaves very differently from a lawyer told the system failed.
+- **Reads are not exempt.** §4.4 requires every statement touching a Firm-scoped relation to run inside a transaction with context established.
 - Fail-closed here is the same discipline Constitution Article 30 and `docs/architecture/04_Security_Architecture.md` §8 establish for authorization: **availability never outranks Firm isolation.**
 
 ### 3.5 What Row-Level Security must never be used for
@@ -148,8 +179,8 @@ Logical roles and privilege sets, **not products, providers, or account names**.
 | Role | Privileges | Constraints |
 |---|---|---|
 | **Migration role** | DDL on the relations it owns; DML for backfills | Owns the relations; **subject to forced RLS like everyone else** (§3.3.2, §15.5). Never used to serve a request. Its use is authorized and recorded. |
-| **Application runtime role** | `SELECT`, `INSERT`, `UPDATE`, `DELETE` as each relation's rules permit | **Not the owner, not a superuser, no `BYPASSRLS`, no DDL.** Holds no `UPDATE` or `DELETE` on append-only relations (§12.2). Read-only on platform-global relations (§2.4). |
-| **Outbox publication role** | `SELECT` and bookkeeping `UPDATE` on the outbox relation only | **No access to any business relation.** Scope and cross-Firm behaviour resolved in §13.6 and §21.3. |
+| **Application runtime role** | `SELECT`, `INSERT`, `UPDATE`, `DELETE` as each relation's rules permit | **Not the owner, not a superuser, no `BYPASSRLS`, no DDL.** Holds no `UPDATE`, `DELETE`, or `TRUNCATE` on append-only relations (§12.2). Read-only on platform-global relations (§2.4). |
+| **Outbox publication role** | `SELECT` and bookkeeping `UPDATE` on the outbox relation only, plus `SELECT` on the Firm registry to iterate Firms | **No access to any business relation.** **Subject to forced Row-Level Security on the outbox, with no exemption**: it claims per-Firm under established Firm context (§13.6). **No `BYPASSRLS`, no superuser, no owner exemption, and no role-based permissive outbox policy.** |
 | **Reporting / analytics role** | **Does not exist.** | No Reporting bounded context is approved (Constitution Article 44). Creating a cross-Firm read role would be that context arriving through a privilege grant. |
 
 **A single database account used for migrations and for serving requests is prohibited.** It makes forced RLS ineffective for the request path, gives request-time code the ability to alter schema, and removes the audit distinction between a data change and a schema change.
@@ -192,8 +223,11 @@ Every statement touching a Firm-scoped relation — **including reads** — runs
 
 - **Each module owns its own relations, and only its own.** Its migrations live in the module's `Database/` directory (`docs/domain/06_Laravel_Module_Blueprint.md`).
 - **No module migrates, alters, reads, or writes another module's relations.** Cross-module access is published commands, queries, and events only. This is the existing rule in `AGENTS.md` and the Blueprint, restated here because a migration is the easiest way to break it accidentally.
-- **Platform Foundation owns platform infrastructure relations** — the transactional outbox (§13), idempotency records (§14), and framework-operational tables. Foundation is `app/Foundation`: a layer of shared technical primitives, **not a bounded context**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module table write (§21.2).
-- **The existing Laravel skeleton migrations** (`users`, `cache`, `jobs`) are framework starter artefacts, **not approved domain schema**. IdentityAccess owns principals, credentials, and sessions (Constitution Article 26); a stock `users` table is not the principal model. Whether those tables are retained, replaced, or removed is IdentityAccess's own approved story's decision and is **not decided here**.
+- **Platform Foundation owns platform infrastructure relations** — the transactional outbox (§13), idempotency records (§14), and framework-operational tables. Foundation is `app/Foundation`: a layer of shared technical primitives, **not a bounded context**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module table write (§21.2). **Foundation owning the relation is not Foundation owning every decision about it:** the outbox persistence decision is `docs/adr/ADR-019-Transactional-Outbox-Persistence.md`'s, the idempotency persistence decision is `docs/adr/ADR-021-Idempotency-Persistence.md`'s, and the idempotency **scoping contract** remains `docs/architecture/07_API_Standards.md` §10's.
+- **The existing Laravel skeleton migrations are framework starter artefacts, not approved domain schema**, and ownership of the decision about them splits:
+  - **`users` is IdentityAccess's**, and only `users`. IdentityAccess owns principals, credentials, and sessions (Constitution Article 26); a stock `users` table is not the principal model. Whether it is retained, replaced, or removed is IdentityAccess's own approved story's decision and is **not decided here**.
+  - **`cache` and `jobs` are framework-operational relations belonging to the Platform Runtime**, and their fate is a **Platform Foundation runtime** decision — they are not identity concerns and IdentityAccess has no ownership of them. Also **not decided here**.
+  - **This story modifies none of the three.**
 
 ### 5.2 One PostgreSQL schema, ownership by convention and review
 
@@ -229,7 +263,9 @@ Why generation is the application's:
 - **A domain object has identity before it is persisted.** An aggregate is constructed, records events, and is referenced by those events and by its outbox row — all before any `INSERT`. A database default would mean the identity in the event and the identity in the row are assigned by different authorities at different times.
 - **Retry safety.** A command retried after a failure that may or may not have committed must be able to write the same identifier. A database default makes every retry a new identity and every partial failure a duplicate.
 - **Testability.** `PF-048`'s generator is injectable precisely so identity is deterministic under test. A database default is not.
-- **One format, one validator.** `PF-048` already owns strict UUIDv7 validation and canonical lowercase representation; a second generation path would be a second format authority.
+- **One format, one validator.** `PF-048` already owns strict UUIDv7 validation and the canonical lowercase **text** representation; a second generation path would be a second format authority.
+
+**On representation, precisely:** a native `uuid` column has **no lowercase or uppercase storage form**. PostgreSQL stores a UUID as sixteen bytes and normalizes case on input, so `PF-048`'s canonical-lowercase rule is a **textual-boundary** concern — how an identifier is rendered, logged, serialized, compared as text, and emitted in an event payload — not a property of the stored column. Text-form canonicalization therefore remains an application obligation at every boundary where an identifier becomes text, and the column type makes case-sensitivity bugs in the database impossible rather than merely unlikely.
 
 ### 6.2 UUIDv7 is not an ordering guarantee
 
@@ -242,9 +278,11 @@ Why generation is the application's:
 - Multiple application processes generate concurrently with no coordination.
 - Commit order is not generation order. A row with a lower identifier can become visible after a row with a higher one (§13.5).
 
-Therefore: **no `ORDER BY id` for business or delivery ordering; no identifier used as a pagination cursor that implies time order; no ordering, deduplication, or idempotency key derived from an identifier's timestamp bits.** Where ordering matters, it is explicit and per-subject (§13.5).
+Therefore, prohibited: **an identifier as a business, chronological, causal, or delivery ordering key**; an identifier used as a pagination cursor that implies time order; and any ordering, deduplication, or idempotency key derived from an identifier's timestamp bits. Where ordering matters, it is explicit and per-subject (§13.5).
 
-What is retained is the **index-locality benefit**: a time-prefixed identifier gives B-tree inserts far better locality than a random v4, reducing page splits and index bloat. That is a physical property, not a semantic promise, and it is the only reason UUIDv7 rather than UUIDv4 is used.
+**One permitted use: the final deterministic tiebreaker.** After an **explicit business sort key** — a status, a due date, a name, a domain-assigned sequence — an identifier **may** be appended as the last sort term to make the total order deterministic and keyset pagination stable. This is legitimate precisely because it carries no meaning: it breaks ties arbitrarily but *repeatably*, which is what a stable cursor needs. It is permitted only in that position, only after a business key, and it **never** becomes the primary sort term, never implies chronology, and never substitutes for the explicit ordering §13.5 requires for delivery.
+
+**What is retained is the index-locality benefit**: a time-prefixed identifier gives B-tree inserts far better locality than a random v4, reducing page splits and index bloat. That is a physical property, not a semantic promise. **It is the justification for preferring UUIDv7 over UUIDv4 — it is not the reason UUIDv7 is mandated.** UUIDv7 is mandated by `AGENTS.md` and by the Foundation primitive `PF-048`; locality is why that mandate is also the technically preferable choice, and if the mandate did not exist the locality argument alone would still favour it.
 
 ### 6.3 Primary keys and Firm-scoped referential identity
 
@@ -252,9 +290,21 @@ What is retained is the **index-locality benefit**: a time-prefixed identifier g
 - **Every Firm-scoped relation additionally carries `UNIQUE (firm_id, id)`.**
 - **Every intra-context foreign key is composite**, referencing `(firm_id, id)` and carrying the referencing row's own `firm_id` as the first column.
 
-The reason for the composite foreign key is worth stating: it makes **"the row I reference belongs to my Firm"** a fact the database enforces, rather than a convention the application maintains. A single-column foreign key to `id` permits a row in Firm A to reference a row in Firm B — a cross-Firm link that is invisible to Row-Level Security, because each row individually satisfies its own policy. That is exactly the class of defect a legal-practice platform cannot absorb.
+The reason for the composite foreign key is worth stating: it makes **"the row I reference belongs to my Firm"** a fact the database enforces, rather than a convention the application maintains. A single-column foreign key to `id` permits a row in Firm A to reference a row in Firm B — a cross-Firm link that Row-Level Security does not catch, because each row individually satisfies its own policy and, additionally, because referential-integrity checks do not evaluate row policies at all (§8.5). That is exactly the class of defect a legal-practice platform cannot absorb.
 
-**The cost, stated:** one additional unique index per Firm-scoped relation, and wider foreign-key columns and indexes. That is accepted deliberately.
+**The cost, stated accurately:**
+
+- One additional `UNIQUE (firm_id, id)` index per Firm-scoped relation, and wider foreign-key columns.
+- **Child-side indexes are a separate, additional cost.** PostgreSQL automatically indexes the **referenced** (parent) side of a foreign key, because the constraint requires a unique index there — it does **not** automatically create any index on the **referencing** (child) columns. A composite foreign key therefore leaves the child side unindexed unless the owning story adds an index explicitly, and without one, parent-side `DELETE` and any `UPDATE` of the referenced key perform a sequential scan of the child relation to check the constraint. **Where a child-side composite index is needed — for constraint-check performance, for join performance, or for the Firm-leading access pattern in §9.1 — the owning story creates it explicitly and does not assume the foreign key provided it.**
+
+Both costs are accepted deliberately. Neither is nil, and neither is created for free by declaring the constraint.
+
+**Explicit exception — the `id`-only primary key.** The primary key index is `(id)` and therefore does **not** lead with `firm_id`, and `id` is **globally unique across Firms**. This is a deliberate, narrow exception to two rules stated elsewhere in this document, and it is safe for a reason that does not generalize:
+
+- It is an exception to the **Firm-scoped-uniqueness rule** (§9.2), which exists because a global unique constraint on a **business attribute** discloses another Firm's row through a constraint error.
+- It is an exception to the **index rule** (§9.1) requiring `firm_id` to lead.
+- **Why the disclosure argument does not apply:** the primary key holds no business value. A collision would require two independently generated UUIDv7 values to be identical, which reveals **nothing about any business attribute of any Firm** — a caller learns only that a randomly generated 122-bit value collided, which conveys no client name, matter reference, email address, or other fact a Firm could act on or infer from. The value is generated by the application (§6.1), not chosen or supplied by a caller, so a caller cannot probe for the existence of a *particular* identifier by attempting to insert it in the ordinary course; and a collision is, in practice, a defect report rather than an information channel. Contrast a global unique constraint on a client name, where the violation tells the caller exactly which meaningful value another Firm holds.
+- **The exception is limited to identifier columns generated by the platform.** It never extends to a business attribute, a human-readable reference, or any caller-supplied value, and §9.2's prohibition applies to all of those without exception.
 
 - **No natural or business key is ever a primary key.** A human-readable business identifier — `MatterNumber` being the canonical example — is a Firm-scoped unique **attribute** (§9.2), never identity. It is Firm-configurable, human-meaningful, and immutable only from a defined lifecycle point, all of which make it unfit as a key.
 - **Monotonic sequence columns are permitted where they are ordering, not identity** — specifically the outbox sequence (§13.5). Such a column is never a primary key, never externally exposed, and never a domain identifier.
@@ -302,7 +352,7 @@ Every **append-only** relation (audit, ledger entries, event records) carries `i
 - **Value sets are `text` with a `CHECK` constraint, or a lookup relation — not a PostgreSQL `enum` type.** `ALTER TYPE ... ADD VALUE` cannot run in a transaction with other changes in every supported configuration, removing a value is impractical, and reordering is impossible — all of which fight expand/contract (§15). The authoritative value set lives in the domain; the constraint is a guard, not the definition.
 - **`jsonb`, not `json`**, and only for **non-authoritative, non-authorization-bearing** content: an event payload of safe metadata, a provenance record, a structured note. **Never** for Firm identity, an authorization input, an invariant-bearing domain attribute, or anything a policy or constraint must evaluate. `jsonb` is not a schemaless escape hatch, and a domain attribute hidden inside a document cannot be constrained, indexed for uniqueness, or migrated under expand/contract with any confidence.
 - **No document bytes, file contents, or attachments in the database.** Documents owns canonical content and its storage (Constitution Article 18); the database holds a `StorageObjectReference`, checksum, media type, and byte size — never the bytes. Release 0.1 has no document capability at all.
-- **No monetary column exists.** `PF-045` `Money` is Backlog and deferred, and `docs/architecture/02_Product_Requirements.md` §3 states the application never collects, calculates, stores, transmits, or displays an amount. As a **forward constraint**: when monetary persistence exists, it is exact decimal (`numeric`) with an explicit currency, owned by `PF-045` and Billing; **floating-point money is prohibited platform-wide** (Constitution Article 23), and no second money type may be introduced.
+- **No monetary column exists.** `PF-045` `Money` is deferred from Release 0.1 (`docs/architecture/02_Product_Requirements.md` §3; `docs/PROJECT_STATUS.md` is authoritative on its current status), and §3 of that document states the application never collects, calculates, stores, transmits, or displays an amount. As a **forward constraint**: when monetary persistence exists, it is exact decimal (`numeric`) with an explicit currency, owned by `PF-045` and Billing; **floating-point money is prohibited platform-wide** (Constitution Article 23), and no second money type may be introduced.
 - **Text encoding and collation** are treated in §9.4, because they determine index and uniqueness behaviour.
 
 ### 7.4 Concurrency control
@@ -323,7 +373,7 @@ Every **append-only** relation (audit, ledger entries, event records) carries `i
 - A `deleted_at`-style column is permitted **only** where the owning architecture defines a domain lifecycle state that it represents — archival, retirement, supersession.
 - **It is never an access control.** Hiding a row by a soft-delete flag is not authorization, and a global Eloquent scope over it is not isolation.
 - **Archival is not deletion** (Constitution Article 19). A legal hold blocks deletion, purge, retention expiry, and destructive redaction until an authorized human releases it.
-- **Deleting content never destroys the audit fact that the record existed** (Articles 19, 23; §12.6).
+- **Deleting content never destroys the audit fact that the record existed** (Articles 19, 23; §12.7).
 
 ---
 
@@ -360,9 +410,27 @@ This is a genuine trade-off and is recorded as such: a foreign key to `Firm` wou
 
 **Whether a deliberate, narrowly justified exception is made for this one reference is an open item for the implementing story** (§22), which must record its decision either way rather than leaving it to a migration author.
 
-### 8.4 Platform-global references
+### 8.4 Platform-global and Firm-identifying references
 
 A reference to platform-global data — a `LegalSource` version, a seeded taxonomy entry — is an identifier reference to a relation that carries no `firm_id`. A foreign key is permissible here in principle, since the referenced relation is not another Firm's data and not another Firm-scoped context's; whether one is used is the referencing context's decision, and it never makes a Firm-scoped row's visibility depend on a global row.
+
+A reference to the **Firm-identifying** registry is the `firm_id` column itself, governed by §8.3.
+
+### 8.5 Referential-integrity checks bypass Row-Level Security
+
+**This is a property of PostgreSQL that the design must be built around, not a detail an implementer can discover later.**
+
+**Foreign-key and unique-constraint enforcement is performed by the system with row security suspended.** A constraint check must be able to see rows the current caller cannot, or the constraint would mean something different for every caller and could be defeated simply by lacking visibility. The consequences are direct and cut both ways:
+
+**Why a single-column foreign key is not saved by Row-Level Security.** A row in Firm A referencing `id` of a row in Firm B would be **accepted**: the constraint check sees the parent row regardless of the caller's Firm context, because policies are not applied during the check. Row-Level Security never gets the chance to object, and the resulting cross-Firm link is then invisible in ordinary querying — each row individually satisfies its own policy. **A row policy is therefore not a defence against cross-Firm referencing at all**, and believing otherwise is the specific misconception this subsection exists to prevent.
+
+**Why composite Firm-carrying foreign keys do work.** A composite key referencing `(firm_id, id)` and carrying the referencing row's own `firm_id` makes same-Firm referencing a **structural** property of the key rather than a visibility question. The child row's `firm_id` is the same column the row policy constrains on insert (`WITH CHECK`) and the same column that is immutable after insert (§3.2). For the reference to point into another Firm, the child row would have to carry that other Firm's `firm_id` — which the policy rejects on write. The guarantee comes from **the key's shape plus the policy's `WITH CHECK` on the child**, not from the constraint check honouring policies, which it does not.
+
+**Why caller-visible constraint violations must be Firm-scoped by construction.** Because the check runs with row security suspended, **a constraint can detect a conflict with a row the caller cannot see, and the resulting error is returned to that caller.** This is precisely the existence-disclosure channel §9.2 forbids: with a global unique constraint on a business attribute, a Firm attempting to insert a value another Firm already holds receives a violation and thereby learns of it. **The defence is the constraint's scope, not the caller's visibility** — a `UNIQUE (firm_id, …)` constraint can only ever conflict with a row in the caller's own Firm, so the error can disclose nothing across the boundary. Every uniqueness constraint on Firm business data is therefore Firm-scoped **by construction**, with the platform-generated-identifier exception in §6.3 and its stated reasoning.
+
+The same reasoning applies to the message content and shape of a constraint violation surfaced to a caller: a raw database error may name a constraint, a relation, and a conflicting value, so what reaches a caller is a deliberately shaped domain error, never an unfiltered driver message.
+
+**Required tests** (§16.3): a composite foreign key rejects a cross-Firm reference; a single-column foreign key to the same parent **accepts** one — asserted explicitly, as the evidence that Row-Level Security is not the control here and that the composite shape is load-bearing; and a Firm-scoped unique constraint permits the same value in two Firms while rejecting a duplicate within one.
 
 ---
 
@@ -372,6 +440,11 @@ A reference to platform-global data — a `LegalSource` version, a seeded taxono
 
 Every index on a Firm-scoped relation **includes `firm_id`, and leads with it** unless the owning story records a specific reason otherwise. Every real query and every row policy filters by Firm; an index that does not include it forces the planner to filter after retrieval, which is both slow and — more importantly — a shape that invites someone to write the query without the Firm predicate because it "works".
 
+**Two explicit exceptions:**
+
+- **The `id`-only primary key index** does not lead with `firm_id`, and is globally unique across Firms. The exception and the reason it does not generalize are stated in §6.3.
+- **A child-side index supporting a composite foreign key** leads with `firm_id` by virtue of the key's column order, and must be **created explicitly** — PostgreSQL indexes only the referenced side automatically (§6.3).
+
 **No index exists whose only purpose is to make a cross-Firm query efficient.** Such an index is a cross-Firm capability, arriving as a performance change.
 
 ### 9.2 Uniqueness is Firm-scoped
@@ -380,7 +453,9 @@ Every index on a Firm-scoped relation **includes `firm_id`, and leads with it** 
 
 The reason is not only correctness — two Firms obviously may both have a client named the same thing, and both may run a `MAT-2026-001` — but **confidentiality**:
 
-**A global unique constraint discloses the existence of another Firm's row.** A Firm creating a record and receiving a uniqueness violation for a value it cannot see has just learned that another Firm holds it. For a client name, a matter reference, or an email address in a legal-practice platform, that is an existence disclosure across a conflicts boundary, delivered by a constraint error. Denied-existence confidentiality (Constitution Article 28; `docs/architecture/02_Product_Requirements.md` §9) forbids it.
+**A global unique constraint discloses the existence of another Firm's row.** A Firm creating a record and receiving a uniqueness violation for a value it cannot see has just learned that another Firm holds it — and, because constraint checks run with row security suspended (§8.5), the caller's inability to *see* the row does not prevent the *error*. For a client name, a matter reference, or an email address in a legal-practice platform, that is an existence disclosure across a conflicts boundary, delivered by a constraint error. Denied-existence confidentiality (Constitution Article 28; `docs/architecture/02_Product_Requirements.md` §9) forbids it. **The defence is the constraint's scope, by construction, not the caller's visibility.**
+
+**Explicit exception — platform-generated identifier columns.** The `id`-only primary key is globally unique and is not a violation of this rule; §6.3 states the exception and why the disclosure argument does not apply to a value that carries no business meaning and is never caller-supplied. **The exception covers platform-generated identifiers only, and never a business attribute, human-readable reference, or caller-supplied value.**
 
 **Genuinely platform-global uniqueness** — an official citation on a platform-global `LegalSource`, a seeded taxonomy code — is unique on a platform-global relation (§2.4), where there is no Firm to disclose.
 
@@ -480,38 +555,61 @@ Where a lock is needed on something that is not a row — a Firm-scoped numberin
 
 ### 12.2 Append-only is enforced by the database, not by convention
 
-Two independent mechanisms, deliberately redundant:
+**Three statement types must each be independently rejected: `UPDATE`, `DELETE`, and `TRUNCATE`.** `TRUNCATE` is listed separately because it is neither an `UPDATE` nor a `DELETE`: it is a distinct privilege, it does not fire row-level triggers, and it removes every row at once. An enforcement design that covers only `UPDATE` and `DELETE` leaves the most destructive statement available.
 
-1. **Privileges.** The application runtime role holds `INSERT` and `SELECT` on audit relations and **is not granted `UPDATE` or `DELETE`.** A privilege that was never granted cannot be used by a bug.
-2. **A trigger or rule that rejects `UPDATE` and `DELETE` outright.** Privileges can be misgranted by a future migration; a rejecting trigger fails the statement regardless of who runs it, including the owner.
+Two independent mechanisms, deliberately redundant, each covering all three:
+
+1. **Privileges.** The application runtime role holds `INSERT` and `SELECT` on audit relations and is **not granted `UPDATE`, `DELETE`, or `TRUNCATE`.** A privilege that was never granted cannot be used by a bug, an ORM convenience, or an ad-hoc statement.
+2. **Triggers.** A `BEFORE UPDATE OR DELETE` row-level trigger rejects those statements, **and a separate `BEFORE TRUNCATE` statement-level trigger rejects truncation** — row-level triggers do not fire on `TRUNCATE`, so one trigger cannot cover all three.
 
 Belt and braces is proportionate here. Audit is the record that explains every other failure; if it is editable, nothing else in this document is verifiable after the fact.
 
+**What this does and does not restrain — stated precisely.** These mechanisms constrain the **application runtime role** and any caller operating through it, which is the threat they exist to address: a bug, a careless script, or a compromised application path. **They do not constrain a role holding sufficient privilege to disable a trigger, alter a grant, or drop the relation** — most obviously the relation's owner, which is the migration role. **No claim is made that a migration owner is restrained by them**, and any statement that audit is "immutable at the database level" is true only within that boundary.
+
+What restrains that role is different in kind and remains fully load-bearing: **role separation** (§4.1) keeps the migration role out of the request path entirely; **`AGENTS.md` approval gates** apply to any migration touching audit privileges, triggers, or relations, and a change to them is a security change (§15.5); dropping a relation holding audit history requires its own explicit approval (§15.6); and **operational and privileged-access controls** over who may act as that role are IdentityAccess's and the deployment architecture's. Those are procedural and organizational controls, not database-enforced ones, and this document does not represent them as the latter.
+
 ### 12.3 Audit must be writable when the subject is being denied
 
-An audit row is frequently written **at the moment its subject is being refused, suspended, or destroyed** — a denied access, a revoked membership, a rejected transition. `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` models `SecurityEventStream` as its own boundary for exactly this reason.
+An audit row is frequently written **at the moment its subject is being refused, suspended, or destroyed** — a denied access, a revoked membership, a rejected transition. `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §48 models `SecurityEventStream` as its own boundary for exactly this reason.
 
-Persistence consequence: **the audit write path never depends on the subject's own authorization outcome, and never on the subject aggregate's continued existence.** A denial audit row is written under the Firm context of the attempted access, which is available because context is established before the authorization decision (§4).
+Persistence consequence: **the audit write path never depends on the subject's own authorization outcome, and never on the subject aggregate's continued existence.** A denial audit row is written under the Firm context of the attempted access, wherever a verified Firm context exists — which is the case for any decision taken after authentication, because context is established before the authorization decision (§4).
 
-### 12.4 Audit is not editable by the actor being audited
+### 12.4 Security events with no verified Firm context — the platform-realm stream
 
-No application path exposes `UPDATE` or `DELETE` on an audit relation to any actor, at any privilege level, including a Firm administrator and a platform operator. Role separation means that even an authorized administrative surface has no mechanism to rewrite it. **Correction is a new row referencing the corrected one** (Constitution Articles 8, 18, 23).
+Some security events genuinely occur **before any verified Firm context exists**: a failed authentication attempt, an unresolvable tenant, a rejected invitation, an entitlement outcome at the authentication gate, an enumeration-shaped probe. They must be recorded — and there is no Firm to record them against.
 
-### 12.5 Distinct streams, never merged
+**They are written to a distinct, platform-realm, append-only security-event relation, owned by IdentityAccess.** Rules:
+
+- **The relation is not Firm-scoped and carries no `firm_id`.** It is neither Firm-scoped nor Firm-identifying nor platform-global in the §2.4 sense; it is a platform-realm relation with its own narrow access rules, and it is the **only** relation in that position.
+- **A candidate Firm identifier is never written as `firm_id`.** A hostname, custom domain, header, parameter, route segment, submitted email address, or claimed Firm identifier identifies a *candidate* and proves nothing (Constitution Article 27). Writing one into a tenancy column would fabricate a verified fact from an unverified input, and would then attribute an unauthenticated stranger's action to a real Firm's audit history. Where a candidate value must be recorded at all, it is recorded in a **clearly named candidate/unverified field**, never in `firm_id`, and never in a way that makes it queryable as though it were Firm attribution.
+- **The platform-realm stream is never exposed to Firms.** No Firm-facing surface, Firm-visible support-access history, Firm-scoped export, or Firm-scoped query reads it. It would otherwise disclose failed attempts against *other* candidate Firms and turn an audit relation into the enumeration channel Constitution Article 27 forbids.
+- **It is append-only on the same terms as §12.2**, including `TRUNCATE` rejection, and it carries safe metadata only under §12.7 — never a submitted credential, and never an unredacted probe payload.
+- **It never becomes a second authorization or entitlement authority**, and its existence grants nothing.
+- **It is not merged with any Firm-scoped audit stream** (§12.6). An event with no verified Firm is a categorically different fact from an event within a Firm, and collapsing them would either fabricate attribution or contaminate a Firm's history with strangers' activity.
+- **The legal implications of retaining pre-authentication security-event data — including submitted identifiers that may be personal data — require Thai-qualified review** and their own approved policy (§17.5, §22). **No conclusion is asserted here.**
+
+### 12.5 Audit is not editable by the actor being audited
+
+No application path exposes `UPDATE`, `DELETE`, or `TRUNCATE` on an audit relation to any actor, at any privilege level, including a Firm administrator and a platform operator. **Correction is a new row referencing the corrected one** (Constitution Articles 8, 18, 23).
+
+The boundary of that statement is the one in §12.2: it holds for every actor operating through the application, which is every actor the application has. It is not a claim about a role that can alter grants or triggers, which role separation and the approval gates address instead.
+
+### 12.6 Distinct streams, never merged
 
 Each context owns its own audit relations, and they are never consolidated into one platform audit table:
 
-| Stream | Owner |
-|---|---|
-| Administrative audit — Firm lifecycle, provisioning, entitlement, seat-limit decisions, refusals within that context | `PlatformAdministration` (ARCH-019 §19) |
-| Security events — authentication, authorization, membership, privileged access, support-access history | IdentityAccess (ARCH-016) |
-| Business activity history | Practice Management and each owning domain |
-| Posted ledger entries | Billing (Constitution Articles 23–24) |
-| Document and knowledge version and access history | Documents |
+| Stream | Owner | Firm attribution |
+|---|---|---|
+| Administrative audit — Firm lifecycle, provisioning, entitlement, seat-limit decisions, refusals within that context | `PlatformAdministration` (ARCH-019 §19) | Firm-scoped |
+| Security events **within a verified Firm context** — authorization, membership, privileged access, support-access history | IdentityAccess (ARCH-016 §48) | Firm-scoped |
+| Security events **with no verified Firm context** — pre-authentication failures, unresolvable tenants, enumeration-shaped probes | IdentityAccess (§12.4) | **Platform-realm; no `firm_id`; never Firm-visible** |
+| Business activity history | Practice Management and each owning domain | Firm-scoped |
+| Posted ledger entries | Billing (Constitution Articles 23–24) | Firm-scoped |
+| Document and knowledge version and access history | Documents | Firm-scoped |
 
 Merging them would make "this Firm's subscription lapsed" and "this person's access was revoked" the same kind of record — materially different facts about materially different subjects (ARCH-019 §9). It would also give every context read access to every other's audit content, which no context is entitled to.
 
-### 12.6 Content rules
+### 12.7 Content rules
 
 - **Safe metadata only**: actor, Firm, event, result, timestamp, correlation and causation, authorization provenance, and the identifiers of affected records.
 - **Never**: a credential, password hash, session token, MFA secret, recovery material, API secret, signing key, payment credential, privileged narrative, document bytes, knowledge body text, embedding, or **any cross-Firm information** (Constitution Articles 29, 30; ARCH-019 §19).
@@ -519,11 +617,13 @@ Merging them would make "this Firm's subscription lapsed" and "this person's acc
 - Human, system, integration, and AI actors remain **distinguishable** (Constitution Articles 26, 35). An AI-assisted operation records the initiating human, the AI or system actor, the authorization relied on, and any required approval.
 - Audit rows carry `firm_id` and are read under the same Row-Level Security as any other Firm-scoped relation.
 
-### 12.7 Retention
+### 12.8 Retention
 
 - **Audit retention outlives business-content retention.** Deleting content never deletes the audit fact that the content existed (§7.6, §10).
-- **Purging audit rows is not designed here and requires its own separately approved decision.** Where a jurisdictional obligation to erase collides with an obligation to retain audit, that conflict requires Thai-qualified legal review and its own approved policy; **this document asserts no legal conclusion and resolves no such conflict** (§17.5, §20.9).
-- **No partitioning or archival scheme is selected.** If audit partitioning is adopted later, **detaching a partition must not become a silent deletion path** — a detached partition is still audit history until an authorized, recorded decision says otherwise.
+- **Purging audit rows is not designed here and requires its own separately approved decision.**
+- **The minimum audit retention period is undetermined and is a legal question, not a technical one.** How long each audit stream must be retained — under Thai professional-conduct obligations, evidentiary needs, tax and accounting rules, and data-protection minimization duties that may pull in the opposite direction — **requires Thai-qualified legal review and its own approved policy. No period is asserted, implied, or defaulted here** (§17.5, §22).
+- **No partitioning or archival scheme is selected.** If audit partitioning is adopted later, **detaching a partition must not become a silent deletion path** — a detached partition is still audit history until an authorized, recorded decision says otherwise. **Whether, and under what conditions, partition detachment is lawful for a given stream is likewise an open legal question** for the same review (§22).
+- Where a jurisdictional obligation to erase collides with an obligation to retain audit, with a legal hold, or with retention in backups, **that conflict is unresolved and requires the same review; this document asserts no legal conclusion and resolves no such conflict** (§17.5, §20.9).
 
 ---
 
@@ -550,12 +650,12 @@ Foundation is a shared technical-primitive layer, not a bounded context. A modul
 - **Payload** — `jsonb`, **safe content only**: identifiers and safe metadata. **Never** document bytes, knowledge body text, privileged content, embeddings, credentials, secrets, payment data, or cross-Firm information (`AGENTS.md`, per-module rules).
 - **Times** — `occurred_at` from the domain (`PF-043`), and a separate infrastructure `recorded_at`. **Never conflated** (§7.2).
 - **Ordering sequence** — an explicit monotonic sequence assigned at insert (§13.5).
-- **Delivery bookkeeping** — status, attempt count, next-attempt time, last error (safe metadata only), `published_at`.
+- **Delivery bookkeeping** — status, attempt count, next-attempt time, last error (safe metadata only), `published_at`, and the **claim token** and **lease expiry** the protocol in §13.6 requires.
 - **Provenance** — correlation and causation identifiers, initiating actor, effective actor, and where applicable the AI or system actor and the authorization relied on (Constitution Articles 35, 41).
 
 ### 13.4 The outbox is not the audit record
 
-They are separate relations with separate rules and separate lifecycles. The outbox is a **delivery mechanism** whose rows may legitimately be pruned after publication under an authorized operational policy. Audit is a **record** that is not pruned (§12.7). Using one as the other loses either durability of the record or the ability to ever clean up delivery state.
+They are separate relations with separate rules and separate lifecycles. The outbox is a **delivery mechanism** whose rows may legitimately be pruned after publication under an authorized operational policy. Audit is a **record** that is not pruned (§12.8). Using one as the other loses either durability of the record or the ability to ever clean up delivery state.
 
 ### 13.5 Ordering — and why UUIDv7 cannot provide it
 
@@ -568,23 +668,48 @@ Ordering, **where it is offered at all**, is:
 
 **A subtlety that must not be papered over: a PostgreSQL sequence is monotonic in *assignment*, not in *commit visibility*.** A row assigned sequence 100 can become visible **after** a row assigned 101, because the transaction holding 100 committed later. A publisher that tracks a high-water mark and reads "rows with sequence greater than my cursor" will therefore **skip** rows permanently. This is a real, well-known, silent data-loss mode, and it is recorded here so `PF-091` and `PF-092` cannot design past it by accident.
 
-**Safe approaches** — the choice, with its recorded reasoning, belongs to `PF-091` and `PF-092`:
+**A high-water-mark cursor is therefore prohibited as the claiming mechanism.** Claiming is by status and lease, per §13.6.
 
-- **Claim by status, not by cursor** — select pending rows with `FOR UPDATE SKIP LOCKED`, publish, then mark them. Correct under concurrency and immune to the visibility gap, at the cost of an update per row.
-- **Per-subject gating** — publish a subject's next row only when its predecessor is published, which is what makes per-subject ordering meaningful at all.
-- A high-water-mark cursor is **acceptable only** with an explicit mechanism that closes the visibility gap, and never on its own.
+### 13.6 Claiming, publication, and Firm context
 
-### 13.6 Publication path and Firm context
+**The publication protocol is three phases, and the phase boundaries are the design.** External delivery must not occur inside a transaction (Constitution Articles 34, 43; §11.3), and a claim must survive a publisher crash without stranding work. That forces exactly this shape:
 
-- The publisher **never mutates domain state.** It reads outbox rows and writes its own bookkeeping.
-- **Preferred: per-Firm claiming.** The publisher establishes Firm context and claims that Firm's pending rows, so the outbox is read under the same Row-Level Security as everything else.
-- **Where a cross-Firm scan of pending work is genuinely required**, it is a **bounded, named exception**: a dedicated publication role (§4.1) with access to **the outbox relation only and no business relation**, joining nothing, producing no cross-Firm report or aggregate, and **re-establishing the row's own Firm context before any domain-side work occurs**. See §21.3 for why this does not contradict Constitution Article 45.
-- **`PF-091` and `PF-092` must choose between these and record the choice.** This document does not pretend the question is settled.
+**Transaction A — claim.**
+
+- Select pending, unleased rows for this Firm with `FOR UPDATE SKIP LOCKED`, bounded by a batch size. `SKIP LOCKED` is what makes concurrent publishers safe: each takes a disjoint set instead of blocking or duplicating.
+- Write a **claim token** (a fresh UUIDv7, unique to this claim attempt) and a **lease expiry** instant onto each claimed row, and mark them claimed.
+- **Commit.** The transaction ends here, before any delivery.
+
+**Outside any transaction — publish.**
+
+- Deliver the claimed rows. No database transaction is open, so no lock is held for the duration of a remote call and no rollback can be triggered by a delivery failure.
+
+**Transaction B — mark published.**
+
+- Mark each row published **only where its claim token still matches** the token from Transaction A. The token comparison is the correctness condition: if the lease expired and another publisher reclaimed the row, its token has changed, this update matches nothing, and the stale publisher silently declines to overwrite a newer claim rather than corrupting its state.
+- Commit.
+
+**Lease reclamation.**
+
+- Rows whose lease has expired and which are not marked published are **reclaimable** by any publisher, which claims them with a **new** token in a fresh Transaction A. This is what prevents a crashed publisher from stranding work forever, and it is why the lease exists rather than a bare "claimed" flag.
+- Lease duration, batch size, and reclamation cadence are `PF-091`/`PF-092` operational parameters, not architecture. A lease shorter than realistic delivery time causes needless duplicate delivery; a very long one delays recovery from a crash. Neither is a correctness failure, and neither number is asserted here.
+
+**Crash-after-publish redelivery is acknowledged, not prevented.** A publisher that crashes **after** delivering but **before** committing Transaction B leaves a row that was delivered and is not marked published. Its lease expires, it is reclaimed, and **it is delivered again.** This window cannot be closed by any purely local mechanism — the delivery and the local mark cannot be made atomic across a boundary the database does not participate in — and closing it would require exactly the distributed guarantee Constitution Articles 34 and 43 forbid claiming. **This is precisely why delivery is at-least-once and consumers must be idempotent** (§13.7). It is a named, expected behaviour of the protocol, not a defect in it.
+
+**Firm context — per-Firm claiming is mandatory.**
+
+- **The publisher iterates Firms using the Firm-identifying registry (§2.4), establishes each Firm's context, and claims only that Firm's rows.** Every phase above runs under an established Firm context, so the outbox is read and written under the same forced Row-Level Security as every other Firm-scoped relation.
+- **There is no cross-Firm outbox scan.** No option, no bounded exception, no "where genuinely required" escape. A publisher never issues a query that spans Firms.
+- **No `BYPASSRLS`, no superuser, no owner exemption, and no role-based permissive outbox policy.** In particular, a policy granting the publication role unconditional access to the outbox is prohibited: it would be a cross-Firm capability arriving as a grant, and it would make the outbox the one Firm-scoped relation whose isolation depends on which role connected.
+- The publication role holds `SELECT` and bookkeeping `UPDATE` on the outbox and `SELECT` on the Firm registry, and **no access to any business relation** (§4.1).
+- **The publisher never mutates domain state.** It reads outbox rows and writes its own claim, lease, and publication bookkeeping — nothing else.
+- Registry iteration is the **only** cross-Firm read anywhere in this path, it returns Firm identities and nothing else, it joins no business relation, and it produces no cross-Firm report or aggregate (§21.3).
 
 ### 13.7 Delivery semantics
 
 - **At-least-once. No exactly-once claim, ever** (Constitution Articles 34, 43).
-- Consumers must be idempotent. `PF-093` (consumer foundation) is not required by Release 0.1, which has no consumer.
+- Consumers must be idempotent. **Two concrete causes of duplicate delivery are named rather than left abstract:** crash-after-publish under the claiming protocol (§13.6), and recovery from a restore that rewinds published state (§17.4).
+- `PF-093` (consumer foundation) is not required by Release 0.1, which has no consumer.
 - A **retry redelivers the same event identity under a new delivery attempt** and never mints a new event identity (`PF-043`; `docs/architecture/07_API_Standards.md` §12).
 - A **permanently failed row is retained and surfaced**, never silently deleted. Dead-letter handling is `PF-091`'s design; discarding an undeliverable committed business fact without a human decision is not.
 - **Pruning published rows is an authorized, recorded operational policy**, and it is safe only because the outbox is not the audit record (§13.4).
@@ -594,9 +719,13 @@ Ordering, **where it is offered at all**, is:
 
 ## 14. Idempotency persistence
 
+**Ownership, stated precisely.** The **persistence decision** for idempotency records is `docs/adr/ADR-021-Idempotency-Persistence.md`'s — not ADR-019's, which decides the outbox only, and not ADR-020's, which decides schema evolution. The **scoping contract** remains `docs/architecture/07_API_Standards.md` §10's. The **relation** is Platform Foundation-owned infrastructure (§5.1), on the same footing as the outbox: Foundation owning the relation is not Foundation owning the decision about it. This section summarizes ADR-021; ADR-021 governs.
+
 ### 14.1 Scope and record
 
-An idempotency record is scoped by, at minimum: **the Firm; the integration installation where one exists; the API contract and version, or the internal command type; the operation; the target resource where applicable; and the idempotency key itself** (`docs/architecture/07_API_Standards.md` §10).
+An idempotency record is **Firm-scoped** — `firm_id uuid NOT NULL`, immutable, Row-Level Security enabled and forced (§3) — and scoped by, at minimum: **the Firm; the integration installation where one exists; the API contract and version, or the internal command type; the operation; the target resource where applicable; and the idempotency key itself** (`docs/architecture/07_API_Standards.md` §10).
+
+**The request scope, key, and fingerprint are immutable once written.** They are the identity of the protected request; a record whose scope or fingerprint could be updated could be made to match a different request retroactively, which would return one caller's outcome to another.
 
 - **The scoped key carries a unique constraint**, so a duplicate is rejected by the database rather than by a read-then-write race that fails precisely under the concurrency it exists to handle (§7.4).
 - The record stores a **fingerprint of the request's material inputs**.
@@ -611,9 +740,9 @@ Persistence consequence: **a stored response is not a licence to disclose.** Bec
 
 ### 14.3 Retention and its honest tension
 
-- Idempotency records expire under a **defined, bounded window**.
+- Idempotency records expire under a **defined, bounded window**, and **retention is owned by a later approved policy — not by this document and not by ADR-021**, which requires that a bounded window exist without fixing its length.
 - **The window must be at least as long as the period in which a client may still retry.** Expiring earlier silently re-enables the duplicate side effect the record existed to prevent — and it does so quietly, which is worse than refusing.
-- Choosing that window is the implementing story's decision, and it is a **trade-off between storage and duplicate-suppression coverage that cannot be resolved by asserting a number here.**
+- Choosing that window is a **trade-off between storage and duplicate-suppression coverage that cannot be resolved by asserting a number here.**
 - **A restore to a point before an idempotency record existed can permit a duplicate side effect** (§17.4). Acknowledged.
 
 ### 14.4 Content and scope limits
@@ -636,13 +765,15 @@ Persistence consequence: **a stored response is not a licence to disclose.** Bec
 
 ### 15.2 Expand / contract, in three separate deployments
 
-| Phase | Content | Property |
+| Phase | Content | Reversibility — accurately |
 |---|---|---|
-| **Expand** | Additive only — new nullable column, new relation, new index, new constraint added `NOT VALID` | Old and new code both work against it |
-| **Migrate** | Backfill and dual-write; validate the constraint; switch reads | Batched, resumable, reversible by doing nothing |
-| **Contract** | Remove the old column, relation, index, or constraint | Runs only once **no code path references it** |
+| **Expand** | Additive only — new nullable column, new relation, new index, new constraint added `NOT VALID` | **Safely abandonable.** The new object is unused, so ceasing to use it leaves the system in its prior working state. Removing it is itself a contract-phase change. |
+| **Migrate** | Backfill and dual-write; validate the constraint; switch reads | **Not reversible by inaction.** Interrupting it is *safe* — the schema still supports both code paths — but the data already written **stays written**. Abandoning a half-finished backfill leaves partially populated data that the next attempt, and any reader, must tolerate. That is why backfills are idempotent and restartable (§15.3), and it is the reason "reversible by doing nothing" is the wrong description of this phase. |
+| **Contract** | Remove the old column, relation, index, or constraint | **Not reversible at all.** Dropped data is gone; recovery is restore-and-roll-forward (§15.1). This is why contract runs only once **no code path references the object**, and why destructive changes carry their own approval gate (§15.6). |
 
 Each phase is a **separate migration and a separate deployment**. Collapsing them produces a window in which running code and live schema disagree.
+
+**The property that actually holds across all three is compatibility, not reversibility:** at every phase boundary, both the previous and the next application version work against the live schema. That is what makes an application-level rollback possible, and it is a different claim from the migration being undoable.
 
 ### 15.3 Backfills
 
@@ -661,6 +792,11 @@ Each of the following takes a long or blocking lock, or rewrites a relation, and
 - **Creating or dropping an index without `CONCURRENTLY`** on a populated relation. `CREATE INDEX CONCURRENTLY` cannot run inside a transaction, which means it is its own migration.
 - **Renaming** a relation or column that running code references.
 - **Changing a collation** (§9.4) — a reindexing event with a plan.
+- **Row-Level Security and policy DDL**, which is easy to mistake for metadata-only work:
+  - `ALTER TABLE … ENABLE ROW LEVEL SECURITY`, `… FORCE ROW LEVEL SECURITY`, and their `DISABLE`/`NO FORCE` counterparts take an **`ACCESS EXCLUSIVE` lock** on the relation — they block every reader and writer for the duration, and they queue behind any long-running transaction already holding a weaker lock, which in turn blocks everything arriving after them.
+  - `CREATE POLICY`, `ALTER POLICY`, and `DROP POLICY` likewise take **`ACCESS EXCLUSIVE`** on the relation.
+  - Consequently: **enabling or changing isolation on a populated, live relation is a planned operation with a lock-timeout strategy**, not a routine statement — and it must never be attempted behind an open long transaction. A `lock_timeout` with a bounded retry is preferred to an unbounded wait, because an unbounded wait on `ACCESS EXCLUSIVE` stalls the whole relation rather than only the migration.
+  - **A failed or abandoned policy migration must never leave Row-Level Security disabled or a policy dropped.** That is the specific hazard: the isolation control absent, silently, with nothing failing (§15.5, `docs/adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md`).
 - Any statement holding `ACCESS EXCLUSIVE` for an unbounded period.
 
 **No zero-downtime claim is made** by this document, for any migration.
@@ -697,7 +833,9 @@ Dropping a relation or column, narrowing a type, adding a cascade, or removing a
 
 **Database-policy-level Firm isolation cannot be honestly tested on a different engine.** Testing it on SQLite would produce a green suite that proves nothing about the control it names — the most dangerous possible outcome for an isolation control in a legal-practice platform.
 
-**Therefore: the PostgreSQL continuous-integration story must land before `PF-080` begins.** `docs/implementation/03_Engineering_Backlog.md` already records it as a Backlog story with that ordering constraint, and `docs/architecture/02_Product_Requirements.md` §8 records the same. The approved working direction for ARCH-012 refers to it as **`PF-033`**; see §21.10 and §22 for the honest status of that identifier. **This document changes no CI configuration, no `phpunit.xml`, and no test.**
+**Therefore: the PostgreSQL continuous-integration requirement must be satisfied before `PF-080` begins.** `docs/implementation/03_Engineering_Backlog.md` already records it as its own approved story with that ordering constraint, and `docs/architecture/02_Product_Requirements.md` §8 records the same.
+
+**It is an approved requirement that currently has no assigned story identifier.** No identifier is asserted, assumed, or invented anywhere in this document or its ADRs; **assigning one is a tracking-file change** this story is barred from making, and it is recorded as an open item in §22. **This document changes no CI configuration, no `phpunit.xml`, and no test.**
 
 **The four required `Protect main` check names — `PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit` — are preserved exactly.** A rename without a matching human-reviewed ruleset update makes the repository fail closed.
 
@@ -718,31 +856,41 @@ Each is an obligation on the story that introduces the relation or mechanism, no
 - Row-Level Security is **enabled and forced** on every Firm-scoped relation, and every such relation has a policy — asserted as a **schema-level guard test that enumerates relations**, so a newly added table cannot ship unprotected.
 - A read with Firm A's context returns **none** of Firm B's rows.
 - A write attempting to place a row in another Firm is **rejected by `WITH CHECK`**.
-- **Unset, empty, and malformed Firm context fail closed** — the statement raises; it does not return all rows and does not silently return zero (§3.4).
+- **Unset, empty, and malformed Firm context fail closed — asserted on both an empty relation and a populated relation** (§3.4). The **empty-relation** case is the one that matters most: it proves the guarantee comes from the application-side pre-statement check and does not depend on any row being examined. The **populated-relation** case proves the policy predicate genuinely raises rather than quietly filtering to zero rows. **A suite that tests only the populated case has not tested the guarantee.**
+- The application-side check raises **before the first statement** of the transaction is issued (§3.4).
 - A transaction cannot change Firm context mid-flight.
 - Firm context does **not** survive the transaction — the same connection, in a new transaction with no context, fails (§4.3).
 - The application runtime role is not a superuser, does not own the relations, and holds no `BYPASSRLS`.
+- The **Firm-identifying** registry is readable by the tenant resolver and the outbox publication role, and **no Firm-facing path enumerates Firms** (§2.4).
 
 **Identity and integrity**
 
 - A composite foreign key **rejects** a reference to a row in another Firm.
+- **A single-column foreign key to the same parent *accepts* a cross-Firm reference** — asserted explicitly, as the standing evidence that Row-Level Security is **not** the control here (referential-integrity checks run with row security suspended, §8.5) and that the composite key's shape is what is load-bearing. Without this test, a future maintainer may "simplify" the key and lose the guarantee with every other test still green.
 - A Firm-scoped unique constraint **permits** the same value in two Firms and **rejects** a duplicate within one.
+- A caller-visible constraint violation cannot be produced by a conflict with another Firm's row (§8.5, §9.2).
 - No relation carries a database-generated identifier default.
-- Ordering tests **do not assume** identifier or timestamp ordering (§6.2).
+- Ordering tests **do not assume** identifier or timestamp ordering; where an identifier appears as a final tiebreaker, an explicit business sort key precedes it (§6.2).
 
 **Audit**
 
-- The application runtime role's `UPDATE` and `DELETE` on an audit relation are **rejected at the privilege level**.
-- They are **also rejected by the trigger**, independently.
+- The application runtime role's `UPDATE`, `DELETE`, **and `TRUNCATE`** on an audit relation are **rejected at the privilege level** — all three asserted separately.
+- All three are **also rejected by triggers**, independently — with `TRUNCATE` asserted specifically, since row-level triggers do not fire on it (§12.2).
 - An audit row is written for a **denied** access, and the write does not depend on the subject's authorization outcome (§12.3).
+- A security event with **no verified Firm context** is written to the platform-realm relation, **carries no `firm_id`**, never records a candidate Firm identifier as `firm_id`, and is **not readable through any Firm-scoped path** (§12.4).
 
 **Outbox and idempotency**
 
 - The state change and the outbox row commit together; a forced failure of either rolls back both.
-- Publication is safe under concurrency and does not skip rows under interleaved commits (§13.5).
+- Claiming under concurrency yields **disjoint** row sets to concurrent publishers, and skips no row (§13.5, §13.6).
+- A stale claim token **fails to mark a reclaimed row published** (§13.6).
+- An expired lease is **reclaimable**, and a crashed publisher strands no work.
+- The publisher issues **no cross-Firm query**, and holds no access to any business relation (§13.6).
+- The outbox relation has Row-Level Security forced with **no role-based permissive policy** exempting the publication role.
 - A duplicate scoped idempotency key is rejected by the constraint.
 - Same key with a different fingerprint yields a conflict, not the first result.
 - A replay re-evaluates authorization before returning anything.
+- An idempotency record's scope, key, and fingerprint **cannot be updated** (§14.1).
 
 **Migrations**
 
@@ -764,7 +912,7 @@ Each is an obligation on the story that introduces the relation or mechanism, no
 
 - **All authoritative data is durably logged.** **`UNLOGGED` relations are prohibited for anything authoritative** — a relation that survives a crash empty cannot hold a business record, an audit row, an outbox row, or an idempotency record.
 - **Point-in-time recovery must remain possible.** The persistence design introduces nothing that would make it impossible; whether it is configured, and how, is the deployment architecture's decision.
-- **Restore must preserve append-only audit continuity.** A restore that silently drops posted entries or audit records is a **defect, not an acceptable recovery outcome** (`docs/architecture/15_Billing_Trust_Accounting_Finance_Architecture.md` §925).
+- **Restore must preserve append-only audit continuity.** A restore that silently drops posted entries or audit records is a **defect, not an acceptable recovery outcome** (`docs/architecture/15_Billing_Trust_Accounting_Finance_Architecture.md` §83).
 - **Encryption at rest is required**, and **backups are protected as production data** (`docs/architecture/04_Security_Architecture.md` §5). No key-management product is selected.
 - **A restore must not resurrect one Firm's data into another Firm's context.** Physical recovery is Firm-agnostic; Firm isolation is re-established by the same `firm_id`, policy, and context rules the running system uses (§3, §4). A restore never relaxes them, and a restored database is not exempt from forced Row-Level Security.
 
@@ -774,7 +922,7 @@ Each is an obligation on the story that introduces the relation or mechanism, no
 
 Restoring a single Firm's data would require a **logical, application-level, authorized export and import**, which is **not designed here**. Release 0.1 includes a Firm-scoped export (`docs/architecture/02_Product_Requirements.md` §2, item 20); that is an export capability, **not a restore capability**, and this document does not represent it as one.
 
-This is a real limitation of the §2 decision and is recorded as such rather than left for an incident to reveal.
+This is a real limitation of the §2 decision and is recorded as such rather than left for an incident to reveal. **Whether per-Firm point-in-time restore is legally or professionally required — by client-data obligations, professional-conduct duties, or an engagement commitment — is an open question for Thai-qualified legal review** (§22). If it is required, the §2 physical model is the constraint that would have to be revisited, which is why the limitation is stated here rather than discovered later. **No conclusion is asserted.**
 
 ### 17.3 The executed restore test
 
@@ -785,10 +933,13 @@ This is a real limitation of the §2 decision and is recorded as such rather tha
 - **A restore that rewinds the database can replay already-delivered events.** Outbox rows marked published may return to a pending state. Delivery is at-least-once and consumers must be idempotent; **recovery is one of the concrete reasons that is not a formality** (§13.7).
 - **A restore to a point before an idempotency record existed can permit a duplicate side effect** (§14.3).
 - Neither is claimed to be prevented. Both are consequences of recovery that the design acknowledges and that operational procedure must account for.
+- **What duties arise when a recovery-driven duplicate side effect has a client-facing consequence — a duplicated notice, a duplicated record, a duplicated financial event once Billing exists — is an open question for Thai-qualified legal and professional-conduct review** (§22). Technically the answer is consumer idempotency; **whether that is sufficient as a matter of professional obligation is not asserted here.**
 
 ### 17.5 Retention, deletion, and backups
 
 A backup retains content after the live database has deleted it. Where a jurisdictional obligation to erase collides with retention in backups, with audit-retention obligations, or with a legal hold, **that conflict requires Thai-qualified legal review and its own separately approved policy. This document asserts no legal conclusion and resolves no such conflict** (Constitution Articles 1–4; `docs/architecture/04_Security_Architecture.md` §9).
+
+**Restored production data in a non-production environment is a data-classification event, not a convenience** (§16.4). Restoring production data for debugging, load testing, or migration rehearsal places Confidential and Privileged/Restricted material (`docs/architecture/04_Security_Architecture.md` §7) into an environment with weaker controls, and it does so for data belonging to clients who are not party to that decision. **What safeguards are required — including any PDPA obligations, whether masking, pseudonymization, or subsetting suffices, what authorization is needed, and what retention applies to the restored copy — requires Thai-qualified legal review and its own approved policy.** Until that exists, **the standing rule is the conservative one: synthetic data only** (§16.4). **No conclusion about the sufficiency of any safeguard is asserted here.**
 
 ---
 
@@ -803,8 +954,15 @@ Each is prohibited. Where a pattern could be permitted under an explicit approva
 - A policy with `USING` but no `WITH CHECK`.
 - A policy predicate that reads a caller-supplied value, an entitlement status, a capability, a role, or anything other than Firm identity (§3.5).
 - A row policy used to simulate an Ethical Wall, or any wall-shaped column, flag, or policy (`docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`).
-- Disabling Row-Level Security, dropping a policy, or granting `BYPASSRLS` to make a query, migration, backfill, or test work.
+- Disabling Row-Level Security, dropping a policy, or granting `BYPASSRLS` to make a query, migration, backfill, publisher, or test work.
+- **A role-based permissive policy exempting any role from a relation's Firm predicate** — in particular one granting the outbox publication role unconditional access (§13.6).
+- Leaving Row-Level Security disabled or a policy dropped after a failed or abandoned migration (§15.4).
 - Running the application as a superuser, as a relation owner, or with `BYPASSRLS`.
+- Placing any relation other than the Firm registry in the **Firm-identifying** class, or putting Firm business data in it (§2.4).
+- Using the Firm registry as a bridge to reach one Firm's rows from another Firm's context.
+- Enumerating Firms from a Firm-facing path.
+- Treating a raising row policy as the fail-loud guarantee, rather than as defence in depth behind the application-side pre-statement check (§3.4).
+- Testing fail-closed behaviour only on a populated relation (§16.3).
 - Relying on Row-Level Security as the only isolation control — or on application scoping as the only one.
 - An Eloquent global scope as the isolation mechanism (`docs/domain/06_Laravel_Module_Blueprint.md`).
 - A session-level `SET`, `set_config(..., false)`, or a session-scoped advisory lock for Firm context or Firm-scoped coordination.
@@ -823,6 +981,8 @@ Each is prohibited. Where a pattern could be permitted under an explicit approva
 - Deriving an ordering, deduplication, or idempotency key from an identifier's timestamp bits.
 - A natural or business key — `MatterNumber` included — as a primary key.
 - A single-column foreign key where a composite Firm-carrying one is required (§6.3).
+- Relying on Row-Level Security to prevent a cross-Firm reference — referential-integrity checks run with row security suspended (§8.5).
+- Assuming a foreign key created a child-side index; PostgreSQL indexes only the referenced side (§6.3).
 - A foreign key, join, or shared Eloquent model across a bounded-context boundary.
 - A module writing, altering, or migrating another module's relations.
 
@@ -860,10 +1020,18 @@ Each is prohibited. Where a pattern could be permitted under an explicit approva
 **Audit, outbox, idempotency**
 
 - Treating application logs as the authoritative audit record.
-- Granting `UPDATE` or `DELETE` on an audit relation to any application actor.
+- Granting `UPDATE`, `DELETE`, or `TRUNCATE` on an audit relation to any application actor.
+- Enforcing append-only against `UPDATE` and `DELETE` while leaving `TRUNCATE` reachable, or relying on a row-level trigger to stop `TRUNCATE` (§12.2).
+- Claiming that append-only enforcement restrains a role able to disable a trigger or alter a grant (§12.2).
 - One consolidated platform-wide audit table merging distinct streams.
+- Writing a candidate, unverified Firm identifier into `firm_id` on any relation, including a security-event relation (§12.4).
+- Exposing the platform-realm security-event stream to any Firm-facing surface, export, or query (§12.4).
 - Using the outbox as the audit record, or the audit record as the outbox.
 - Outbox ordering from a UUIDv7, a wall-clock timestamp, or a bare high-water-mark cursor over a sequence (§13.5).
+- Any cross-Firm outbox query, scan, or aggregate (§13.6).
+- Publishing inside the claiming transaction, or holding a transaction open across an external delivery (§11.3, §13.6).
+- Marking a row published without matching the claim token it was claimed under (§13.6).
+- Mutating an idempotency record's scope, key, or fingerprint after it is written (§14.1).
 - Claiming exactly-once delivery or global ordering.
 - Silently deleting an undeliverable outbox row.
 - Returning a stored idempotent result without re-evaluating current authorization.
@@ -886,7 +1054,7 @@ Each is prohibited. Where a pattern could be permitted under an explicit approva
 
 ## 19. Explicit non-goals
 
-This architecture does **not**: implement anything; create or modify any migration, schema, table, column, index, policy, role, grant, source file, test, configuration file, Docker file, CI workflow, dependency, environment, or GitHub setting; define the physical data model, table names, or column names of any module; define **which** aggregates, attributes, states, events, or invariants exist in any bounded context, all of which remain owned by that context's approved architecture; select, endorse, or evaluate a hosting provider, managed database service, cloud platform, region, connection pooler, backup product, replication or high-availability product, secret-management or key-management product, monitoring or observability product, search engine, vector database, queue or event-broker product, ORM alternative, migration tool, or any other vendor, provider, product, or package; define deployment, infrastructure, environment topology, network design, capacity, sizing, scaling, sharding, partitioning, replication, failover, or disaster-recovery procedure; define a PostgreSQL minimum version, extension set, or server configuration, each of which belongs to the deployment architecture and must satisfy the capability requirements recorded here; execute, schedule, or claim a backup or restore test; define a Reporting bounded context, cross-Firm reporting, analytics, benchmarking, comparison, data warehouse, or read-only analytics role — which Constitution Article 44 reserves for a future context this document **neither approves nor permanently prohibits**; define search, full-text, trigram, or vector/embedding storage or retrieval, which remain the owning contexts' decisions under Constitution Articles 21 and 42; introduce `Money`, `Currency`, or any monetary column, or schedule or unblock `PF-045`; introduce an AI capability or modify `docs/architecture/05_AI_Architecture.md`; create a second authentication, authorization, entitlement, or privileged-access path; define or approve a Firm-level suspension or emergency-disable capability; define an Ethical Wall, conflict-checking, or per-user Matter-visibility mechanism of any kind, in any layer (`docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`); define an audit-purge or audit-partition-detachment path; resolve any conflict between deletion obligations, retention obligations, legal hold, and backup retention; assert a legal, tax, regulatory, or compliance conclusion; claim any certification (ISO, SOC, PDPA, GDPR, or other); claim production readiness; claim that any described control is implemented, tested, or effective; weaken or create an exception to Constitution Articles 1–48; alter any bounded context's ownership; schedule any EPIC; or add, rename, renumber, merge, split, delete, or reschedule any `PF-*` story.
+This architecture does **not**: implement anything; create or modify any migration, schema, table, column, index, policy, role, grant, source file, test, configuration file, Docker file, CI workflow, dependency, environment, or GitHub setting; define the physical data model, table names, or column names of any module; define **which** aggregates, attributes, states, events, or invariants exist in any bounded context, all of which remain owned by that context's approved architecture; select, endorse, or evaluate a hosting provider, managed database service, cloud platform, region, connection pooler, backup product, replication or high-availability product, secret-management or key-management product, monitoring or observability product, search engine, vector database, queue or event-broker product, ORM alternative, migration tool, or any other vendor, provider, product, or package; define deployment, infrastructure, environment topology, network design, capacity, sizing, scaling, sharding, partitioning, replication, failover, or disaster-recovery procedure; define a PostgreSQL minimum version, extension set, or server configuration, each of which belongs to the deployment architecture and must satisfy the capability requirements recorded here; execute, schedule, or claim a backup or restore test; define a Reporting bounded context, cross-Firm reporting, analytics, benchmarking, comparison, data warehouse, or read-only analytics role — which Constitution Article 44 reserves for a future context this document **neither approves nor permanently prohibits**; define search, full-text, trigram, or vector/embedding storage or retrieval, which remain the owning contexts' decisions under Constitution Articles 21 and 42; introduce `Money`, `Currency`, or any monetary column, or schedule or unblock `PF-045`; introduce an AI capability or modify `docs/architecture/05_AI_Architecture.md`; create a second authentication, authorization, entitlement, or privileged-access path; define or approve a Firm-level suspension or emergency-disable capability; define an Ethical Wall, conflict-checking, or per-user Matter-visibility mechanism of any kind, in any layer (`docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`); define an audit-purge or audit-partition-detachment path, or assert any audit retention period; resolve any of the eight open legal questions in §22.2, including any conflict between deletion obligations, retention obligations, legal hold, and backup retention; assign a story identifier to the PostgreSQL CI requirement, or assert any story's status, which is `docs/PROJECT_STATUS.md`'s; assert a legal, tax, regulatory, or compliance conclusion; claim any certification (ISO, SOC, PDPA, GDPR, or other); claim production readiness; claim that any described control is implemented, tested, or effective; weaken or create an exception to Constitution Articles 1–48; alter any bounded context's ownership; schedule any EPIC; or add, rename, renumber, merge, split, delete, or reschedule any `PF-*` story.
 
 **No capability, control, or property described in this document is claimed to be implemented.**
 
@@ -894,27 +1062,27 @@ This architecture does **not**: implement anything; create or modify any migrati
 
 ## 20. Security and professional-responsibility consequences
 
-1. **A shared schema makes a missing predicate a privilege incident.** In a legal-practice platform, a cross-Firm read is not a data-quality defect. It is a confidentiality breach affecting clients who never consented, potentially a conflicts exposure between adverse parties, and potentially unremediable once it has happened. **The four-layer isolation model in §3 exists because of that asymmetry**, and no layer may be removed on the grounds that another one is present.
+1. **A shared schema makes a missing predicate a security and confidentiality incident.** In a legal-practice platform, a cross-Firm read is not a data-quality defect: it exposes information about parties who never consented, and those parties may be adverse to one another. **Such an incident requires legal assessment.** **This document makes no legal characterization of it** — whether it is remediable, what notification duties (if any) arise, and what professional-conduct consequences follow are questions for Thai-qualified legal review and its own approved policy (§17.5, §22). **The four-layer isolation model in §3 exists because of that severity and that uncertainty**, and no layer may be removed on the grounds that another is present.
 
 2. **Row-Level Security is the layer that catches what review missed** — a hand-written query, an ad-hoc script, a future maintainer's repository method, a migration-time convenience. It is defence in depth, never the primary control, and never a licence for a weaker repository (§3.1).
 
 3. **`FORCE ROW LEVEL SECURITY` is what makes the boundary real.** Without it, the role most likely to be running the riskiest operations — the owner — is exempt. Its cost is the maintenance constraint in §15.5, which is paid rather than avoided.
 
-4. **Unset Firm context fails closed, and fails loudly.** A silent empty result is specifically rejected: a lawyer shown an empty Matter list behaves very differently from one shown an error, and the empty list is the outcome that causes a missed deadline (§3.4).
+4. **Unset Firm context fails closed, and fails loudly — enforced in the application before the first statement.** A silent empty result is specifically rejected: a lawyer shown an empty Matter list behaves very differently from one shown an error, and the empty list is the outcome that causes a missed deadline. **A raising row policy cannot carry that guarantee**, because on an empty relation the predicate may never be evaluated at all; it is defence in depth behind the application-side check, and both are tested, on empty and populated relations alike (§3.4, §16.3).
 
 5. **Session-level Firm context on a pooled connection is a cross-Firm read that passes every application check.** Transaction-scoped `SET LOCAL` is not a style preference; it is the difference between an isolation control and an intermittent, load-dependent disclosure (§4.3).
 
-6. **A global unique constraint on Firm data discloses another Firm's rows through a constraint error.** Firm-scoped uniqueness is a confidentiality control as much as a correctness one (§9.2).
+6. **A global unique constraint on Firm business data discloses another Firm's rows through a constraint error** — and the caller's inability to *see* that row does not prevent the error, because constraint checks run with row security suspended (§8.5). Firm-scoped uniqueness **by construction** is a confidentiality control as much as a correctness one. The platform-generated-identifier exception in §6.3 is narrow and does not extend to any business attribute (§9.2).
 
-7. **A cross-Firm foreign key is invisible to Row-Level Security**, because each row satisfies its own policy independently. Composite, Firm-carrying foreign keys make same-Firm referencing a database-enforced fact (§6.3).
+7. **Row-Level Security does not prevent a cross-Firm foreign key at all** — referential-integrity checks run with row security suspended, so the constraint accepts the reference and the resulting link is then invisible in ordinary querying. Composite, Firm-carrying foreign keys make same-Firm referencing structural, via the key's shape plus the child's `WITH CHECK`, not via policy evaluation during the check (§6.3, §8.5).
 
 8. **Entitlement never enters a row policy.** Doing so would silently convert entitlement into a per-request authorization input, reversing an approved decision that deliberately protects an already-issued session after a commercial lapse (§3.5, §21.7).
 
-9. **No Ethical Wall exists in any layer, including this one.** An approximated wall implemented as a row policy would be the most dangerous form of the approximation `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md` prohibits, because it would look like a control while being untested, undisclosed, and located where no reviewer would check. **Every Firm member with Worklist access can see every Matter in the Firm, and that absence is disclosed** — it is not softened by a database feature.
+9. **No Ethical Wall exists in any layer, including this one.** An approximated wall implemented as a row policy would be the most dangerous form of the approximation `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md` prohibits, because it would look like a control while being untested, undisclosed, and located where no reviewer would check. **Every Firm member with Worklist access can see every Matter in the Firm.** That absence **is required to be disclosed** in-product where reliance would occur and in the pilot agreement; **the disclosure wording remains Draft pending Thai-qualified legal review and owner approval** (`docs/architecture/02_Product_Requirements.md` §6, §8), and **no claim is made here that any disclosure has been drafted, reviewed, or is adequate.** It is not softened by a database feature.
 
-10. **Append-only audit enforced by revoked privileges and a rejecting trigger** is what makes professional accountability verifiable after the fact. Audit must be writable at the moment its subject is being denied or destroyed, and never writable by the actor it records (§12.2–§12.4).
+10. **Append-only audit enforced by ungranted privileges and rejecting triggers, against `UPDATE`, `DELETE`, and `TRUNCATE` alike**, is what makes professional accountability verifiable after the fact. Audit must be writable at the moment its subject is being denied or destroyed, and never writable by the actor it records. **The enforcement binds every actor operating through the application; it is not claimed to restrain a role able to disable a trigger or alter a grant**, which role separation and the approval gates address instead (§12.2, §12.3, §12.5).
 
-11. **Audit streams stay separate** so the security record remains truthful about what kind of event occurred and to whom (§12.5).
+11. **Audit streams stay separate** so the security record remains truthful about what kind of event occurred and to whom (§12.6). **Security events with no verified Firm context go to a platform-realm stream that carries no `firm_id`, never records a candidate Firm identifier as one, and is never exposed to a Firm** — writing an unverified candidate into a tenancy column would fabricate attribution and would turn audit into an enumeration channel (§12.4).
 
 12. **A UUIDv7 discloses its generation time** to anyone holding it, and identifiers propagate widely once persisted. Internal identifiers are never exposed externally by convenience (§6.4).
 
@@ -924,15 +1092,15 @@ This architecture does **not**: implement anything; create or modify any migrati
 
 15. **Per-Firm point-in-time restore is not supported**, and a Firm-scoped export is not a restore capability. Stated now rather than during an incident (§17.2).
 
-16. **Recovery can cause redelivery and can re-enable a duplicate side effect.** At-least-once delivery and idempotency-record windows are the reason that is survivable, and neither is claimed to be prevented (§17.4).
+16. **Duplicate delivery has two named causes and neither is claimed to be prevented**: crash-after-publish under the claiming protocol (§13.6) and recovery from a restore that rewinds published state (§17.4). At-least-once delivery, consumer idempotency, and bounded idempotency windows are what make them survivable. **What professional duties arise where a duplicate has a client-facing consequence is an open legal question** (§22).
 
-17. **Isolation tested on SQLite, or tested as a role that bypasses the control, is worse than untested** — it produces evidence of a control that does not exist. PostgreSQL CI before `PF-080`, and tests as the application runtime role, are both load-bearing (§16).
+17. **Isolation tested on SQLite, tested as a role that bypasses the control, or tested only on a populated relation is worse than untested** — each produces evidence of a control that does not exist. PostgreSQL CI before `PF-080`, tests as the application runtime role, and the empty-relation fail-closed test are all load-bearing (§3.4, §16).
 
-18. **Backup retention versus deletion obligations, audit retention, and legal hold is an unresolved legal question**, requiring Thai-qualified review and its own approved policy. **No legal conclusion is asserted here** (§17.5).
+18. **Eight legal questions are unresolved and are listed together in §22**, each requiring Thai-qualified review and its own approved policy: backup retention versus erasure, audit retention, and legal hold; minimum audit retention and lawful partition detachment; whether per-Firm point-in-time restore is legally or professionally required; the consequences and any notification duties following an existence disclosure; duties arising from recovery-driven duplicate side effects; the classification and safeguarding of restored production data, including any PDPA obligations; the Ethical Wall absence disclosure wording; and the handling of platform-realm pre-authentication security-event data. **No legal conclusion is asserted on any of them, and no review has occurred.**
 
 19. **AI holds no authority over anything in this document.** AI never grants access, never authors or approves a migration, policy, role, grant, or destructive operation, never writes or alters an audit record, and is never an authorization authority (Constitution Articles 6, 26, 28, 39, 40). Release 0.1 contains no AI capability.
 
-20. **No certification, compliance, or production-readiness claim is made**, and nothing here is claimed to be implemented or effective.
+20. **No certification, compliance, production-readiness, or legal-sufficiency claim is made; no legal review has occurred or is claimed**, and nothing described here is claimed to be implemented, tested, or effective.
 
 ---
 
@@ -944,13 +1112,15 @@ Each is resolved explicitly rather than left to a reader's inference.
 
 **21.2 "Module-owned migrations" versus a single Foundation-owned outbox and idempotency relation.** `app/Foundation` is a layer of **shared technical primitives, not a bounded context** (`AGENTS.md`, `docs/domain/06_Laravel_Module_Blueprint.md`). The rule that no module writes another module's tables is a rule about **bounded contexts**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module write — it is a module using a platform primitive, exactly as it uses `Clock`, `UuidV7`, and the transaction manager. **Resolved:** Foundation owns platform infrastructure relations; modules own domain relations; nobody writes another **context's** tables.
 
-**21.3 "No record, query, cache, projection, index, or event spans Firms" versus an outbox publisher scanning pending rows.** Constitution Articles 45 and 48 and `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Decision 11 bind **`PlatformAdministration`**, and the broader prohibition is on cross-Firm **reads, reports, aggregates, and comparisons of Firm data**. The outbox publisher is Platform Foundation infrastructure that dispatches already-committed events. **Resolved:** the preferred design is **per-Firm claiming** under normal Firm context; where a cross-Firm scan of pending work is genuinely required, it is a bounded, named exception limited to the outbox relation, under a dedicated role with **no access to any business relation**, joining nothing, producing no cross-Firm report or aggregate, and re-establishing each row's own Firm context before any domain-side work (§13.6). **`PF-091` and `PF-092` must choose and record which.** No cross-Firm business read is created either way.
+**21.3 "No record, query, cache, projection, index, or event spans Firms" versus an outbox publisher finding pending work.** Constitution Articles 45 and 48 and `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Decision 11 bind **`PlatformAdministration`**, and the broader prohibition is on cross-Firm **reads, reports, aggregates, and comparisons of Firm data**. **Resolved without an exception: there is no cross-Firm outbox scan.** The publisher iterates Firms through the **Firm-identifying** registry (§2.4), establishes each Firm's context, and claims only that Firm's rows under forced Row-Level Security — **no `BYPASSRLS`, no superuser, no owner exemption, no role-based permissive policy** (§13.6). Registry iteration returns Firm identities only, joins no business relation, and produces no cross-Firm report or aggregate. The earlier formulation of this document offered a bounded cross-Firm scan as an alternative; **that option is withdrawn**, because an exception that exists is an exception that will be taken.
 
 **21.4 "UUIDv7 is time-sortable" (`PF-048`) versus "UUIDv7 is not a monotonic ordering guarantee."** Both are true and they describe different things. **Resolved:** time-sortability is a **physical index-locality property** — a time-prefixed key clusters inserts — and it is the reason UUIDv7 is used rather than UUIDv4. It is **not** an ordering semantic: same-millisecond order is arbitrary, clocks move backwards, generation is concurrent, and commit order is not generation order. §6.2 keeps the benefit and denies the semantic.
 
 **21.5 `FORCE ROW LEVEL SECURITY` versus the need to run migrations and backfills across Firms.** Forcing RLS subjects the owner to policies, so the migration role cannot see all Firms by default — which is intentional, and which would otherwise be "solved" by the worst possible means. **Resolved in §15.5:** per-Firm iteration with `SET LOCAL` (preferred), or a narrowly scoped, explicitly authorized, recorded maintenance path — **never** by disabling RLS, dropping a policy, or granting `BYPASSRLS`.
 
-**21.6 "Firm-scoped unique constraints" versus genuinely platform-global uniqueness.** Constitution Article 5 requires platform-global legal reference data to exist once for every Firm, and such data legitimately has global uniqueness (an official citation). **Resolved in §2.4:** two explicitly declared relation classes, no third; Firm-scoped uniqueness applies to Firm-scoped relations, global uniqueness only to platform-global relations, where there is no Firm whose existence a constraint error could disclose.
+**21.6 "Firm-scoped unique constraints" versus genuinely platform-global uniqueness, and versus reading the Firm registry before Firm context exists.** Constitution Article 5 requires platform-global legal reference data to exist once for every Firm, and such data legitimately has global uniqueness (an official citation). Separately, tenant resolution and per-Firm background work must read *which Firms exist* before any Firm context can be established. **Resolved in §2.4:** three explicitly declared relation classes, no fourth. Firm-scoped uniqueness applies to Firm-scoped relations; global uniqueness applies only to platform-global relations, where there is no Firm whose existence a constraint error could disclose; and the **Firm-identifying** class contains the Firm registry alone — one row per Firm, no `firm_id`, no Firm business data, never a cross-Firm bridge, readable pre-context only by the tenant resolver and narrowly authorized `PlatformAdministration` paths. Naming it as a class is what prevents the alternative resolutions: a `BYPASSRLS` grant, a permissive policy, or a nullable `firm_id`.
+
+**21.6a "Firm-scoped uniqueness" versus the globally unique primary key.** Every `id` is globally unique across Firms, which is literally a global unique constraint on a Firm-scoped relation. **Resolved in §6.3 and §9.2 as an explicit, narrow exception:** the rule exists because a constraint error over a **business attribute** discloses a meaningful value another Firm holds. A platform-generated identifier carries no business meaning and is never caller-supplied, so a collision conveys nothing actionable about any Firm. The exception covers platform-generated identifier columns only, and never a business attribute, human-readable reference, or caller-supplied value.
 
 **21.7 "Entitlement is enforced" versus "entitlement is never a per-request authorization input."** A row policy is the most natural-looking place to enforce entitlement and the most damaging. `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Decision 8 and Constitution Article 46 evaluate entitlement at exactly two gates — authentication/session issuance and membership activation — precisely so that an already-issued valid session runs to its normal expiry after a commercial lapse. **Resolved:** **entitlement never appears in a row policy, a query predicate, or any per-statement check.** A policy predicate carries Firm identity only (§3.5).
 
@@ -958,7 +1128,7 @@ Each is resolved explicitly rather than left to a reader's inference.
 
 **21.9 "Firm isolation enforced in database policy" versus "Ethical Walls are absent and never approximated."** Both are approved and they are easily confused, because both are "restrict what a query returns." **Resolved:** Firm isolation is a **tenancy** boundary and belongs in a row policy. An Ethical Wall is a **per-actor, per-Matter professional-responsibility** control that Release 0.1 does not have and that `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md` forbids approximating. **No wall-shaped column, flag, or policy exists in any layer**, and a row policy is never used to produce per-user Matter visibility (§3.5, §20.9).
 
-**21.10 The PostgreSQL CI story's identifier.** The approved working direction for ARCH-012 refers to it as **`PF-033`**. `docs/implementation/03_Engineering_Backlog.md` records the story — "PostgreSQL CI — `Backlog`, its own approved story, must land before `PF-080` begins" — **without a story identifier**, and the string `PF-033` does not currently appear anywhere in the repository; Sprint 0.2 in `docs/implementation/01_Implementation_Sprint_Plan.md` ends at `PF-032`. **Resolved as far as this story may resolve it:** the **substantive requirement** is already approved and recorded — PostgreSQL CI is its own story, is Backlog, and must land before `PF-080`. **Assigning it the identifier `PF-033` is a tracking-file change**, and this story is explicitly barred from modifying `docs/implementation/01_Implementation_Sprint_Plan.md` and `docs/implementation/03_Engineering_Backlog.md`. It is recorded as an open item in §22 for the deferred tracking-file synchronization. **This document does not create, rename, or renumber the story.**
+**21.10 The PostgreSQL CI requirement has no assigned story identifier.** `docs/implementation/03_Engineering_Backlog.md` records the story — its own approved story, which must land before `PF-080` begins — **without a story identifier**. **Resolved as far as this story may resolve it:** the **substantive requirement is already approved and recorded**, and this document relies on it by description rather than by number. **No identifier is asserted, assumed, or invented here**; assigning one is a tracking-file change this story is barred from making, and it is recorded as an open item in §22. **This document does not create, rename, or renumber any story.**
 
 **21.11 `phpunit.xml` runs SQLite versus PostgreSQL being authoritative.** **No conflict to resolve here — it is an obligation, not a contradiction.** §16 records why the current configuration cannot verify any isolation control, and the approved ordering constraint that PostgreSQL CI lands before `PF-080`. **This document changes no test configuration.**
 
@@ -966,66 +1136,91 @@ Each is resolved explicitly rather than left to a reader's inference.
 
 **21.13 "Documents owns canonical content" versus storing anything document-shaped.** **Resolved:** the database stores a storage reference, checksum, media type, and byte size — **never bytes** (§7.3). Release 0.1 has no document capability at all, so no such relation exists yet.
 
-**21.14 Backup retention versus deletion, retention, and legal hold.** **Not resolved, and deliberately so.** It is a legal question requiring Thai-qualified review and its own approved policy. §17.5 and §20.18 record it as open; **no legal conclusion is asserted** (§22).
+**21.14 Backup retention versus deletion, retention, and legal hold.** **Not resolved, and deliberately so.** It is one of the eight legal questions in §22, each requiring Thai-qualified review and its own approved policy. §17.5 and §20.18 record them as open; **no legal conclusion is asserted on any of them, and no review has occurred.**
+
+**21.15 "Audit is append-only at the database level" versus a migration owner able to disable a trigger.** Both statements are true of different actors, and conflating them would overstate the control. **Resolved in §12.2:** ungranted privileges and rejecting triggers — covering `UPDATE`, `DELETE`, **and `TRUNCATE`** — bind every actor operating through the application, which is every actor the application has. **They are not claimed to restrain a role that can alter grants, disable triggers, or drop the relation.** That role is restrained by role separation (§4.1), by the `AGENTS.md` approval gates on any migration touching audit privileges, triggers, or relations (§15.5, §15.6), and by operational and privileged-access controls owned elsewhere — procedural and organizational controls, which this document does not represent as database-enforced.
+
+**21.16 "Firm isolation is enforced by the row policy" versus referential-integrity checks bypassing it.** A reader may reasonably assume Row-Level Security constrains foreign-key checks. It does not. **Resolved in §8.5:** constraint checks run with row security suspended, so a single-column foreign key would *accept* a cross-Firm reference, and a global unique constraint can raise a violation against a row the caller cannot see. The defences are therefore structural — composite Firm-carrying keys, and Firm-scoped uniqueness by construction — not visibility-based, and both carry explicit tests (§16.3).
+
+**21.17 "Never use an identifier for ordering" versus needing a deterministic total order.** Keyset pagination and stable result sets require a deterministic tiebreaker, and the obvious candidate is the identifier. **Resolved in §6.2:** an identifier is permitted **only** as the final term after an explicit business sort key, precisely because it is meaningless — it breaks ties arbitrarily but repeatably. It never becomes the primary sort term and never implies chronology, and every prohibition on identifier-derived business, chronological, causal, or delivery ordering stands unchanged.
 
 ---
 
 ## 22. Unresolved and deferred items
 
-Recorded openly rather than presented as settled. Each requires its own decision by the named owner.
+Recorded openly rather than presented as settled. Each requires its own decision by the named owner. **Legal questions are listed separately below and none of them is answered anywhere in this document.**
+
+### 22.1 Technical and tracking items
 
 | Item | Owner | Note |
 |---|---|---|
-| **PostgreSQL CI story identifier** (`PF-033`) | Tracking-file synchronization after `PF-040` merges | The requirement is approved; the identifier is not recorded in the repository (§21.10) |
+| **PostgreSQL CI story identifier — unassigned** | Tracking-file synchronization | The requirement is approved and recorded; **no identifier exists, and none is asserted here** (§16.1, §21.10). This story is barred from editing `docs/implementation/01_Implementation_Sprint_Plan.md` and `docs/implementation/03_Engineering_Backlog.md`. |
 | **Whether `firm_id` carries a foreign key to `Firm`** | The implementing story for `PF-080` / `PlatformAdministration` | §8.3 states the reasoning both ways and requires an explicit recorded decision |
-| **Outbox publication strategy — per-Firm claiming or the bounded cross-Firm exception** | `PF-091`, `PF-092` | §13.6, §21.3; the sequence-visibility hazard in §13.5 constrains the choice |
-| **Idempotency retention window** | The implementing story | §14.3; a storage-versus-coverage trade-off that cannot be asserted here |
+| **Outbox lease duration, batch size, and reclamation cadence** | `PF-091`, `PF-092` | §13.6 fixes the **protocol**; these are operational parameters, and neither number is asserted here. **The claiming strategy itself is no longer open** — cursor claiming is prohibited (§13.5) and cross-Firm scanning is withdrawn (§13.6). |
+| **Idempotency retention window** | A later approved retention policy | §14.3, `docs/adr/ADR-021-Idempotency-Persistence.md`; a bounded window is required, its length is not fixed here |
 | **Thai collation and normalization decisions** | The Thai-text-correctness story | §9.4; that it is explicit is required, which value is chosen is not decided here |
 | **PostgreSQL minimum version, extension set, and server configuration** | Deployment architecture | §19; must satisfy the capability requirements recorded here (forced RLS, transaction-scoped settings, native `uuid`, `timestamptz`, partial unique indexes, `SKIP LOCKED`, locale/ICU collation) |
 | **Connection pooling topology** | Deployment architecture | §4.3 records the incompatibility with statement-level multiplexing as a constraint; no product is selected |
-| **Backup, PITR, encryption-at-rest, and key-management mechanisms** | Deployment architecture | §17; no product or provider selected; the restore test is unexecuted |
-| **Audit purge and partition-detachment policy** | Its own separately approved decision | §12.7; not designed here |
-| **Backup retention versus deletion obligations and legal hold** | Thai-qualified legal review and an approved policy | §17.5, §21.14; **no legal conclusion asserted** |
+| **Backup, PITR, encryption-at-rest, and key-management mechanisms** | Deployment architecture | §17; no product or provider selected; **the restore test is unexecuted** |
+| **Audit purge and partition-detachment mechanism** | Its own separately approved decision | §12.8; not designed here. Its **lawfulness** is a legal question below. |
 | **Whether per-module PostgreSQL schemas are adopted later** | Its own separately approved decision | §5.2; additive, not foreclosed |
-| **Stale cross-references to this file as an "empty placeholder"** | Tracking-file synchronization after `PF-040` merges | `docs/README.md`, `docs/architecture/02_Product_Requirements.md` §8 and §10, `docs/architecture/08_Roadmap.md`, `docs/implementation/03_Engineering_Backlog.md`, and `docs/adr/ADR-012-…` describe this file as empty. Statements of the form "not populated by ARCH-011" remain literally true; the bare "empty placeholder" descriptions become stale on approval. This story is barred from editing those files. |
+| **Fate of the Laravel skeleton relations** | `users` → IdentityAccess; `cache` and `jobs` → Platform Foundation runtime | §5.1; none is modified by this story |
+| **Stale cross-references to this file as an "empty placeholder"** | Tracking-file synchronization | `docs/README.md`, `docs/architecture/02_Product_Requirements.md` §8 and §10, `docs/architecture/08_Roadmap.md`, `docs/implementation/03_Engineering_Backlog.md`, and `docs/adr/ADR-012-…` describe this file as empty, and `docs/README.md`'s ADR table does not list ADR-016 through ADR-021. Statements of the form "not populated by ARCH-011" remain literally true; bare "empty placeholder" descriptions become stale on approval. This story is barred from editing those files. |
+
+### 22.2 Open legal questions — Thai-qualified review required
+
+**Every item below is unresolved. No conclusion, interpretation, or sufficiency claim is asserted on any of them anywhere in this document or its ADRs. No reviewer is engaged, no review has occurred, and none is claimed.** Each requires Thai-qualified legal review and its own separately approved policy.
+
+1. **Backup retention versus erasure obligations, audit retention, and legal hold** — a backup retains content the live database has deleted; the obligations may conflict (§17.5, §21.14).
+2. **Minimum audit retention per stream, and whether partition detachment is lawful** for any given stream — professional-conduct, evidentiary, tax/accounting, and data-minimization duties may pull in opposite directions. **No period is asserted, implied, or defaulted** (§12.8).
+3. **Whether per-Firm point-in-time restore is legally or professionally required.** It is **not supported** under the §2 physical model; if it is required, that model is the constraint that would have to be revisited (§17.2).
+4. **The consequences of a cross-Firm existence disclosure, and any notification duties arising from it** — including professional-conduct consequences where the parties are adverse. This document characterizes such an event only as a **security and confidentiality incident requiring legal assessment** (§2.3, §20.1).
+5. **Duties arising from recovery-driven or crash-driven duplicate side effects** with a client-facing consequence. Consumer idempotency is the technical answer; **whether it suffices as a professional obligation is not asserted** (§13.7, §17.4).
+6. **Classification and safeguarding of restored production data in non-production environments**, including any PDPA obligations, and whether masking, pseudonymization, or subsetting suffices. Until resolved, the conservative rule stands: **synthetic data only** (§16.4, §17.5).
+7. **The Ethical Wall absence disclosure wording.** The absence **is required to be disclosed**; the wording **remains Draft pending Thai-qualified review and owner approval**, and no claim is made that any disclosure has been drafted, reviewed, or is adequate (§20.9; `docs/architecture/02_Product_Requirements.md` §6, §8).
+8. **Implications of platform-realm pre-authentication security-event handling** — retaining records of unauthenticated attempts, including submitted identifiers that may be personal data, and the retention and access rules that should govern them (§12.4).
 
 ---
 
 ## 23. Invariants
 
-- Every relation is explicitly either Firm-scoped or platform-global. There is no third class.
+- Every relation is explicitly Firm-scoped, Firm-identifying, or platform-global. There is no fourth class, and the Firm-identifying class contains the Firm registry alone.
 - Every Firm-scoped relation carries `firm_id uuid NOT NULL`, immutable after insert.
 - No Firm-scoped relation has a nullable `firm_id`, a sentinel Firm, or a shared-Firm row.
-- Every Firm-scoped relation has Row-Level Security **enabled and forced**, with a policy carrying both `USING` and `WITH CHECK`.
+- Every Firm-scoped relation has Row-Level Security **enabled and forced**, with a policy carrying both `USING` and `WITH CHECK`, and no role-based permissive exemption.
 - A row policy predicate carries Firm identity only — never entitlement, capability, role, ownership, or wall state.
-- Unset, empty, or malformed Firm context fails closed and fails loudly.
+- Unset, empty, or malformed Firm context fails closed and fails loudly, enforced in the application **before the first statement** of the transaction, with the raising row policy as defence in depth — and tested on empty and populated relations alike.
 - Firm context is transaction-scoped, set only from a `FirmContext` built from verified identity and membership, and never session-level.
 - One transaction never spans two Firms, and Firm context never changes mid-transaction.
 - The application runtime role is not a superuser, not a relation owner, and holds no `BYPASSRLS`.
 - Row-Level Security is defence in depth and never the primary control; application and repository scoping are never omitted because it exists.
 - Identifiers are application-generated UUIDv7 in native `uuid` columns; no database-generated default exists.
-- A UUIDv7 is never an ordering, deduplication, or idempotency key.
-- Primary keys are `id` alone; every Firm-scoped relation also carries `UNIQUE (firm_id, id)`; intra-context foreign keys are composite and carry `firm_id`.
+- A UUIDv7 is never a business, chronological, causal, or delivery ordering key, and never a deduplication or idempotency key; it may serve only as the final deterministic tiebreaker after an explicit business sort key.
+- Primary keys are `id` alone; every Firm-scoped relation also carries `UNIQUE (firm_id, id)`; intra-context foreign keys are composite and carry `firm_id`, and their child-side indexes are created explicitly.
 - No business or natural key is a primary key.
 - Cross-bounded-context references are identifier-only, with no foreign key, no join, and no cross-context write.
-- Every uniqueness constraint on Firm-scoped data is Firm-scoped.
-- Every index on a Firm-scoped relation includes `firm_id`, and no index exists to serve a cross-Firm query.
+- Every uniqueness constraint on Firm business data is Firm-scoped by construction; the only exception is a platform-generated identifier column, which carries no business meaning.
+- Every index on a Firm-scoped relation includes `firm_id`, except the `id`-only primary key; and no index exists to serve a cross-Firm query.
 - All timestamps are `timestamptz` in UTC, sourced from the injected `Clock`; the five distinct times are never collapsed.
 - Destructive cascades are denied by default and require explicit recorded approval; no approval can authorize a cascade that removes audit, ledger, version, attestation, outbox, or event history.
 - Deleting content never destroys the audit fact that it existed.
 - The state change, its outbox row, and its audit row commit atomically or not at all.
 - No external call and no waiting occurs inside a database transaction.
-- Authoritative audit is persisted, append-only, enforced by both revoked privileges and a rejecting trigger, writable while its subject is being denied, and never editable by the actor it records.
+- Authoritative audit is persisted and append-only against `UPDATE`, `DELETE`, and `TRUNCATE` alike, enforced independently by ungranted privileges and by triggers, writable while its subject is being denied, and never editable by any actor operating through the application.
 - Audit streams stay distinct and are never merged into one platform table.
-- Outbox ordering, where offered, is per-subject and derived from an explicit sequence — never from an identifier or a wall clock — and never claims global ordering or exactly-once delivery.
-- An idempotency record is enforced by a unique constraint on its scoped key, stores a fingerprint, and never returns a stored result without re-evaluating current authorization.
+- A security event with no verified Firm context is written to the platform-realm stream, carries no `firm_id`, never records a candidate Firm identifier as one, and is never exposed to a Firm.
+- Outbox ordering, where offered, is per-subject and derived from an explicit sequence — never from an identifier, a wall clock, or a high-water-mark cursor — and never claims global ordering or exactly-once delivery.
+- Outbox rows are claimed per Firm under established Firm context, with a claim token and lease; publication occurs outside any transaction; marking published requires a matching token; expired leases are reclaimable; and crash-after-publish redelivery is acknowledged.
+- There is no cross-Firm outbox query, and no `BYPASSRLS`, superuser, owner exemption, or role-based permissive policy anywhere in the publication path.
+- An idempotency record is Firm-scoped with forced Row-Level Security, has an immutable scope, key, and fingerprint, is enforced by a unique constraint, and never returns a stored result without re-evaluating current authorization.
 - Entitlement is never a per-request database check.
 - No Ethical Wall, conflict-checking, or per-user Matter-visibility mechanism exists in any persistence layer.
 - Production migrations are forward-only, expand/contract, never edited after shipping, and never run as the application runtime role.
 - Row policies, roles, and grants change only through reviewed migrations and hit the authorization approval gate.
 - Firm-spanning data maintenance never disables Row-Level Security or grants `BYPASSRLS`.
 - No authoritative data lives in an `UNLOGGED` relation.
-- Isolation tests run on PostgreSQL, as the application runtime role, on synthetic data only.
+- Isolation tests run on PostgreSQL, as the application runtime role, on synthetic data only, and cover both empty and populated relations.
+- Referential-integrity checks bypass row policies; cross-Firm referencing is prevented by composite Firm-carrying keys, not by Row-Level Security.
 - No cross-Firm view, materialized view, projection, index, cache, report, or read role exists.
 - AI holds no authority over any schema, policy, role, grant, migration, audit record, or destructive operation.
 
@@ -1051,7 +1246,9 @@ app/Modules/<Context>/
 
 Platform infrastructure relations (Platform Foundation-owned): outbox, idempotency.
 Domain relations (module-owned): everything else.
+Firm-identifying relation (PlatformAdministration-owned): the Firm registry, and nothing else.
 Platform-global relations (Constitution Article 5): reference data, no firm_id.
+Platform-realm security events (IdentityAccess-owned): no firm_id, never Firm-visible.
 ```
 
 Unchanged from `docs/domain/06_Laravel_Module_Blueprint.md`: dependency direction is `Interface → Application → Domain`; Infrastructure depends on Application and Domain contracts; **the Domain layer never depends on Laravel, Eloquent, SQL, queues, HTTP, or SDKs**; Eloquent records handle mapping, casts, relationships, and scopes only, and are persistence models rather than domain aggregates.
@@ -1060,14 +1257,14 @@ Unchanged from `docs/domain/06_Laravel_Module_Blueprint.md`: dependency directio
 
 ## 25. Proposed implementation stages
 
-**Proposed only. None of these is approved, scheduled, or assigned a story identifier**, and each requires its own entry in `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md`, with its own Definition of Ready, before implementation begins. **`PF-040` remains the next code story and remains Backlog.**
+**Proposed only. None of these is approved, scheduled, or assigned a story identifier**, and each requires its own entry in `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md`, with its own Definition of Ready, before implementation begins. **No story's status is asserted here; `docs/PROJECT_STATUS.md` is authoritative.**
 
-1. **PostgreSQL continuous integration** — the suite running against PostgreSQL, as the application runtime role, with the four required check names preserved exactly. **Must land before `PF-080`** (§16.1). Already an approved Backlog story; not created or renumbered here.
+1. **PostgreSQL continuous integration** — the suite running against PostgreSQL, as the application runtime role, with the four required check names preserved exactly. **Must be satisfied before `PF-080`** (§16.1). Already its own approved story, **with no assigned identifier**; not created, named, or renumbered here.
 2. **Tenancy persistence conventions** — the baseline column set, the two relation classes, `timestamptz`/`Clock` discipline, and the schema-level guard test asserting forced Row-Level Security and a policy on every Firm-scoped relation.
-3. **Firm context and roles** — the transaction-scoped `SET LOCAL` contract, the fail-closed context function, the role and privilege separation, and their tests. Depends on `PF-080`.
+3. **Firm context and roles** — the transaction-scoped `SET LOCAL` contract, the **application-side pre-statement fail-closed check** in `PF-073`/`PF-082`, the raising context function behind it, the role and privilege separation, and their empty- and populated-relation tests. Depends on `PF-080`.
 4. **Append-only audit persistence** — the privilege and trigger enforcement, and its tests.
-5. **Transactional outbox persistence** — `PF-091`, including the ordering and publication-strategy decision recorded in §13.5, §13.6, and §22.
-6. **Idempotency persistence** — the scoped unique constraint, fingerprint, re-authorization-on-replay behaviour, and retention window.
+5. **Transactional outbox persistence** — `PF-091`, implementing the claim/lease/publish protocol in §13.6 and the ordering rules in §13.5.
+6. **Idempotency persistence** — `docs/adr/ADR-021-Idempotency-Persistence.md`: the scoped unique constraint, immutable fingerprint, re-authorization-on-replay behaviour, and a bounded retention window whose length a later approved policy owns.
 7. **Migration and evolution tooling discipline** — the forward-only, expand/contract, and drift-detection practices, plus the per-Firm maintenance path in §15.5.
 
 ---
@@ -1082,6 +1279,7 @@ Unchanged from `docs/domain/06_Laravel_Module_Blueprint.md`: dependency directio
 | `docs/adr/ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md` | The audit decision this document implements (§12) |
 | `docs/adr/ADR-019-Transactional-Outbox-Persistence.md` | The outbox decision this document implements (§13) |
 | `docs/adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md` | The evolution decision this document implements (§15) |
+| `docs/adr/ADR-021-Idempotency-Persistence.md` | The idempotency persistence decision this document implements (§14) |
 | `docs/architecture/04_Security_Architecture.md` | Platform-wide security baseline; this document is its persistence expression |
 | `docs/architecture/07_API_Standards.md` | Idempotency scoping (§10) and delivery semantics (§12) this document persists |
 | `docs/domain/06_Laravel_Module_Blueprint.md` | Module structure, tenancy discipline, atomic outbox commit, prohibited patterns |
