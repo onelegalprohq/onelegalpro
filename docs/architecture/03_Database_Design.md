@@ -14,7 +14,7 @@
 
 This is the **platform-wide data and persistence baseline**, binding every bounded context, on the same footing as `docs/architecture/04_Security_Architecture.md` (security) and `docs/architecture/07_API_Standards.md` (external contracts). It owns no domain data and defines no bounded context. It defines **how** approved domain models are persisted in PostgreSQL, and **which persistence patterns are required, permitted, and prohibited**.
 
-**In scope:** the shared-schema tenancy model; the three relation classes; mandatory `firm_id` scoping and PostgreSQL Row-Level Security as defence in depth; connection roles and transaction-scoped Firm context; module schema and migration ownership; identifier persistence and UUIDv7 rules; baseline columns, time representation, and concurrency control; referential integrity and cross-bounded-context reference rules; indexes, Firm-scoped uniqueness, text encoding and collation; destructive-cascade policy; transaction boundaries and locking; append-only audit persistence; transactional-outbox persistence; idempotency persistence; migration and schema-evolution policy; PostgreSQL testing obligations; the backup and restore properties that constrain persistence design; prohibited patterns; non-goals; and the security and professional-responsibility consequences of all of the above.
+**In scope:** the shared-schema tenancy model; the four relation classes; mandatory `firm_id` scoping and PostgreSQL Row-Level Security as defence in depth; connection roles and transaction-scoped Firm context; module schema and migration ownership; identifier persistence and UUIDv7 rules; baseline columns, time representation, and concurrency control; referential integrity and cross-bounded-context reference rules; indexes, Firm-scoped uniqueness, text encoding and collation; destructive-cascade policy; transaction boundaries and locking; append-only audit persistence; transactional-outbox persistence; idempotency persistence; migration and schema-evolution policy; PostgreSQL testing obligations; the backup and restore properties that constrain persistence design; prohibited patterns; non-goals; and the security and professional-responsibility consequences of all of the above.
 
 **Out of scope:** everything in §19, and specifically — **which** aggregates, attributes, states, or events exist (owned by each context's own approved architecture); hosting, deployment, infrastructure, connection pooling, backup, monitoring, and secret-management **products and providers**; capacity, sizing, and performance targets; the physical data model of any specific module; search, analytics, and vector storage; and any Reporting capability, which Constitution Article 44 reserves for a future bounded context this document neither approves nor prohibits.
 
@@ -73,34 +73,65 @@ That cost is the entire justification for the four-layer isolation model in §3:
 
 **Revisiting this decision is a database redesign** under the `AGENTS.md` approval gate, not an implementation choice.
 
-### 2.4 Three relation classes, explicitly classified
+### 2.4 Four relation classes, explicitly classified
 
-Every relation is **exactly one** of the following, declared explicitly in the migration that creates it and in the owning module's documentation. **There is no fourth, "sometimes-scoped", class**, and a relation never changes class silently.
+Every relation is **exactly one** of the following, declared explicitly in the migration that creates it and in the owning module's documentation. **The taxonomy is exhaustive: there is no fifth class and no "sometimes-scoped" relation**, and a relation never changes class silently.
 
 | Class | Definition | `firm_id` | Row-Level Security |
 |---|---|---|---|
-| **Firm-scoped** | Holds data belonging to exactly one Firm | `uuid NOT NULL`, immutable | **Enabled and forced** (§3) |
-| **Firm-identifying** | **The Firm registry only** — the relation whose rows *are* Firms. Exactly one row per Firm | **Absent** — a Firm's own identity is its primary key, not a tenancy column | Enabled; access constrained by privilege and by the narrow read paths below |
-| **Platform-global** | Data that exists once for every Firm — Constitution Article 5 reference data, and static configuration such as seeded taxonomies and scheme templates | **Absent — never nullable, never a sentinel** | Not applicable; read-only to the application runtime role |
+| **a. Firm-scoped** | Holds data belonging to exactly one Firm | `uuid NOT NULL`, immutable | **Forced Firm RLS** (§3); accessible **only within a verified `FirmContext`** |
+| **b. Firm-identifying** | **The Firm registry only** — the relation whose rows *are* Firms. Exactly one row per Firm | **Absent** — a Firm's own identity is its primary key, not a tenancy column | **Not `FirmContext`-based** — it must be consulted before `FirmContext` exists (§2.5) |
+| **c. Platform-global reference** | Constitution Article 5 authoritative platform-global reference and configuration data — official legal sources, reference translations, seeded taxonomies, scheme templates | **Absent — never nullable, never a sentinel** | Not Firm-scoped; read-only to the application runtime role |
+| **d. Platform-realm security / operations** | Records that **must exist when no verified `FirmContext` exists** — presently the pre-authentication IdentityAccess security-event relation, and nothing else | **Absent — and no candidate Firm identifier is ever stored as `firm_id`** | Not `FirmContext`-based; access restricted to named platform-realm services and security operators (§12.4) |
 
-**Why the Firm-identifying class exists.** Tenant resolution and per-Firm background work face a genuine ordering problem: to establish Firm context you must first know which Firms exist, and a relation that could only be read *with* Firm context already established could never answer that. Rather than resolving it with a `BYPASSRLS` grant, a permissive policy, or a nullable `firm_id`, the registry is named as its own narrow class with explicit limits.
+**Class (d) is not platform-global reference data**, and the two are never conflated. Class (c) is *authoritative reference material that exists once for every Firm* and is read on ordinary Firm-facing paths; class (d) is *operational security recording that exists because no Firm is verified*, is never Firm-facing, and is never read as reference data by anything. Placing (d) inside (c) would make an unauthenticated stranger's failed attempt look like platform reference content and would put it on paths that legitimately serve Firms.
 
-**Firm-identifying rules — deliberately narrow**
+**Class (b) — Firm-identifying: deliberately narrow**
+
+Tenant resolution and per-Firm background work face a genuine ordering problem: to establish Firm context you must first know which Firms exist, and a relation readable only *with* Firm context could never answer that. Rather than resolving it with a `BYPASSRLS` grant, a permissive policy, or a nullable `firm_id`, the registry is named as its own class with explicit limits. Its access posture is stated in full in §2.5.
 
 - **The class contains exactly one relation: the Firm registry**, owned by `PlatformAdministration` (`docs/architecture/19_Platform_Administration_Architecture.md` §6). **Nothing else is ever placed in this class**, and adding a second relation to it requires its own approved decision.
-- **It carries no Firm business data of any kind** — no `Client`, `Matter`, `Task`, document, communication, or financial content, and no field from which any could be reconstructed. It carries Firm identity, canonical name, jurisdiction reference, and lifecycle state, exactly as ARCH-019 §6 defines.
+- **It carries identity, canonical name, jurisdiction reference, and lifecycle metadata only** — exactly as ARCH-019 §6 defines. **It carries no Firm business data of any kind**: no `Client`, `Matter`, `Task`, document, communication, or financial content, and no field from which any could be reconstructed. **Firm-sensitive business data is never added to it** (§2.5).
 - **It is never a cross-Firm bridge.** No query joins it to reach one Firm's rows from another Firm's context, and no projection, view, index, cache, or report derives cross-Firm content through it.
-- **It is readable before Firm context is established only by (a) the tenant resolver, and (b) narrowly authorized `PlatformAdministration` paths.** No domain module reads it pre-context, and no Firm-facing surface enumerates it.
+- **It is usable before `FirmContext` exists only by (a) the tenant resolver and (b) narrowly authorized `PlatformAdministration` paths.** No domain module reads it pre-context, and no Firm-facing surface enumerates it.
 - **Enumerating Firms is not a capability granted to anything Firm-facing.** A Firm-facing caller never receives a list, count, or existence signal about another Firm, and `FirmContext` is still built only from verified identity and membership (Constitution Article 27) — registry readability is not membership and proves nothing.
 - **Per-Firm outbox claiming reads the registry** to iterate Firms, and nothing more (§13.6).
 
-**Platform-global rules**
+**Class (c) — Platform-global reference rules**
 
-- A platform-global relation **never** carries a nullable `firm_id`, a zero/sentinel UUID, or a "shared Firm" row. A nullable tenancy column is the single most common way a shared-schema isolation model fails, because every policy and predicate then needs an `OR firm_id IS NULL` branch that is trivially wrong.
-- It is **written only by an authorized platform data-management path** and is read-only to the application runtime role. Firm-owned annotations, bookmarks, notes, and saved research **over** platform-global data are Firm-scoped relations referencing the global row by identifier (Article 5).
-- A join between a Firm-scoped relation and a platform-global relation is permitted; a join that would place another Firm's row on either side is not, and **no query uses a platform-global relation as a bridge between two Firms**.
+- It **never** carries a nullable `firm_id`, a zero/sentinel UUID, or a "shared Firm" row. A nullable tenancy column is the single most common way a shared-schema isolation model fails, because every policy and predicate then needs an `OR firm_id IS NULL` branch that is trivially wrong.
+- It is **not Firm-owned and is never treated as Firm-scoped data.** It is **written only by an authorized platform data-management path** and is read-only to the application runtime role. Firm-owned annotations, bookmarks, notes, and saved research **over** it are Firm-scoped relations referencing the global row by identifier (Article 5).
+- A join between a Firm-scoped relation and a platform-global reference relation is permitted; a join that would place another Firm's row on either side is not, and **no query uses it as a bridge between two Firms**.
+
+**Class (d) — Platform-realm security / operations rules**
+
+- **The class is narrowly limited to records that must exist when a verified `FirmContext` does not exist.** Presently that is the **pre-authentication IdentityAccess security-event relation and nothing else** (§12.4).
+- **No candidate Firm identifier is ever stored as `firm_id`** — a hostname, custom domain, header, parameter, route segment, submitted email address, or claimed Firm identifier identifies a *candidate* and proves nothing (Constitution Article 27). Where a candidate value must be recorded, it goes in a clearly named candidate/unverified field.
+- **Never Firm-visible.** No Firm-facing surface, Firm-visible support-access history, Firm-scoped export, or Firm-scoped query reads it.
+- **Never a cross-Firm bridge**, and never a source for any cross-Firm projection, aggregate, or report.
+- **Access is restricted to named platform-realm services and security operators**, by dedicated database privileges and narrow query contracts — never to the Firm-scoped application runtime role.
+- **Append-only requirements continue to apply in full** to the security-event relation: `UPDATE`, `DELETE`, and `TRUNCATE` each independently rejected by privilege and by trigger (§12.2).
+- **Adding another relation to this class requires architecture and security approval.** The class exists to hold a named exception, not to become a home for anything inconvenient to scope.
 
 **Reclassifying a relation between any two classes is a database redesign and a security change**, requiring both approval gates.
+
+### 2.5 The Firm registry's access posture — why it is not `FirmContext`-based, and why that is not open access
+
+**The Firm-identifying registry cannot use `FirmContext`-based Row-Level Security**, because it is the relation consulted **in order to establish** `FirmContext`. A policy predicate comparing a registry row to the current Firm context would either deny every pre-context read — making tenant resolution impossible — or would have to be written permissively, which is worse than having no policy because it would look like a control.
+
+**That is not unrestricted access, and it must not be read as one.** Access is enforced by three mechanisms that do not depend on Firm context:
+
+1. **Dedicated database privileges.** Only the roles that genuinely need the registry hold `SELECT` on it. **The Firm-scoped application runtime role receives no general enumeration access.**
+2. **Narrow repository and query contracts.** The registry is reachable only through named contracts that return the specific fields tenant resolution or an authorized `PlatformAdministration` path requires — never a general "list Firms" query available to arbitrary callers.
+3. **Application authorization.** Every `PlatformAdministration` path that reads it composes its own authorization first, exactly as any other protected read does (Constitution Article 28).
+
+**Additional standing rules**
+
+- **Only the tenant resolver and narrowly authorized `PlatformAdministration` paths may read the required fields.** Nothing else reads the registry pre-context.
+- **Enumeration and returned fields are minimized**, and **audited where required** — a read that returns more Firms or more fields than the caller's purpose needs is a defect, not an optimization.
+- **Firm-sensitive business data is never added to this registry**, which is what keeps the consequence of a registry read bounded to "this Firm exists" rather than anything about the Firm's clients or matters.
+- **A Firm identifier is not a secret and not a capability** (ARCH-019 §16). Registry readability is **not membership** and grants nothing; `FirmContext` is still built only from verified identity and membership.
+- **No `BYPASSRLS`, superuser access, owner exemption, or permissive cross-Firm policy is introduced for any Firm-scoped relation** to make registry access work — the whole point of naming class (b) is that none of those is needed.
 
 ---
 
@@ -224,10 +255,10 @@ Every statement touching a Firm-scoped relation — **including reads** — runs
 - **Each module owns its own relations, and only its own.** Its migrations live in the module's `Database/` directory (`docs/domain/06_Laravel_Module_Blueprint.md`).
 - **No module migrates, alters, reads, or writes another module's relations.** Cross-module access is published commands, queries, and events only. This is the existing rule in `AGENTS.md` and the Blueprint, restated here because a migration is the easiest way to break it accidentally.
 - **Platform Foundation owns platform infrastructure relations** — the transactional outbox (§13), idempotency records (§14), and framework-operational tables. Foundation is `app/Foundation`: a layer of shared technical primitives, **not a bounded context**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module table write (§21.2). **Foundation owning the relation is not Foundation owning every decision about it:** the outbox persistence decision is `docs/adr/ADR-019-Transactional-Outbox-Persistence.md`'s, the idempotency persistence decision is `docs/adr/ADR-021-Idempotency-Persistence.md`'s, and the idempotency **scoping contract** remains `docs/architecture/07_API_Standards.md` §10's.
-- **The existing Laravel skeleton migrations are framework starter artefacts, not approved domain schema**, and ownership of the decision about them splits:
-  - **`users` is IdentityAccess's**, and only `users`. IdentityAccess owns principals, credentials, and sessions (Constitution Article 26); a stock `users` table is not the principal model. Whether it is retained, replaced, or removed is IdentityAccess's own approved story's decision and is **not decided here**.
-  - **`cache` and `jobs` are framework-operational relations belonging to the Platform Runtime**, and their fate is a **Platform Foundation runtime** decision — they are not identity concerns and IdentityAccess has no ownership of them. Also **not decided here**.
-  - **This story modifies none of the three.**
+- **The existing Laravel skeleton relations are framework starter artefacts, not approved domain schema**, and ownership of the decision about them splits:
+  - **IdentityAccess owns `users` and identity records** — and only those. IdentityAccess owns principals, credentials, and sessions (Constitution Article 26); a stock `users` table is not the principal model. Whether it is retained, replaced, or removed is IdentityAccess's own approved story's decision.
+  - **The Platform Foundation runtime owns decisions about the framework cache and queue/job infrastructure relations (`cache`, `jobs`).** They are **not** identity concerns, and **assigning them to IdentityAccess would misattribute a runtime concern to the identity context.**
+  - **Every existing skeleton relation remains unapproved until its owning story decides it.** None is decided here, and **this story modifies none of them.**
 
 ### 5.2 One PostgreSQL schema, ownership by convention and review
 
@@ -278,9 +309,9 @@ Why generation is the application's:
 - Multiple application processes generate concurrently with no coordination.
 - Commit order is not generation order. A row with a lower identifier can become visible after a row with a higher one (§13.5).
 
-Therefore, prohibited: **an identifier as a business, chronological, causal, or delivery ordering key**; an identifier used as a pagination cursor that implies time order; and any ordering, deduplication, or idempotency key derived from an identifier's timestamp bits. Where ordering matters, it is explicit and per-subject (§13.5).
+Therefore, prohibited: **an identifier as a business, chronological, causal, event, or delivery ordering key**; **identifier-only ordering and an identifier-only cursor**, including a pagination cursor that implies time order; and any ordering, deduplication, or idempotency key derived from an identifier's timestamp bits. Where ordering matters, it is explicit and per-subject (§13.5).
 
-**One permitted use: the final deterministic tiebreaker.** After an **explicit business sort key** — a status, a due date, a name, a domain-assigned sequence — an identifier **may** be appended as the last sort term to make the total order deterministic and keyset pagination stable. This is legitimate precisely because it carries no meaning: it breaks ties arbitrarily but *repeatably*, which is what a stable cursor needs. It is permitted only in that position, only after a business key, and it **never** becomes the primary sort term, never implies chronology, and never substitutes for the explicit ordering §13.5 requires for delivery.
+**One permitted use: the final deterministic tiebreaker.** After an **explicit approved business sort key** — a status, a due date, a name, a domain-assigned sequence — an identifier **may** be appended as the last sort term to make the total order deterministic and keyset pagination stable. This is legitimate precisely because it carries no meaning: it breaks ties arbitrarily but *repeatably*, which is what a stable cursor needs. It is permitted only in that position, only after a business key, and it **never** becomes the primary sort term, never implies chronology, and never substitutes for the explicit ordering §13.5 requires for delivery.
 
 **What is retained is the index-locality benefit**: a time-prefixed identifier gives B-tree inserts far better locality than a random v4, reducing page splits and index bloat. That is a physical property, not a semantic promise. **It is the justification for preferring UUIDv7 over UUIDv4 — it is not the reason UUIDv7 is mandated.** UUIDv7 is mandated by `AGENTS.md` and by the Foundation primitive `PF-048`; locality is why that mandate is also the technically preferable choice, and if the mandate did not exist the locality argument alone would still favour it.
 
@@ -580,10 +611,13 @@ Some security events genuinely occur **before any verified Firm context exists**
 
 **They are written to a distinct, platform-realm, append-only security-event relation, owned by IdentityAccess.** Rules:
 
-- **The relation is not Firm-scoped and carries no `firm_id`.** It is neither Firm-scoped nor Firm-identifying nor platform-global in the §2.4 sense; it is a platform-realm relation with its own narrow access rules, and it is the **only** relation in that position.
+- **The relation is class (d) — platform-realm security / operations — in the §2.4 taxonomy**, and it is presently the **only** relation in that class. It carries **no `firm_id`**. **It is explicitly not platform-global reference data (class (c))**: class (c) is authoritative reference material read on ordinary Firm-facing paths, while this is operational security recording that exists precisely because no Firm is verified, and conflating them would place a stranger's failed attempt on paths that legitimately serve Firms.
 - **A candidate Firm identifier is never written as `firm_id`.** A hostname, custom domain, header, parameter, route segment, submitted email address, or claimed Firm identifier identifies a *candidate* and proves nothing (Constitution Article 27). Writing one into a tenancy column would fabricate a verified fact from an unverified input, and would then attribute an unauthenticated stranger's action to a real Firm's audit history. Where a candidate value must be recorded at all, it is recorded in a **clearly named candidate/unverified field**, never in `firm_id`, and never in a way that makes it queryable as though it were Firm attribution.
 - **The platform-realm stream is never exposed to Firms.** No Firm-facing surface, Firm-visible support-access history, Firm-scoped export, or Firm-scoped query reads it. It would otherwise disclose failed attempts against *other* candidate Firms and turn an audit relation into the enumeration channel Constitution Article 27 forbids.
-- **It is append-only on the same terms as §12.2**, including `TRUNCATE` rejection, and it carries safe metadata only under §12.7 — never a submitted credential, and never an unredacted probe payload.
+- **Append-only requirements apply in full, on the same terms as §12.2** — `UPDATE`, `DELETE`, and `TRUNCATE` each independently rejected by privilege and by trigger. It carries safe metadata only under §12.7 — never a submitted credential, and never an unredacted probe payload.
+- **Access is restricted to named platform-realm services and security operators**, by dedicated database privileges and narrow query contracts. The Firm-scoped application runtime role holds no access to it.
+- **It is never a cross-Firm bridge**, and never a source for a cross-Firm projection, aggregate, or report.
+- **Adding another relation to class (d) requires architecture and security approval** (§2.4). The class holds a named exception; it never becomes a home for anything inconvenient to scope.
 - **It never becomes a second authorization or entitlement authority**, and its existence grants nothing.
 - **It is not merged with any Firm-scoped audit stream** (§12.6). An event with no verified Firm is a categorically different fact from an event within a Firm, and collapsing them would either fabricate attribution or contaminate a Firm's history with strangers' activity.
 - **The legal implications of retaining pre-authentication security-event data — including submitted identifiers that may be personal data — require Thai-qualified review** and their own approved policy (§17.5, §22). **No conclusion is asserted here.**
@@ -861,7 +895,13 @@ Each is an obligation on the story that introduces the relation or mechanism, no
 - A transaction cannot change Firm context mid-flight.
 - Firm context does **not** survive the transaction — the same connection, in a new transaction with no context, fails (§4.3).
 - The application runtime role is not a superuser, does not own the relations, and holds no `BYPASSRLS`.
-- The **Firm-identifying** registry is readable by the tenant resolver and the outbox publication role, and **no Firm-facing path enumerates Firms** (§2.4).
+- **Every relation declares one of the four classes** in §2.4, and the schema-level guard test enumerates relations and asserts the declared class matches the relation's actual shape — `firm_id` presence and forced RLS for (a); absence of `firm_id` for (b), (c), and (d).
+- The **Firm-identifying** registry (b) is readable by the tenant resolver and the outbox publication role, and **no Firm-facing path enumerates Firms** (§2.4).
+- **The Firm-scoped application runtime role holds no general enumeration access to the registry** (§2.5), asserted at the privilege level.
+- **A registry read returns only the minimized field set** its named contract declares, and no general "list Firms" query is reachable from an arbitrary caller (§2.5).
+- **The registry carries no Firm business-data column** — asserted structurally, so a later migration cannot quietly add one (§2.5).
+- **A class (d) platform-realm relation carries no `firm_id`**, is **unreadable through every Firm-scoped path**, and **rejects `UPDATE`, `DELETE`, and `TRUNCATE`** by privilege and by trigger (§2.4, §12.4).
+- **No class (d) relation is reachable by the Firm-scoped application runtime role**, asserted at the privilege level.
 
 **Identity and integrity**
 
@@ -977,7 +1017,7 @@ Each is prohibited. Where a pattern could be permitted under an explicit approva
 - A database-generated identifier default — `gen_random_uuid()`, a server-side UUIDv7 function, a trigger, or a sequence — on a domain relation.
 - `bigserial` or any auto-increment surrogate as a domain primary key.
 - Storing a UUID as `char`, `varchar`, `text`, or `bytea`.
-- `ORDER BY` an identifier, or an identifier used as a cursor implying time order.
+- Ordering by an identifier as a **business, chronological, causal, event, or delivery** sort key — including identifier-only `ORDER BY` and an identifier-only cursor. An identifier may appear **only as the final deterministic tiebreaker after an explicit approved business sort key** (§6.2).
 - Deriving an ordering, deduplication, or idempotency key from an identifier's timestamp bits.
 - A natural or business key — `MatterNumber` included — as a primary key.
 - A single-column foreign key where a composite Firm-carrying one is required (§6.3).
@@ -1110,7 +1150,9 @@ Each is resolved explicitly rather than left to a reader's inference.
 
 **21.1 "Enforced in database policy" versus "global scopes alone are insufficient."** `docs/domain/06_Laravel_Module_Blueprint.md` requires both, and they are not in tension. **No conflict.** Database policy is added as a fourth layer (§3.1); application logic and repositories remain the primary enforcement; a global Eloquent scope is not an isolation control in any layer.
 
-**21.2 "Module-owned migrations" versus a single Foundation-owned outbox and idempotency relation.** `app/Foundation` is a layer of **shared technical primitives, not a bounded context** (`AGENTS.md`, `docs/domain/06_Laravel_Module_Blueprint.md`). The rule that no module writes another module's tables is a rule about **bounded contexts**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module write — it is a module using a platform primitive, exactly as it uses `Clock`, `UuidV7`, and the transaction manager. **Resolved:** Foundation owns platform infrastructure relations; modules own domain relations; nobody writes another **context's** tables.
+**21.2 "Module-owned migrations" versus Foundation-owned outbox and idempotency relations.** `app/Foundation` is a layer of **shared technical primitives, not a bounded context** (`AGENTS.md`, `docs/domain/06_Laravel_Module_Blueprint.md`). The rule that no module writes another module's tables is a rule about **bounded contexts**. A module writing an outbox row through Foundation's published contract, inside its own transaction, is **not** a cross-module write — it is a module using a platform primitive, exactly as it uses `Clock`, `UuidV7`, and the transaction manager. **Resolved:** Foundation owns platform infrastructure relations; modules own domain relations; nobody writes another **context's** tables.
+
+**Owning the relations is not owning the decisions about them**, and the three decisions are distinct: **`docs/adr/ADR-019-Transactional-Outbox-Persistence.md` owns transactional-outbox persistence only**; **`docs/adr/ADR-021-Idempotency-Persistence.md` owns idempotency persistence**; and **`docs/adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md` governs the migration and schema-evolution mechanics applicable to both.** **Idempotency ownership is never attributed to ADR-019**, and the idempotency **scoping contract** remains `docs/architecture/07_API_Standards.md` §10's.
 
 **21.3 "No record, query, cache, projection, index, or event spans Firms" versus an outbox publisher finding pending work.** Constitution Articles 45 and 48 and `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Decision 11 bind **`PlatformAdministration`**, and the broader prohibition is on cross-Firm **reads, reports, aggregates, and comparisons of Firm data**. **Resolved without an exception: there is no cross-Firm outbox scan.** The publisher iterates Firms through the **Firm-identifying** registry (§2.4), establishes each Firm's context, and claims only that Firm's rows under forced Row-Level Security — **no `BYPASSRLS`, no superuser, no owner exemption, no role-based permissive policy** (§13.6). Registry iteration returns Firm identities only, joins no business relation, and produces no cross-Firm report or aggregate. The earlier formulation of this document offered a bounded cross-Firm scan as an alternative; **that option is withdrawn**, because an exception that exists is an exception that will be taken.
 
@@ -1132,7 +1174,7 @@ Each is resolved explicitly rather than left to a reader's inference.
 
 **21.11 `phpunit.xml` runs SQLite versus PostgreSQL being authoritative.** **No conflict to resolve here — it is an obligation, not a contradiction.** §16 records why the current configuration cannot verify any isolation control, and the approved ordering constraint that PostgreSQL CI lands before `PF-080`. **This document changes no test configuration.**
 
-**21.12 The Laravel skeleton `users` table versus IdentityAccess owning principals.** **Resolved:** `users`, `cache`, and `jobs` are framework starter artefacts, not approved domain schema, and a stock `users` table is not the principal model (Constitution Article 26). Their fate is IdentityAccess's own approved story's decision and is **not decided here** (§5.1).
+**21.12 The Laravel skeleton relations versus context ownership.** **Resolved, and the ownership splits rather than sitting with one context:** all three are framework starter artefacts and **none is approved domain schema**. **IdentityAccess owns `users` and identity records** — a stock `users` table is not the principal model (Constitution Article 26) — and only `users`. **The Platform Foundation runtime owns decisions about the framework cache and queue/job infrastructure relations (`cache`, `jobs`)**; they are not identity concerns, and **assigning them to IdentityAccess would misattribute a runtime concern to the identity context**. **Every existing skeleton relation remains unapproved until its owning story decides it**, and none is decided or modified here (§5.1).
 
 **21.13 "Documents owns canonical content" versus storing anything document-shaped.** **Resolved:** the database stores a storage reference, checksum, media type, and byte size — **never bytes** (§7.3). Release 0.1 has no document capability at all, so no such relation exists yet.
 
@@ -1184,7 +1226,9 @@ Recorded openly rather than presented as settled. Each requires its own decision
 
 ## 23. Invariants
 
-- Every relation is explicitly Firm-scoped, Firm-identifying, or platform-global. There is no fourth class, and the Firm-identifying class contains the Firm registry alone.
+- Every relation is explicitly **Firm-scoped, Firm-identifying, platform-global reference, or platform-realm security/operations**. The taxonomy is exhaustive; the Firm-identifying class contains the Firm registry alone, and the platform-realm class presently contains the pre-authentication security-event relation alone.
+- The platform-realm security/operations class is never treated as platform-global reference data, is never Firm-visible, is never a cross-Firm bridge, stores no candidate Firm identifier as `firm_id`, and remains append-only; adding a relation to it requires architecture and security approval.
+- The Firm registry uses no `FirmContext`-based policy — because it is consulted before `FirmContext` exists — and is restricted instead by dedicated privileges, narrow query contracts, and application authorization; the Firm-scoped runtime role holds no general enumeration access, and no Firm-sensitive business data is ever added to it.
 - Every Firm-scoped relation carries `firm_id uuid NOT NULL`, immutable after insert.
 - No Firm-scoped relation has a nullable `firm_id`, a sentinel Firm, or a shared-Firm row.
 - Every Firm-scoped relation has Row-Level Security **enabled and forced**, with a policy carrying both `USING` and `WITH CHECK`, and no role-based permissive exemption.
@@ -1244,11 +1288,19 @@ app/Modules/<Context>/
 │                                    outbox integration through Foundation's contract)
 └── Domain/                         (aggregates and invariants — never Eloquent, never SQL)
 
-Platform infrastructure relations (Platform Foundation-owned): outbox, idempotency.
-Domain relations (module-owned): everything else.
-Firm-identifying relation (PlatformAdministration-owned): the Firm registry, and nothing else.
-Platform-global relations (Constitution Article 5): reference data, no firm_id.
-Platform-realm security events (IdentityAccess-owned): no firm_id, never Firm-visible.
+The four relation classes (§2.4), and who owns each:
+
+(a) Firm-scoped              — module-owned domain relations, plus the Platform
+                               Foundation-owned outbox and idempotency infrastructure
+                               relations. firm_id NOT NULL, forced Firm RLS.
+(b) Firm-identifying         — the PlatformAdministration Firm registry, and nothing
+                               else. No firm_id. Not FirmContext-based (§2.5).
+(c) Platform-global          — Constitution Article 5 authoritative reference and
+    reference                  configuration data. No firm_id. Never Firm-owned.
+(d) Platform-realm security  — the IdentityAccess pre-authentication security-event
+    / operations               relation, and nothing else. No firm_id, never Firm-
+                               visible, append-only, access restricted to named
+                               platform-realm services and security operators.
 ```
 
 Unchanged from `docs/domain/06_Laravel_Module_Blueprint.md`: dependency direction is `Interface → Application → Domain`; Infrastructure depends on Application and Domain contracts; **the Domain layer never depends on Laravel, Eloquent, SQL, queues, HTTP, or SDKs**; Eloquent records handle mapping, casts, relationships, and scopes only, and are persistence models rather than domain aggregates.
@@ -1260,7 +1312,7 @@ Unchanged from `docs/domain/06_Laravel_Module_Blueprint.md`: dependency directio
 **Proposed only. None of these is approved, scheduled, or assigned a story identifier**, and each requires its own entry in `docs/implementation/03_Engineering_Backlog.md` and `docs/implementation/01_Implementation_Sprint_Plan.md`, with its own Definition of Ready, before implementation begins. **No story's status is asserted here; `docs/PROJECT_STATUS.md` is authoritative.**
 
 1. **PostgreSQL continuous integration** — the suite running against PostgreSQL, as the application runtime role, with the four required check names preserved exactly. **Must be satisfied before `PF-080`** (§16.1). Already its own approved story, **with no assigned identifier**; not created, named, or renumbered here.
-2. **Tenancy persistence conventions** — the baseline column set, the two relation classes, `timestamptz`/`Clock` discipline, and the schema-level guard test asserting forced Row-Level Security and a policy on every Firm-scoped relation.
+2. **Tenancy persistence conventions** — the baseline column set, the **four relation classes** and their declaration in every migration, `timestamptz`/`Clock` discipline, and the schema-level guard test asserting forced Row-Level Security and a policy on every Firm-scoped relation.
 3. **Firm context and roles** — the transaction-scoped `SET LOCAL` contract, the **application-side pre-statement fail-closed check** in `PF-073`/`PF-082`, the raising context function behind it, the role and privilege separation, and their empty- and populated-relation tests. Depends on `PF-080`.
 4. **Append-only audit persistence** — the privilege and trigger enforcement, and its tests.
 5. **Transactional outbox persistence** — `PF-091`, implementing the claim/lease/publish protocol in §13.6 and the ordering rules in §13.5.
