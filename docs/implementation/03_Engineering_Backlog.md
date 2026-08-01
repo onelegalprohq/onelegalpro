@@ -33,7 +33,7 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-030 GitHub Actions — Done
 - PF-031 Quality Gates — Done
 - PF-032 Security Scanning — Done
-- PF-033 PostgreSQL Continuous Integration — Backlog (story contract proposed; implementation not started)
+- PF-033 PostgreSQL Continuous Integration — Backlog (story contract approved and merged; ARCH-012 dependency satisfied; implementation not started)
 
 Repository-foundation tooling through PF-032 is complete. PF-033 is the
 approved Release 0.1 PostgreSQL-test requirement from ADR-012, now assigned its
@@ -53,9 +53,9 @@ tenant policy, backup, deployment, or hosting choice.
 
 **Dependencies.** PF-030 GitHub Actions, PF-031 Quality Gates, and PF-032
 Security Scanning are Done. ADR-012 Decision 9 already makes PostgreSQL CI a
-hard prerequisite of PF-080. ARCH-012 must be approved before implementation,
-because it is the authority for PostgreSQL persistence and test obligations;
-the proposed ARCH-012 text does not authorize this story by itself. PF-080,
+hard prerequisite of PF-080. ARCH-012 was approved on PR #34 on 1 August 2026
+and now supplies the authority for PostgreSQL persistence and test obligations;
+that architecture approval does not itself start this story. PF-080,
 PF-081, PF-082, and every database-policy isolation test are future dependents,
 not dependencies. No business module, migration, RLS policy, or production
 environment is a dependency.
@@ -163,12 +163,12 @@ no Firm, actor, membership, entitlement, Ethical Wall, audit, or RLS decision.
 Future isolation tests must run as the future approved runtime role; PF-033
 must not pre-approve or simulate that role.
 
-**Definition of Ready (not yet met).** Goal, identifier, owner (Platform
+**Definition of Ready (met).** Goal, identifier, owner (Platform
 Foundation/tooling), dependencies, file boundary, acceptance criteria, security
-constraints, and tests are specified. Still required before implementation:
-ARCH-012 Accepted; independent review of this story contract; repository-owner
-approval of the story entry; and confirmation that the current required check
-names remain exactly those recorded above.
+constraints, and tests are specified. Independent review, repository-owner
+approval of the story entry, and confirmation of the four current required
+check names were completed through PR #33. **ARCH-012 was Accepted** through
+PR #34. The story remains Backlog and implementation has not started.
 
 **Definition of Done (not met).** Implementation merged through a pull request;
 the complete suite demonstrably runs on PostgreSQL 16 in the required
@@ -1027,6 +1027,7 @@ Objective, dependencies, deliverables, acceptance criteria, allowed and forbidde
 - **ARCH-009 — API & Integration Platform Architecture — Done (architecture approved).** Updated `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 31–37), `docs/architecture/08_Roadmap.md` (EPIC-010); created `docs/adr/ADR-010-API-Integration-Platform.md` (Accepted) and `docs/architecture/17_API_Integration_Platform_Architecture.md`; **populated `docs/architecture/07_API_Standards.md`** as the platform-wide normative API standard. Establishes `Integrations` as a supporting bounded context that translates stable external contracts into owning modules' commands/queries without absorbing domain business rules, and resolves the "reserved for ARCH-009" Public API and Integration Platform dependency named by ARCH-004 (Digital Presence Public/Embedded APIs) and ARCH-008 (IdentityAccess service-principal API-authentication foundation), alongside Communications' provider adapters, Billing's payment-provider webhook boundaries, and Documents' secure file delegation. IdentityAccess remains the sole owner of authentication and service-principal credentials; Practice Management remains the sole Ethical Wall authority. Workflow orchestration is now governed by ARCH-010/ARCH-018 and the proposed EPIC-011 (below) — `Workflow` consumes Integrations' verified events and delivery contracts without moving any integration ownership out of `Integrations`; Marketplace distribution remains separately governed against `docs/architecture/06_Marketplace.md`. `docs/architecture/05_AI_Architecture.md` was **not** modified — existing AI-governance rules are preserved and no new AI capability is introduced. `docs/architecture/02_Product_Requirements.md`, `docs/architecture/03_Database_Design.md`, and `docs/architecture/06_Marketplace.md` remain empty placeholders. The story ID is ARCH-009; the architecture document is numbered 17 (`ARCH-017`), continuing the existing document-number sequence.
 - **ARCH-010 — AI Copilot & Workflow Automation Architecture — Done (architecture approved).** Updated `docs/architecture/01_OneLegalPro_Constitution.md` (Articles 38–44), `docs/architecture/05_AI_Architecture.md` (AI Copilot and Workflow Automation), `docs/architecture/08_Roadmap.md` (EPIC-011); created `docs/adr/ADR-011-AI-Copilot-Workflow-Automation.md` (Accepted) and `docs/architecture/18_AI_Copilot_Workflow_Automation_Architecture.md`. Establishes `Workflow` as a supporting bounded context with two explicitly separated domain areas — Workflow Orchestration and AI Copilot — owning orchestration and AI-run state only, and resolves the "reserved for a future ARCH-010"/"future Workflow" dependency named by Constitution Article 37, ARCH-005 (Practice Management `Task`/`RecurrenceRule` extensibility), ARCH-006 (Documents & Knowledge Management playbook consumption), ARCH-007 (Billing process orchestration), ARCH-008 (IdentityAccess reserved "Workflow state"), and ARCH-009 (Integrations' reserved Workflow orchestration). Every domain action a workflow step invokes still passes through the owning module's published command/query and current authorization; IdentityAccess remains the sole owner of principals and sessions; Practice Management remains the sole Ethical Wall authority; the AI Copilot is assistive only, never an authorization or approval authority, and a defined, absolute list of non-delegable actions can never be performed autonomously by AI regardless of Firm configuration. `docs/architecture/02_Product_Requirements.md`, `docs/architecture/03_Database_Design.md`, and `docs/architecture/06_Marketplace.md` remain empty placeholders; Marketplace distribution and a future Reporting bounded context remain unarchitected. The story ID is ARCH-010; the architecture document is numbered 18 (`ARCH-018`), continuing the existing document-number sequence.
 - **ARCH-011 — Release 0.1 Rescope, Platform Administration Ownership, and Deferred-Control Decisions — Completed (architecture Approved).** Explicit owner approval was recorded on PR #30 on 29 July 2026. Constitution Articles 45–48 are Approved; the release-scoped product requirements and Platform Administration architecture are Approved; and ADR-012 through ADR-015 are Accepted. The decision establishes PlatformAdministration ownership, the Release 0.1 Matter Desk pilot scope, entitlement/session separation, operator-access constraints, and bounded deferred controls. **Architecture approval schedules no implementation and authorizes no deployment or production access.** No code, schema, migration, test, CI, dependency, Docker, deployment, or GitHub-settings change; the four required checks are unchanged; PF-040 remains next and Backlog; and no story is In Progress.
+- **ARCH-012 — Data & Persistence Architecture — Completed (architecture Approved).** Explicit repository-owner approval was recorded on PR #34 on 1 August 2026. `docs/architecture/03_Database_Design.md` is Approved and ADR-016 through ADR-021 are Accepted; the eight Thai legal-review decisions remain recorded separately in `docs/legal/ARCH-012-Thai-Legal-Review.md`. Approval schedules no implementation and authorizes no deployment or production access. PF-033 remains Backlog under its own approved story contract.
 
 # EPIC-002 — Legal Intelligence (proposed, not scheduled)
 
