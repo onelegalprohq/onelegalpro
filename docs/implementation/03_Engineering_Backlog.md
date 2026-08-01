@@ -33,8 +33,150 @@ Clear goal, identified owner, resolved dependencies, acceptance criteria, securi
 - PF-030 GitHub Actions — Done
 - PF-031 Quality Gates — Done
 - PF-032 Security Scanning — Done
+- PF-033 PostgreSQL Continuous Integration — Backlog (story contract proposed; implementation not started)
 
-Repository-foundation tooling (PF-020 through PF-032) is complete. The `Protect main` ruleset now requires four GitHub Actions checks: `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit`.
+Repository-foundation tooling through PF-032 is complete. PF-033 is the
+approved Release 0.1 PostgreSQL-test requirement from ADR-012, now assigned its
+tracking identifier but not yet approved for implementation. The `Protect
+main` ruleset requires four GitHub Actions checks: `PHP Code Quality`,
+`Frontend Build`, `Application Tests`, and `Dependency Audit`.
+
+### PF-033 — PostgreSQL Continuous Integration — Backlog
+
+**Objective.** Make PostgreSQL 16 the database exercised by the required
+`Application Tests` GitHub check, so the authoritative CI path can prove
+PostgreSQL behavior before Firm isolation work begins. Replace the test suite's
+SQLite `:memory:` assumption with one fresh, ephemeral PostgreSQL database per
+job while preserving the existing job graph and all four required check names.
+This is test infrastructure only: it defines no production database, schema,
+tenant policy, backup, deployment, or hosting choice.
+
+**Dependencies.** PF-030 GitHub Actions, PF-031 Quality Gates, and PF-032
+Security Scanning are Done. ADR-012 Decision 9 already makes PostgreSQL CI a
+hard prerequisite of PF-080. ARCH-012 must be approved before implementation,
+because it is the authority for PostgreSQL persistence and test obligations;
+the proposed ARCH-012 text does not authorize this story by itself. PF-080,
+PF-081, PF-082, and every database-policy isolation test are future dependents,
+not dependencies. No business module, migration, RLS policy, or production
+environment is a dependency.
+
+**Implementation contract.**
+
+- Keep the GitHub job identifier `tests` and displayed check name
+  **`Application Tests`** exactly unchanged. Keep **`PHP Code Quality`**,
+  **`Frontend Build`**, and **`Dependency Audit`** unchanged as well.
+- Add one `postgres:16-alpine` service to the `tests` job only, with a
+  health-check that must succeed before tests run. Because `tests` runs directly
+  on the GitHub-hosted `ubuntu-24.04` runner rather than inside a job container,
+  publish PostgreSQL's port to that runner for this job only and configure
+  Laravel with `DB_HOST=127.0.0.1`; the Docker-service hostname `postgres` is
+  not valid on that path. The mapping creates no production or persistent
+  listener and disappears with the runner.
+- Use fixed, job-local, non-secret bootstrap-administrator credentials solely
+  for service health and one bootstrap step. That step creates a separate,
+  fixed, non-superuser application/test login and an empty disposable database
+  for that login. Laravel, migrations, the engine guard, and the suite receive
+  only the non-superuser login; they never receive or use the bootstrap
+  administrator credential. No production or repository secret is read.
+- Install `pdo_pgsql` for the `tests` job and configure Laravel through
+  job-scoped environment variables, which take precedence over the existing
+  `phpunit.xml` SQLite fallback without changing that file. The canonical local
+  Docker test path uses the existing `postgres` service and supplies its host
+  through environment; committed defaults must never contain a production
+  credential.
+- Fail before the suite if the active Laravel connection is not `pgsql`, the
+  server is unavailable, or the database is not PostgreSQL 16. A silently
+  selected SQLite connection is a failed check.
+- Run the repository migrations against the fresh test database before the
+  suite. Run `composer test` unchanged afterward.
+- Add one narrowly scoped feature guard, activated by an explicit
+  CI/canonical-Docker flag, proving that the suite is connected through Laravel
+  to PostgreSQL 16 rather than SQLite. It proves engine selection only; it must
+  not assert a production topology, extension, collation, RLS policy, backup,
+  or compliance claim. A requested PostgreSQL guard that skips or silently
+  falls back is a failure.
+- Preserve the frontend build artifact dependency required by the existing
+  feature test. Do not add Redis, a queue worker, an external service, a
+  deployment step, or a long-lived artifact.
+- Do not run Laravel, migrations, or tests as a PostgreSQL superuser, a role
+  with `BYPASSRLS`, or a migration/owner role intended for later environments.
+  The non-superuser CI login may own its disposable job database solely so it
+  can migrate the fresh schema; that job-local convenience is not a runtime-role
+  design and must not be represented as one.
+- Keep workflow permissions read-only, every action pinned to a full commit
+  SHA, and `pull_request` rather than `pull_request_target`.
+
+**Allowed implementation files.**
+
+- `.github/workflows/ci.yml`
+- One new focused PostgreSQL CI guard under `tests/Feature/`
+- `CONTRIBUTING.md`, only for canonical local and CI test commands
+- `docs/implementation/01_Implementation_Sprint_Plan.md`
+- `docs/implementation/03_Engineering_Backlog.md`
+- `docs/PROJECT_STATUS.md`
+
+An implementation may use fewer files. Any additional file requires a revised
+story contract and review before it changes.
+
+**Forbidden files and actions.** No `phpunit.xml`, `config/database.php`,
+`.github/workflows/security.yml`, ruleset, required-check, Dependabot, Git hook,
+Docker image, `compose.yaml`, Dockerfile, dependency or lock file, application
+source, configuration file outside the allowlist, migration, seeder, schema,
+RLS policy, role/grant script, module, route, controller, production
+environment, deployment configuration, secret, credential store, backup,
+restore, monitoring, or incident procedure. No
+required check is renamed, removed, made conditional, allowed to pass after a
+database failure, or replaced with a non-required check. No SQLite-versus-
+PostgreSQL compatibility layer is introduced into business code.
+
+**Acceptance criteria.**
+
+- The `Application Tests` check provisions a healthy PostgreSQL 16 service and
+  runs the complete Laravel test suite against it.
+- CI fails if PostgreSQL is unavailable, the configured driver is not `pgsql`,
+  the server is not version 16, migrations fail, or any test fails.
+- No test in the authoritative CI path connects to SQLite or `:memory:`.
+- A fresh job starts from an empty disposable database; no database state,
+  database volume, or database credential survives the job. The existing
+  short-lived frontend-build artifact remains the sole unrelated artifact
+  exception required by the current feature-test dependency.
+- All four required `Protect main` check names remain exact and all four pass.
+- Workflow permissions and triggers remain no broader than before.
+- The documented canonical local Docker invocation explicitly supplies the
+  PostgreSQL connection overrides and activates the fail-closed engine guard —
+  for example with `docker compose exec -T -e REQUIRE_POSTGRESQL_TEST_DATABASE=true`
+  plus explicit `DB_CONNECTION=pgsql`, `DB_HOST=postgres`, port, database,
+  username, and local-development-only password values. A plain local
+  `composer test` that legitimately follows `phpunit.xml`'s SQLite fallback is
+  not PF-033 completion evidence.
+- Local canonical Docker validation under that explicit invocation, Pint,
+  PHPStan, the full PostgreSQL-backed suite, Composer validation, dependency
+  audits, and `git diff --check` pass.
+
+**Security requirements.** CI credentials are non-secret and disposable; they
+authenticate only to the ephemeral service instance and confer no authority in
+any other environment. Logs never print connection URLs or passwords. No
+production endpoint, data, backup, token, credential, or secret is configured
+or supplied to the job. The engine guard proves configuration, never
+authorization. PF-033 introduces
+no Firm, actor, membership, entitlement, Ethical Wall, audit, or RLS decision.
+Future isolation tests must run as the future approved runtime role; PF-033
+must not pre-approve or simulate that role.
+
+**Definition of Ready (not yet met).** Goal, identifier, owner (Platform
+Foundation/tooling), dependencies, file boundary, acceptance criteria, security
+constraints, and tests are specified. Still required before implementation:
+ARCH-012 Accepted; independent review of this story contract; repository-owner
+approval of the story entry; and confirmation that the current required check
+names remain exactly those recorded above.
+
+**Definition of Done (not met).** Implementation merged through a pull request;
+the complete suite demonstrably runs on PostgreSQL 16 in the required
+`Application Tests` check; the engine guard and all acceptance criteria pass;
+all four required checks pass under their unchanged names; security and
+architecture review find no unresolved defect; human approval is recorded;
+documentation and project status are updated; and the branch is removed after
+merge. PF-080 remains unstarted until that evidence exists.
 
 ## Foundation Library
 
@@ -967,7 +1109,7 @@ Ownership is preserved elsewhere: **IdentityAccess alone owns credentials, authe
 **Prerequisites outside this epic, in order:**
 
 - **`PF-040` AggregateRoot — Done.** Completed under its own approved entry above through PR #31. Unchanged by this epic, which neither scheduled nor authorized it.
-- **PostgreSQL CI — `Backlog`, its own approved story, must land before `PF-080` begins.** The suite currently runs on SQLite `:memory:` per `phpunit.xml`, while PostgreSQL is authoritative per `AGENTS.md` — and database-policy-level Firm isolation cannot be honestly tested on a different engine. **The four required `Protect main` check names (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) must be preserved exactly**, since a rename without a matching human-reviewed ruleset update makes the repository fail closed. **ARCH-011 implements no CI change.**
+- **`PF-033` PostgreSQL Continuous Integration — `Backlog`; its story contract is defined under EPIC-001 and it must land before `PF-080` begins.** The suite currently runs on SQLite `:memory:` per `phpunit.xml`, while PostgreSQL is authoritative per `AGENTS.md` — and database-policy-level Firm isolation cannot be honestly tested on a different engine. **The four required `Protect main` check names (`PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit`) must be preserved exactly**, since a rename without a matching human-reviewed ruleset update makes the repository fail closed. **ARCH-011 implements no CI change.**
 - **Minimum Platform Runtime (Sprint 0.4 subset) — `Backlog`.** `PF-080` Firm Context, `PF-081` Tenant Resolver, and `PF-082` Tenant Middleware are **mandatory**. `PF-091` Transactional Outbox is included where a committed audit or event fact must be durable with the state change that produced it.
 
   **Honest prerequisite analysis for `PF-091`, recorded as required by `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md` Decision 3:** `PF-091` plainly requires `PF-043` DomainEvent (**Done**) and `PF-040` AggregateRoot (**Done**) for aggregates to record events, and `PF-073` Transaction Manager for the outbox record and the state change to commit atomically as `docs/domain/06_Laravel_Module_Blueprint.md` requires. Whether it additionally requires `PF-090` Event Dispatcher, `PF-092` Event Publisher, or any part of `PF-060`–`PF-063` and `PF-070`–`PF-072` **has not been determined and is not asserted here** — that is `PF-091`'s own approved pre-implementation analysis to perform. **This list is deliberately incomplete rather than speculatively complete.** `PF-093` Consumer foundation is **not** required by Release 0.1, which has no consumer. Module-generation tooling (`PF-062`) is **not** required. **Nothing here schedules, renumbers, reorders, or renames any `PF-*` story.**
