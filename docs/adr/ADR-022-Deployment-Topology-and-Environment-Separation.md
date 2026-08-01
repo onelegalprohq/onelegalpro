@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Not approved, and it authorizes nothing. Acceptance requires explicit owner approval recorded on the pull request; acceptance would authorize the architectural decision only, never implementation, deployment, provider engagement, expenditure, or production access.
+**Accepted.** Explicit repository-owner approval was recorded on PR #35 on 1 August 2026 after independent review and all four required `Protect main` checks passed on commit `a163fce`. Acceptance authorizes this architectural decision only, never implementation, deployment, provider engagement, expenditure, or production access.
 
 Authored by story **ARCH-013 — Deployment & Operations Architecture**, alongside `docs/architecture/20_Deployment_Operations_Architecture.md` and `docs/adr/ADR-023-…` through `ADR-026-…`.
 
@@ -145,7 +145,7 @@ Four things about the repository's current state make this decision necessary no
 
 7. **AI holds no authority here.** AI never selects, provisions, configures, deploys, or destroys an environment; never authorizes a data movement between environments; never approves a maintenance window; and is never an authorization authority (Constitution Articles 6, 26, 28, 39, 40). **Release 0.1 contains no AI capability.**
 
-8. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; of its seven evidence items only the **approved database-design** item is presently satisfied, and approval of this document would satisfy the **deployment-architecture** item only.
+8. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; two of its seven evidence items are presently satisfied: the **approved database design** and this **approved deployment architecture**.
 
 ## Integration consequences
 
@@ -163,6 +163,6 @@ This ADR does **not**: implement, provision, configure, purchase, contract for, 
 
 ## Implementation status
 
-**Proposed conceptual architecture only.** It authorizes no application code, infrastructure, environment, container image, network configuration, provider engagement, expenditure, deployment, or production access. **No environment described here exists**, no artefact described here has been built, and **no property described here is claimed to be implemented, tested, or effective.**
+**Accepted conceptual architecture only.** It authorizes no application code, infrastructure, environment, container image, network configuration, provider engagement, expenditure, deployment, or production access. **No environment described here exists**, no artefact described here has been built, and **no property described here is claimed to be implemented, tested, or effective.**
 
 **No story's status is asserted here; `docs/PROJECT_STATUS.md` is the authoritative record.** The story ID is **ARCH-013**; the accompanying architecture document is `docs/architecture/20_Deployment_Operations_Architecture.md`.

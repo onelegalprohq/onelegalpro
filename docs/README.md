@@ -49,6 +49,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 | [`17_API_Integration_Platform_Architecture.md`](architecture/17_API_Integration_Platform_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`18_AI_Copilot_Workflow_Automation_Architecture.md`](architecture/18_AI_Copilot_Workflow_Automation_Architecture.md) | Approved (conceptual architecture); implementation stories are proposed only. |
 | [`19_Platform_Administration_Architecture.md`](architecture/19_Platform_Administration_Architecture.md) | **Approved** conceptual architecture — the `PlatformAdministration` bounded context, owning exactly `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`. Authored by ARCH-011; implementation stages remain proposed only. |
+| [`20_Deployment_Operations_Architecture.md`](architecture/20_Deployment_Operations_Architecture.md) | **Approved** platform-wide deployment and operations architecture — topology, environment separation, secrets, PostgreSQL runtime and recovery, observability, incident operations, release procedure, and production gates. Approved through PR #35 on 1 August 2026; approval implements or authorizes no operational capability or production access. |
 
 ## Architecture Decision Records
 
@@ -77,6 +78,11 @@ Records of specific architecture decisions. Each ADR is referenced from the arch
 | [`ADR-019-Transactional-Outbox-Persistence.md`](adr/ADR-019-Transactional-Outbox-Persistence.md) | **Accepted** — ARCH-012 outbox-persistence decision. |
 | [`ADR-020-Migration-Rollback-and-Schema-Evolution.md`](adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md) | **Accepted** — ARCH-012 schema-evolution decision. |
 | [`ADR-021-Idempotency-Persistence.md`](adr/ADR-021-Idempotency-Persistence.md) | **Accepted** — ARCH-012 idempotency-persistence decision. |
+| [`ADR-022-Deployment-Topology-and-Environment-Separation.md`](adr/ADR-022-Deployment-Topology-and-Environment-Separation.md) | **Accepted** — deployment topology, ordinary environment classes, and the controlled restore-test boundary. |
+| [`ADR-023-Configuration-Secrets-and-Production-Operator-Access.md`](adr/ADR-023-Configuration-Secrets-and-Production-Operator-Access.md) | **Accepted** — configuration, secret custody, credential separation, and production operator-access boundaries. |
+| [`ADR-024-PostgreSQL-Runtime-Backup-Restore-and-Recovery.md`](adr/ADR-024-PostgreSQL-Runtime-Backup-Restore-and-Recovery.md) | **Accepted** — PostgreSQL runtime roles, backup, restore, recovery, and explicit unmeasured recovery objectives. |
+| [`ADR-025-Observability-Health-Alerting-and-Incident-Operations.md`](adr/ADR-025-Observability-Health-Alerting-and-Incident-Operations.md) | **Accepted** — content-safe observability, health, alerting, and incident-operation requirements. |
+| [`ADR-026-Release-Deployment-Migration-Rollback-and-Production-Gates.md`](adr/ADR-026-Release-Deployment-Migration-Rollback-and-Production-Gates.md) | **Accepted** — release promotion, controlled migrations, forward recovery, rollback limits, and production-access gates. |
 
 ## Domain design
 
@@ -103,3 +109,5 @@ If a request conflicts with approved architecture, stop and request an architect
 **A roadmap or proposed staged-delivery list is not a scheduled story.** The staged implementation lists inside `architecture/08_Roadmap.md` and the individual epic architecture documents (for EPIC-002 through EPIC-012) are proposed only. None of them carry approved `PF-*` (or other) story IDs, and none are scheduled work, until they are separately entered and approved in `implementation/03_Engineering_Backlog.md` and `implementation/01_Implementation_Sprint_Plan.md`.
 
 `architecture/02_Product_Requirements.md`, `architecture/19_Platform_Administration_Architecture.md`, Constitution Articles 45–48, and ADR-012 through ADR-015 were authored by story **ARCH-011** and approved through explicit owner approval recorded on PR #30 on 29 July 2026. **The EPIC-012 implementation staging remains proposed and unscheduled**; architecture approval starts no story and authorizes no implementation, deployment, or production access. **Constitution Articles 1–44 are unaffected by Articles 45–48.**
+
+`architecture/03_Database_Design.md` and ADR-016 through ADR-021 were authored by **ARCH-012** and approved through PR #34 on 1 August 2026. `architecture/20_Deployment_Operations_Architecture.md` and ADR-022 through ADR-026 were authored by **ARCH-013** and approved through PR #35 on 1 August 2026. These architecture approvals schedule no implementation, authorize no deployment or production access, and make no production-readiness or compliance claim.
