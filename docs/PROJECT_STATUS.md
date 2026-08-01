@@ -1,6 +1,6 @@
 # OneLegalPro Project Status
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-08-01
 **Phase:** Platform Foundation
 
 > This repository is **not production-ready**. There is no production deployment, environment, or pipeline.
@@ -28,6 +28,8 @@ One pre-existing assertion required updating: `EntityTest` asserted that `app/Fo
 **`PF-043` — DomainEvent is complete.** `DomainEvent.php` and its focused unit test exist in `app/Foundation/Domain/Event` and `tests/Unit/Foundation/Domain/Event`; validation (Pint, PHPStan level 5, an informational level-6 dry run, the full test suite, `composer validate --strict`, and both dependency audits) passed in the canonical Docker container, the PF-049 architecture guard passed unchanged, security and architecture were reviewed, independent review and closure verification found no remaining P0, P1, P2, or P3 finding, the pull request received the required human review comment, all four required `Protect main` checks passed, the branch was merged to `main` through the protected-main workflow, and the implementation branch was deleted locally and remotely after merge. `PF-040` — AggregateRoot is now the most recently completed and merged story.
 
 **On the parallel architecture track, `ARCH-011` — Release 0.1 Rescope is Completed: documentation only, architecture Approved, with ADR-012 through ADR-015 Accepted through explicit owner approval recorded on PR #30 on 29 July 2026.** It changes nothing on this repository implementation track — no `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled; **it neither scheduled nor authorized `PF-040`**, whose authorization came from its own separately approved pre-implementation analysis; and **no EPIC-012 story becomes In Progress because Release 0.1 planning exists.**
+
+**`ARCH-012` — Data & Persistence Architecture is review-complete and ready for repository-owner approval, but remains Proposed.** `docs/architecture/03_Database_Design.md` is populated; ADR-016 through ADR-021 remain Proposed; and the eight legal questions raised by the architecture received Thai-qualified review and owner-approved decisions recorded separately in `docs/legal/ARCH-012-Thai-Legal-Review.md`. No technical architecture or ADR is Accepted until explicit owner approval is recorded on the ARCH-012 pull request. ARCH-012 authorizes no implementation, deployment, or production access and makes no compliance or production-readiness certification.
 
 ## Next story (repository implementation track)
 
