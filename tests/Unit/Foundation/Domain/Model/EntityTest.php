@@ -530,7 +530,7 @@ final class EntityTest extends TestCase
         $this->assertDirectoryDoesNotExist(\dirname(__DIR__, 5).'/app/Modules');
     }
 
-    public function test_domain_model_contains_only_entity_and_value_object(): void
+    public function test_domain_model_contains_only_the_three_approved_model_contracts(): void
     {
         $files = glob(\dirname(__DIR__, 5).'/app/Foundation/Domain/Model/*.php');
 
@@ -543,7 +543,7 @@ final class EntityTest extends TestCase
 
         sort($names);
 
-        $this->assertSame(['Entity', 'ValueObject'], $names);
+        $this->assertSame(['AggregateRoot', 'Entity', 'ValueObject'], $names);
     }
 }
 
