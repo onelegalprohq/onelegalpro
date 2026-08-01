@@ -28,6 +28,14 @@ Every sprint must preserve module boundaries, Firm isolation, authorization, aud
 - PF-030 GitHub Actions
 - PF-031 Quality Gates
 - PF-032 Security Scanning
+- PF-033 PostgreSQL Continuous Integration
+
+**PF-033 is the Release 0.1 database-test prerequisite.** It moves the existing
+`Application Tests` check from SQLite `:memory:` to an ephemeral PostgreSQL 16
+service without renaming any required check. It must land before PF-080 begins.
+Its story contract is recorded in
+`docs/implementation/03_Engineering_Backlog.md`; listing it here assigns the
+story identifier but does not approve or begin implementation.
 
 ### Sprint 0.3 — Foundation Library
 - PF-040 AggregateRoot
