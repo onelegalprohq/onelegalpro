@@ -26,9 +26,12 @@ use App\Foundation\Domain\Identity\BusinessIdentifier;
  * story. {@see Entity}'s own docblock is corrected to say the same.
  *
  * **Two members, and deliberately only two.** {@see self::recordThat()} is
- * `protected`, because recording is the aggregate's own account of what it
- * did — a caller outside the aggregate must never be able to attribute an
- * event to it. {@see self::releaseEvents()} is `public`, because taking the
+ * `protected` as an API-integrity boundary of this base type, not as an
+ * authorization or security control: the base public API gives an outside
+ * caller no generic way to attribute an event to an aggregate. Reflection or
+ * a concrete subclass that exposes its own public wrapper can still invoke it,
+ * so each aggregate must expose only named behaviour that records legitimate
+ * consequences. {@see self::releaseEvents()} is `public`, because taking the
  * events is the surrounding layer's job. There is **no separate peek, read,
  * count, clear, flush, discard, or public recording method**: a reader that
  * could look without taking would invite two callers to publish the same
