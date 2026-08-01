@@ -1,12 +1,12 @@
 # ARCH-020 — Deployment & Operations Architecture
 
-**Status:** **Proposed.** Not approved. This document and `docs/adr/ADR-022-Deployment-Topology-and-Environment-Separation.md` through `docs/adr/ADR-026-Release-Deployment-Migration-Rollback-and-Production-Gates.md` remain **Proposed until explicit owner approval is recorded**. Nothing here is scheduled, implemented, provisioned, purchased, or authorized. No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this document, and **no story's status is asserted here — `docs/PROJECT_STATUS.md` is the authoritative record of what is current, next, and complete.**
+**Status:** **Approved.** Explicit repository-owner approval was recorded on PR #35 on 1 August 2026 after independent review and all four required `Protect main` checks passed on commit `a163fce`. Approval establishes this conceptual architecture and accepts `docs/adr/ADR-022-Deployment-Topology-and-Environment-Separation.md` through `docs/adr/ADR-026-Release-Deployment-Migration-Rollback-and-Production-Gates.md`; it schedules, implements, provisions, purchases, or authorizes no infrastructure, deployment, credential, production access, or operational capability. No `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled by this approval, and **no implementation story's status is asserted here — `docs/PROJECT_STATUS.md` is the authoritative record of what is current, next, and complete.**
 
 **Document numbering.** The story ID is **ARCH-013**. The architecture document is numbered **20**, continuing the document-number sequence rather than the story sequence — the same convention ARCH-006/ARCH-014 established and every story since has followed.
 
 **Dependency on ARCH-012 — now approved.** This document rests on `docs/architecture/03_Database_Design.md` and `docs/adr/ADR-016-…` through `ADR-021-…`, **which are Approved and Accepted** — explicit repository-owner approval recorded on PR #34 on 1 August 2026, alongside the eight Thai-qualified legal-review decisions in `docs/legal/ARCH-012-Thai-Legal-Review.md`. **This document is synchronized with that approved baseline** at merge commit `485e317`. ARCH-012's approval schedules no implementation and authorizes no deployment or production access, and neither does this document.
 
-**No capability, control, property, or procedure described in this document is claimed to be implemented, built, configured, tested, or effective.** **No environment exists. No backup has been taken. No restore test has been executed. No monitoring is collected. No incident procedure has been written.** **No production access has been authorized, and the complete production-access gate is not satisfied** — of its seven evidence items only the **approved database-design** item is presently satisfied (§11), and approval of this document would satisfy the **deployment-architecture** item only. No production-readiness, certification, compliance, backup-success, restore-success, or legal-sufficiency conclusion is asserted anywhere in it.
+**No capability, control, property, or procedure described in this document is claimed to be implemented, built, configured, tested, or effective.** **No environment exists. No backup has been taken. No restore test has been executed. No monitoring is collected. No incident procedure has been written.** **No production access has been authorized, and the complete production-access gate is not satisfied** — two of its seven evidence items are presently satisfied (§11): the **approved database design** and this **approved deployment architecture**. No production-readiness, certification, compliance, backup-success, restore-success, or legal-sufficiency conclusion is asserted anywhere in it.
 
 ---
 
@@ -47,7 +47,7 @@ This is the **platform-wide deployment and operations baseline**, binding every 
 
 ### 1.4 What this document does not unblock
 
-Approving this document would satisfy **one** of the seven production-access evidence items in `docs/architecture/02_Product_Requirements.md` §8 — "an approved deployment architecture". **It would not satisfy any other.** An approved database design, an **executed and recorded** restore test, operational monitoring, a documented incident procedure, completed Thai-qualified legal review, and every applicable `AGENTS.md` approval gate all remain outstanding, and §11 records the state of each.
+Approval of this document satisfies **one** of the seven production-access evidence items in `docs/architecture/02_Product_Requirements.md` §8 — "an approved deployment architecture". The approved database design is also satisfied independently. An **executed and recorded** restore test, operational monitoring, a documented incident procedure, completed Thai-qualified legal review, and every applicable `AGENTS.md` approval gate remain outstanding, and §11 records the state of each.
 
 It additionally **unblocks no deployment, no provider engagement, no expenditure, no credential issuance, no migration execution, and no production access**, and it starts no story.
 
@@ -432,7 +432,7 @@ Every element of the procedure is required: a **named operator**; **explicit rec
 | # | Evidence item | What counts | State at time of drafting |
 |---|---|---|---|
 | 1 | **Approved database design** | ARCH-012's documents Approved/Accepted with owner approval recorded | **Satisfied** — approval recorded on PR #34, 1 August 2026 |
-| 2 | **Approved deployment architecture** | This document and `ADR-022-…`–`ADR-026-…` Approved/Accepted with owner approval recorded | **Not satisfied** — Proposed |
+| 2 | **Approved deployment architecture** | This document and `ADR-022-…`–`ADR-026-…` Approved/Accepted with owner approval recorded | **Satisfied** — owner approval recorded on PR #35, 1 August 2026 |
 | 3 | **Executed and recorded restore test** | An **executed** restore meeting §7.4 with all outcomes recorded | **Not satisfied** — **no restore test has been executed** |
 | 4 | **Operational monitoring** | §8.5's minimum signals collected and alerting configured, gaps recorded as gaps | **Not satisfied** — no monitoring exists |
 | 5 | **Documented incident procedure** | A written procedure meeting §9, with a named responder | **Not satisfied** — none written |
@@ -447,7 +447,7 @@ Every element of the procedure is required: a **named operator**; **explicit rec
 
 **15 September 2026 is a target, not a contractual commitment. 31 August 2026 is a public-website and sales-readiness target and confers no production access** — a sellable public website is not a deployed service, and **no marketing, sales, or website statement may assert or imply that the product is available, secure, compliant, certified, or production-ready.** All such copy remains **draft** pending the Thai-qualified legal review required by `docs/adr/ADR-012-…` Decision 8, which **has not occurred** — a review distinct from, and not satisfied by, the ARCH-012 persistence review recorded in `docs/legal/ARCH-012-Thai-Legal-Review.md`. The approved Ethical Wall/conflict-checking disclosure wording exists (legal-review Decision 7) but **its placement in the pilot agreement and in-product surfaces remains outstanding** (follow-up item 4).
 
-**The gate is a decision point with a recorded outcome**, granted by an explicit owner decision naming the evidence relied on. **Nothing in this document grants it**, and approval of this document would satisfy exactly **row 2**.
+**The gate is a decision point with a recorded outcome**, granted by an explicit owner decision naming the evidence relied on. **Nothing in this document grants production access.** Approval of this document satisfies exactly **row 2**.
 
 ---
 
@@ -578,7 +578,7 @@ This architecture does **not**: implement, provision, configure, purchase, contr
 
 25. **AI holds no authority over anything in this document.** AI never selects, provisions, configures, deploys, or destroys an environment; never holds, reads, or rotates a secret; never receives shell, database, or console access; never authorizes or performs operator access; never executes or approves a migration, rollback, backup, or restore; never declares, classifies, or closes an incident; never signs off a gate item; and is never an authorization authority (Constitution Articles 6, 26, 28, 39, 40). **Release 0.1 contains no AI capability.**
 
-26. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; of its seven evidence items only the **approved database-design** item is presently satisfied, and approval of this document would satisfy the **deployment-architecture** item only. Nothing described here is claimed to be implemented, tested, or effective.
+26. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; two of its seven evidence items are presently satisfied: the **approved database design** and this **approved deployment architecture**. Nothing described here is claimed to be implemented, tested, or effective.
 
 ---
 
@@ -681,7 +681,7 @@ Recorded openly rather than presented as settled. **Legal questions are listed s
 - No zero-downtime, high-availability, failover, replication, autoscaling, or multi-region property is designed or claimed.
 - Production operators hold zero standing Firm-data access; the only path to Firm data is an IdentityAccess `PrivilegedAccessGrant`; no second privileged-access mechanism exists; break-glass remains excluded as a capability with Constitution Article 29 in force.
 - Planned maintenance is platform-wide availability management, never a Firm-level suspended state and never a per-Firm disable.
-- Missing production-gate evidence blocks release regardless of date; no gate item is waived, deferred past first production access, or claimed satisfied without its evidence. **No production access has been authorized, and the complete production-access gate is not satisfied** — of its seven evidence items only the approved database-design item is presently satisfied, and approval of this architecture would satisfy the deployment-architecture item only.
+- Missing production-gate evidence blocks release regardless of date; no gate item is waived, deferred past first production access, or claimed satisfied without its evidence. **No production access has been authorized, and the complete production-access gate is not satisfied** — two of its seven evidence items are presently satisfied: the approved database design and this approved deployment architecture.
 - A cross-Firm disclosure is a top-severity incident requiring legal assessment; availability never outranks Firm isolation or authorization, during an incident or outside one.
 - AI holds no authority over any environment, secret, credential, deployment, migration, rollback, backup, restore, access grant, incident decision, or gate sign-off.
 

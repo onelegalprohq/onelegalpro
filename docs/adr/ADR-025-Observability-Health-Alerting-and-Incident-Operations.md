@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Not approved, and it authorizes nothing. Acceptance requires explicit owner approval recorded on the pull request; acceptance would authorize the architectural decision only, never implementation, deployment, provider engagement, or production access.
+**Accepted.** Explicit repository-owner approval was recorded on PR #35 on 1 August 2026 after independent review and all four required `Protect main` checks passed on commit `a163fce`. Acceptance authorizes this architectural decision only, never implementation, deployment, provider engagement, or production access.
 
 Authored by story **ARCH-013 — Deployment & Operations Architecture**, alongside `docs/architecture/20_Deployment_Operations_Architecture.md`, `docs/adr/ADR-022-…` through `ADR-024-…`, and `ADR-026-…`.
 
@@ -181,7 +181,7 @@ The repository's current state: `/up` — Laravel's stock health endpoint — is
 
 9. **AI holds no authority over incident declaration, classification, escalation, closure, or access.**
 
-10. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; of its seven evidence items only the **approved database-design** item is presently satisfied, and approval of this document would satisfy the **deployment-architecture** item only. **No monitoring exists, no alert has been configured, and no incident procedure has been written.**
+10. **No certification, compliance, or legal-sufficiency conclusion is asserted.** The **ARCH-012 Thai-qualified persistence review was completed and approved on 1 August 2026** (`docs/legal/ARCH-012-Thai-Legal-Review.md`); the **separate Thai-qualified review required by `docs/adr/ADR-012-…` Decision 8** — covering the Privacy Notice, Terms, pilot agreement, and required disclosures — **has not occurred.** **No production access has been authorized, and the complete production-access gate is not satisfied**; two of its seven evidence items are presently satisfied: the **approved database design** and this **approved deployment architecture**. **No monitoring exists, no alert has been configured, and no incident procedure has been written.**
 
 ## Integration consequences
 
@@ -201,7 +201,7 @@ This ADR does **not**: implement, configure, provision, or deploy any monitoring
 
 ## Implementation status
 
-**Proposed conceptual architecture only.** It authorizes no application code, endpoint, instrumentation, telemetry pipeline, alert, dependency, infrastructure, deployment, or production access.
+**Accepted conceptual architecture only.** It authorizes no application code, endpoint, instrumentation, telemetry pipeline, alert, dependency, infrastructure, deployment, or production access.
 
 **No monitoring exists. No signal is collected. No alert is configured. No incident procedure has been written, and no incident has been handled under one.** **No capability described here is claimed to be implemented, tested, or effective.**
 
