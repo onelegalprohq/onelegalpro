@@ -116,7 +116,7 @@ The fourth question has a security dimension, and it is sharper than it first ap
 - **`MatterNumber` collisions are rejected, never silently resolved.** A silently suffixed matter reference is a professional-integrity defect in a Firm's records, not a UX nicety.
 - **No monetary column exists**, and no identifier decision here introduces one; `PF-045` remains deferred from Release 0.1 (`docs/PROJECT_STATUS.md` is authoritative on its status).
 - **AI holds no authority here.** AI never assigns, alters, or approves an identifier, key, constraint, or index, and is never an authorization authority. Release 0.1 contains no AI capability.
-- **No certification, compliance, production-readiness, or legal-sufficiency claim is made; no legal review has occurred or is claimed**, and nothing described here is claimed to be implemented, tested, or effective.
+- **No certification, compliance, production-readiness, or blanket legal-sufficiency claim is made.** The limited Thai-qualified review recorded in `docs/legal/ARCH-012-Thai-Legal-Review.md` occurred on 1 August 2026; nothing described here is thereby claimed to be implemented, tested, effective, or sufficient outside that record's express scope.
 
 ## Integration consequences
 

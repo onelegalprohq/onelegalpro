@@ -20,6 +20,10 @@ Repository-wide rules that apply regardless of which module or story is being wo
 
 - [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — the authoritative, continuously updated record of the current story, next story, upcoming sequence, and completed work. Update this file after every completed story.
 
+## Legal-review records
+
+- [`legal/ARCH-012-Thai-Legal-Review.md`](legal/ARCH-012-Thai-Legal-Review.md) — Thai-qualified review and owner-approved decision record for the eight legal questions raised by ARCH-012. Separate from the technical architecture and ADRs; it makes no compliance certification or implementation claim.
+
 ## Architecture
 
 Approved architecture documents, numbered by topic. A document with **0 lines / placeholder** below is a reserved, currently empty file — it exists in the repository but has no approved content yet; do not treat it as populated architecture.
