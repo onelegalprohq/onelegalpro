@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed.** Not approved, and it authorizes nothing. Acceptance requires explicit owner approval recorded on the pull request; acceptance would authorize the architectural decision only, never implementation, deployment, or production access.
+**Accepted.** Explicit repository-owner approval was recorded on PR #34 on 1 August 2026. Acceptance authorizes this architectural decision only, never implementation, deployment, or production access.
 
 Authored by story **ARCH-012 — Data & Persistence Architecture**, alongside `docs/architecture/03_Database_Design.md` and `docs/adr/ADR-016-…` through `ADR-019-…`, and `docs/adr/ADR-021-Idempotency-Persistence.md`.
 
@@ -156,7 +156,7 @@ This ADR does **not**: implement anything; create, edit, run, squash, revert, or
 
 ## Implementation status
 
-**Proposed conceptual architecture only.** It authorizes no application code, schema, migration, policy, role, grant, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No practice described here is claimed to be implemented**, and **no migration has been created, edited, or run by this story.**
+**Accepted conceptual architecture only.** It authorizes no application code, schema, migration, policy, role, grant, dependency, package, infrastructure, Docker change, CI change, environment change, production configuration, or GitHub setting. **No practice described here is claimed to be implemented**, and **no migration has been created, edited, or run by this story.**
 
 **No story's status is asserted here; `docs/PROJECT_STATUS.md` is the authoritative record** of what is current, next, and complete. The PostgreSQL CI requirement is its own approved story, **with no assigned identifier**, and must be satisfied before `PF-080`.
 

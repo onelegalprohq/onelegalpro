@@ -32,7 +32,7 @@ Approved architecture documents, numbered by topic. A document with **0 lines / 
 |---|---|
 | [`01_OneLegalPro_Constitution.md`](architecture/01_OneLegalPro_Constitution.md) | **Articles 1–48: Approved** — constitutional; prevails over all other architecture. Articles 45–48 were added by ARCH-011 through explicit owner approval recorded on PR #30; they change nothing in Articles 1–44. |
 | [`02_Product_Requirements.md`](architecture/02_Product_Requirements.md) | **Approved** — **release-scoped** Release 0.1 product requirements (the OneLegalPro Matter Desk). Populated by ARCH-011. Not a full product specification, and it schedules nothing. |
-| [`03_Database_Design.md`](architecture/03_Database_Design.md) | **Proposed** — populated by ARCH-012 and ready for repository-owner approval; it authorizes no implementation, deployment, or production access until accepted. |
+| [`03_Database_Design.md`](architecture/03_Database_Design.md) | **Approved** — populated by ARCH-012 and approved through explicit repository-owner approval recorded on PR #34 on 1 August 2026; approval schedules no implementation and authorizes no deployment or production access. |
 | [`04_Security_Architecture.md`](architecture/04_Security_Architecture.md) | **Approved** — platform-wide security baseline (principles, protected assets, threat model, trust boundaries, control families, classification, failure handling, compliance posture). Populated by ARCH-008. |
 | [`05_AI_Architecture.md`](architecture/05_AI_Architecture.md) | Approved — AI governance for Legal Intelligence, Communications Hub, Document Intelligence, Knowledge Intelligence/RAG, and Financial AI. |
 | [`06_Marketplace.md`](architecture/06_Marketplace.md) | Empty placeholder, pending its own dedicated story. |
@@ -71,12 +71,12 @@ Records of specific architecture decisions. Each ADR is referenced from the arch
 | [`ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md`](adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md) | **Accepted** — `PlatformAdministration` owning `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`; entitlement is never billing. |
 | [`ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md`](adr/ADR-014-Operator-Assisted-Onboarding-and-Privileged-Access.md) | **Accepted** — Operator support access through IdentityAccess `PrivilegedAccessGrant`, with Firm-visible append-only history; break-glass excluded as a capability. |
 | [`ADR-015-Deferred-Professional-Responsibility-Controls.md`](adr/ADR-015-Deferred-Professional-Responsibility-Controls.md) | **Accepted** — Ethical Walls and automated conflict checking absent from Release 0.1, never approximated, and disclosed; manual conflict attestation. |
-| [`ADR-016-Tenant-Isolation-Model.md`](adr/ADR-016-Tenant-Isolation-Model.md) | **Proposed** — ARCH-012 tenant-isolation persistence decision; authorizes nothing until accepted. |
-| [`ADR-017-Identifier-Persistence-Strategy.md`](adr/ADR-017-Identifier-Persistence-Strategy.md) | **Proposed** — ARCH-012 identifier-persistence decision; authorizes nothing until accepted. |
-| [`ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md`](adr/ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md) | **Proposed** — ARCH-012 audit-persistence decision; authorizes nothing until accepted. |
-| [`ADR-019-Transactional-Outbox-Persistence.md`](adr/ADR-019-Transactional-Outbox-Persistence.md) | **Proposed** — ARCH-012 outbox-persistence decision; authorizes nothing until accepted. |
-| [`ADR-020-Migration-Rollback-and-Schema-Evolution.md`](adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md) | **Proposed** — ARCH-012 schema-evolution decision; authorizes nothing until accepted. |
-| [`ADR-021-Idempotency-Persistence.md`](adr/ADR-021-Idempotency-Persistence.md) | **Proposed** — ARCH-012 idempotency-persistence decision; authorizes nothing until accepted. |
+| [`ADR-016-Tenant-Isolation-Model.md`](adr/ADR-016-Tenant-Isolation-Model.md) | **Accepted** — ARCH-012 tenant-isolation persistence decision. |
+| [`ADR-017-Identifier-Persistence-Strategy.md`](adr/ADR-017-Identifier-Persistence-Strategy.md) | **Accepted** — ARCH-012 identifier-persistence decision. |
+| [`ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md`](adr/ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md) | **Accepted** — ARCH-012 audit-persistence decision. |
+| [`ADR-019-Transactional-Outbox-Persistence.md`](adr/ADR-019-Transactional-Outbox-Persistence.md) | **Accepted** — ARCH-012 outbox-persistence decision. |
+| [`ADR-020-Migration-Rollback-and-Schema-Evolution.md`](adr/ADR-020-Migration-Rollback-and-Schema-Evolution.md) | **Accepted** — ARCH-012 schema-evolution decision. |
+| [`ADR-021-Idempotency-Persistence.md`](adr/ADR-021-Idempotency-Persistence.md) | **Accepted** — ARCH-012 idempotency-persistence decision. |
 
 ## Domain design
 

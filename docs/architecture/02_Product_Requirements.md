@@ -100,7 +100,7 @@ Per `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`:
 
 **PostgreSQL continuous integration must land as its own approved story before `PF-080` begins.** The four required `Protect main` check names — `PHP Code Quality`, `Frontend Build`, `Application Tests`, `Dependency Audit` — are preserved exactly.
 
-**15 September 2026 is a target, not a contractual commitment.** Production access requires recorded evidence of: an approved database design (`docs/architecture/03_Database_Design.md` is populated by proposed ARCH-012 but is not approved until repository-owner approval is recorded); an approved deployment architecture; an **executed and recorded** restore test; operational monitoring; a documented incident procedure; completed applicable Thai-qualified legal review; and every applicable approval gate in `AGENTS.md`.
+**15 September 2026 is a target, not a contractual commitment.** Production access requires recorded evidence of: an approved database design (`docs/architecture/03_Database_Design.md` was approved through ARCH-012 on PR #34 on 1 August 2026); an approved deployment architecture; an **executed and recorded** restore test; operational monitoring; a documented incident procedure; completed applicable Thai-qualified legal review; and every applicable approval gate in `AGENTS.md`.
 
 ## 9. Non-negotiable requirements
 
@@ -128,4 +128,4 @@ These apply to Release 0.1 in full and are **not schedule variables**:
 | `docs/architecture/19_Platform_Administration_Architecture.md` | The `PlatformAdministration` bounded context |
 | `docs/architecture/08_Roadmap.md` | Epic sequencing; EPIC-012 recorded as proposed, not scheduled |
 | `docs/implementation/03_Engineering_Backlog.md` | Story-level record; every Release 0.1 story is **Backlog** |
-| `docs/architecture/03_Database_Design.md` | Populated by **proposed ARCH-012**; not approved and authorizes nothing until repository-owner approval is recorded |
+| `docs/architecture/03_Database_Design.md` | **Approved** through ARCH-012 on PR #34 on 1 August 2026; approval schedules no implementation |
