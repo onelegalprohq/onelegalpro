@@ -143,10 +143,16 @@ final class UuidV7Test extends TestCase
 
     public function test_from_string_returns_a_non_nullable_uuid_v7(): void
     {
-        $returnType = (new \ReflectionMethod(UuidV7::class, 'fromString'))->getReturnType();
+        $method = new \ReflectionMethod(UuidV7::class, 'fromString');
+        $returnType = $method->getReturnType();
 
         $this->assertInstanceOf(\ReflectionNamedType::class, $returnType);
-        $this->assertSame('self', $returnType->getName());
+        $this->assertSame(
+            UuidV7::class,
+            $returnType->getName() === 'self'
+                ? $method->getDeclaringClass()->getName()
+                : $returnType->getName(),
+        );
         $this->assertFalse($returnType->allowsNull());
     }
 
