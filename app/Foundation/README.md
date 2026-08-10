@@ -1,6 +1,6 @@
 # Foundation Library
 
-**Sprint 0.3 — Foundation Library (PF-040 through PF-049).**
+**Platform Foundation conventions — Sprint 0.3 Foundation Library and approved runtime primitives.**
 
 This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, **PF-044 — BusinessIdentifier**, the fifth, **PF-041 — Entity**, the sixth, **PF-043 — DomainEvent**, the seventh, and **PF-040 — AggregateRoot**, the eighth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. **It is a convention record, not the authoritative workflow-status source** — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for whether a given story is Ready, In Progress, or Done.
 
@@ -34,9 +34,11 @@ The approved concern namespaces, and the PF story that owns each, are:
 
 ## Approved platform-runtime root
 
-`App\Foundation\Tenancy` is the approved sibling runtime namespace for the minimum multi-tenant technical primitives delivered by PF-080 through PF-082. It is deliberately outside `App\Foundation\Domain`: tenancy propagation is platform runtime infrastructure, not a reusable domain-model primitive and not a business bounded context. PF-080 owns `FirmContext`; PF-081 and PF-082 retain their separately approved resolver and middleware responsibilities.
+`App\Foundation\Tenancy` is the approved sibling runtime namespace for the framework-independent `FirmContext` carrier delivered by PF-080. It is deliberately outside `App\Foundation\Domain`: context propagation is platform runtime infrastructure, not a reusable domain-model primitive and not a business bounded context. PF-081 and PF-082 remain Backlog; their placement is undecided and each requires its own approved story contract, because a database-coupled resolver or Laravel HTTP middleware cannot live under `app/Foundation` while the standing framework-dependency guard applies to every Foundation PHP file.
 
 `FirmContext` consumes existing Foundation identifier abstractions and verified results supplied by the future IdentityAccess boundary. It owns no `Firm`, `FirmId`, actor, principal, membership, credential, entitlement, session, authentication, authorization, or tenant-resolution lifecycle. Concrete Firm and Actor identifier classes remain owned by their business contexts; Foundation does not define them. Breaking or expanding this boundary requires explicit human approval.
+
+No file exists under `App\Foundation\Tenancy` yet. PF-080's contract is under review; listing the namespace records an approved placement and is not a claim that `FirmContext` or any other type has been implemented.
 
 ## Approved implementation order
 

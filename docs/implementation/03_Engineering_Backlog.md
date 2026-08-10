@@ -168,19 +168,20 @@ Foundation/tooling), dependencies, file boundary, acceptance criteria, security
 constraints, and tests are specified. Independent review, repository-owner
 approval of the story entry, and confirmation of the four current required
 check names were completed through PR #33. **ARCH-012 was Accepted** through
-PR #34. Implementation is complete within the recorded file boundary;
-independent review of that implementation identified corrections, which have
-been applied on the isolated PF-033 branch. The story remains **Ready for
-Review** until those corrections are confirmed by review, and it is **not
-Done** — the Definition of Done below remains not met until merge.
+PR #34. Implementation and independent correction review completed within the
+recorded file boundary. The branch was reconciled with current `main` and the
+dependency-security hotfix; all four required checks passed; the required
+human approval comment was recorded; PR #44 merged as `40e7b0d` on 10 August
+2026; and its branch and worktree were deleted locally and remotely. PF-033 is
+**Done**.
 
-**Definition of Done (not met).** Implementation merged through a pull request;
+**Definition of Done (met).** Implementation merged through PR #44 as `40e7b0d`;
 the complete suite demonstrably runs on PostgreSQL 16 in the required
 `Application Tests` check; the engine guard and all acceptance criteria pass;
 all four required checks pass under their unchanged names; security and
 architecture review find no unresolved defect; human approval is recorded;
-documentation and project status are updated; and the branch is removed after
-merge. PF-080 remains unstarted until that evidence exists.
+documentation and project status are updated; and the branch was removed after
+merge. This evidence satisfies PF-080's PostgreSQL CI prerequisite.
 
 ## Foundation Library
 
@@ -1008,11 +1009,15 @@ Two declared members. No constructor, no constant, no static member, no interfac
 ## Multi-Tenant Foundation
 - PF-080 through PF-082
 
-### PF-080 — Firm Context — Ready for Review
+### PF-080 — Firm Context — Contract Review (implementation Backlog)
 
 **Objective.** Introduce the framework-independent runtime carrier that makes one verified Firm and Actor context explicit throughout a request or job. `FirmContext` carries identifiers only; it does not discover, authenticate, authorize, persist, resolve, or switch them.
 
-**Dependencies.** PF-033 PostgreSQL Continuous Integration is Done through PR #44. PF-044 BusinessIdentifier and PF-048 UUIDv7 are Done. ARCH-012 is Approved and ADR-016 is Accepted. PF-080 does not depend on a concrete `FirmId`, Actor identifier, `Firm`, `FirmMembership`, session, entitlement, tenant resolver, middleware, transaction manager, or database policy. Those are future consumers or collaborators. Concrete Firm and Actor identifiers remain owned by PlatformAdministration and IdentityAccess respectively and may be supplied later as `BusinessIdentifier` subclasses without changing this contract.
+**Owner.** Platform Foundation.
+
+**Scope and deliverable.** One immutable, framework-independent carrier and one focused pure-unit-test suite. The carrier preserves three already-established identifiers across technical boundaries and owns no business fact or decision.
+
+**Dependencies.** PF-033 PostgreSQL Continuous Integration is Done through PR #44. PF-044 BusinessIdentifier and PF-048 UUIDv7 are Done. ARCH-012 is Approved and ADR-016 is Accepted. PF-080 does not depend on a concrete `FirmId`, Actor identifier, `Firm`, `FirmMembership`, session, entitlement, tenant resolver, middleware, transaction manager, or database policy. Those are future consumers or collaborators. Concrete Firm and Actor identifiers remain owned by PlatformAdministration and IdentityAccess respectively and may be supplied later as `BusinessIdentifier` subclasses without changing this carrier's ownership or three-value semantics. Narrowing the declared parameter types after those owned types exist is a breaking contract follow-up requiring explicit human approval; this story neither pre-approves nor prohibits it.
 
 **Approved reconciliation decisions.** The repository owner approved these decisions on 10 August 2026:
 
@@ -1020,12 +1025,14 @@ Two declared members. No constructor, no constant, no static member, no interfac
 2. Firm and Actor identifiers are accepted through the existing `BusinessIdentifier` abstraction; PF-080 creates no concrete identifier and therefore introduces no circular dependency on PlatformAdministration or IdentityAccess.
 3. Active, verified membership is a mandatory construction precondition supplied by IdentityAccess, not a `FirmContext` field or Foundation-owned decision.
 4. `FirmContext` carries exactly a Firm identifier, an Actor identifier, and a correlation identifier. It performs no authentication, membership, entitlement, session, authorization, tenant resolution, persistence, or database work.
-5. The PostgreSQL `SET LOCAL` setting-name constant belongs to the later persistence/runtime story that establishes transaction context, not PF-080.
+5. The PostgreSQL `SET LOCAL` setting-name constant belongs to PF-073 Transaction Manager, with PF-082 consuming that transaction boundary at HTTP ingress; it does not belong to PF-080.
 6. The `firm_id` foreign-key decision remains with PlatformAdministration's Firm schema story; PF-080 creates no schema or migration.
 
 **Implementation contract.** Create one `final readonly FirmContext` under `app/Foundation/Tenancy`. Its constructor requires exactly three non-null values in this order: `BusinessIdentifier $firmId`, `BusinessIdentifier $actorId`, and `UuidV7 $correlationId`. It exposes exactly `firmId(): BusinessIdentifier`, `actorId(): BusinessIdentifier`, and `correlationId(): UuidV7`, returning the exact instances supplied. It contains no mutable state, nullable or default value, array or scalar identifier, membership snapshot, role, permission, entitlement, session, hostname, request, header, route, container, configuration, database connection, transaction state, logger, or clock. It has no factory, resolver, switch, serialization, stringification, equality, authorization, or validation API.
 
-The abstract return types are intentional. Concrete consumers narrow their own construction inputs and retain ownership of the concrete identifier types; `FirmContext` is a carrier across those boundaries, not their owner. Possessing or constructing an instance grants no membership, authorization, entitlement, session, provenance, or authenticity. A caller may construct it only after authoritative identity and membership verification, and every protected action still performs its owning domain's current authorization checks.
+The abstract return types are intentional. Concrete consumers narrow their own construction inputs and retain ownership of the concrete identifier types; `FirmContext` is a carrier across those boundaries, not their owner. Because both first parameters share the abstract `BusinessIdentifier` declaration, the constructor alone cannot detect Firm/Actor transposition. Every construction site therefore uses named arguments, is restricted to an IdentityAccess-verified path mediated by the future PF-081/PF-082 contracts, and carries its own boundary test proving that its concrete Firm and Actor identifiers cannot be reversed. Possessing or constructing an instance grants no membership, authorization, entitlement, session, provenance, or authenticity. A caller may construct it only after authoritative identity and membership verification, and every protected action still performs its owning domain's current authorization checks.
+
+**Acceptance criteria.** The class exists at the exact approved path and namespace; is `final readonly`; stores exactly the three required identifier instances; exposes exactly the three approved accessors; preserves object identity; accepts no scalar, request, membership, session, or authorization input; performs no work beyond construction and access; imports only `BusinessIdentifier` and `UuidV7`; and leaves the existing Foundation framework-dependency guard unchanged and green.
 
 **Allowed files.** Implementation may change only:
 
@@ -1036,13 +1043,17 @@ The abstract return types are intentional. Concrete consumers narrow their own c
 
 Any required change to an existing test inventory must be reported before editing and requires explicit authorization. No Sprint Plan, architecture, ADR, workflow, dependency, configuration, migration, schema, module, route, middleware, resolver, service provider, or other source/test file is authorized by the implementation story.
 
-**Tests.** The focused unit test extends `PHPUnit\Framework\TestCase` directly and must prove: final and readonly shape; exact namespace and file location; exactly three private readonly instance properties; constructor parameter order, names, exact declared types, and absence of defaults/nullability/variadics; exactly three public non-static accessors with exact declared return types; instance preservation for all three values; no additional public, protected, or magic API; no framework/vendor dependency; no concrete Firm or Actor identifier in production Foundation; no Laravel boot; and no business module introduced. Test-local final `BusinessIdentifier` subclasses are permitted solely as fixtures.
+**Forbidden files.** No change to `composer.json`, `composer.lock`, `package.json`, `package-lock.json`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `.github/`, `.githooks/`, Docker or environment files, Laravel configuration/bootstrap, service providers, routes, controllers, migrations, schema, modules, or any existing Foundation source/test file. No required check, test, assertion, static-analysis level, formatting rule, or security control may be removed, weakened, renamed, skipped, or suppressed.
+
+**Tests.** The focused unit test extends `PHPUnit\Framework\TestCase` directly and must prove: final and readonly shape; exact namespace and file location; exactly three private readonly instance properties; constructor parameter order, names, exact declared types, and absence of defaults/nullability/variadics; named-argument construction; exactly three public non-static accessors with exact declared return types; instance preservation for all three values; no additional public, protected, or magic API; no framework/vendor dependency; no concrete Firm or Actor identifier in production Foundation; no Laravel boot; and no business module introduced. Test-local final `BusinessIdentifier` subclasses are permitted solely as fixtures. Future PF-081/PF-082 construction-site tests, not this carrier test, must prove their concrete Firm and Actor types cannot be transposed.
 
 The existing Foundation framework-dependency guard must pass unchanged. The full suite, Pint, PHPStan level 5, `composer validate --strict`, Composer audit, npm audit, and `git diff --check` must pass. The four required `Protect main` check names remain exactly `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit`.
 
-**Security.** A request-supplied Firm or Actor identifier is never trusted. A hostname, domain, email address, header, cookie, route, parameter, or body may identify a candidate Firm but never proves membership. PF-080 contains no resolver and accepts no request object. No context may be switched or mutated after construction. Identifiers must never be treated as secrets or capabilities, and their presence grants nothing. No stale membership, role, permission, entitlement, session, or Ethical Wall result is cached in this value.
+**Security.** A request-supplied Firm or Actor identifier is never trusted. A hostname, domain, email address, header, cookie, route, parameter, or body may identify a candidate Firm but never proves membership. PF-080 contains no resolver and accepts no request object. No context may be switched or mutated after construction. Identifiers must never be treated as secrets or capabilities, and their presence grants nothing. `actorId()` is an identifier only: it carries no actor category or acting-as/acting-on-behalf-of relationship and is never sufficient audit attribution on its own; dual attribution under a `PrivilegedAccessGrant` remains IdentityAccess's and the owning audit stream's responsibility. The correlation identifier is the sole correlation representation accepted by this carrier: a `UuidV7` produced through `UuidV7Generator`, never adopted from a header, parameter, cookie, route, or body, and never proof of trust, provenance, or authenticity. No stale membership, role, permission, entitlement, session, or Ethical Wall result is cached in this value.
 
-**Definition of Ready.** Objective, owner, dependencies, namespace, identifier representation, membership boundary, exact API, exclusions, allowed files, tests, security implications, PostgreSQL prerequisite, setting-name ownership, and Firm foreign-key ownership are resolved. The six reconciliation decisions above are explicitly approved. No architecture blocker remains. The story becomes Ready only when this documentation contract is reviewed, approved, and merged; until then it is Ready for Review and no implementation is authorized.
+**Documentation impact.** On implementation, `app/Foundation/README.md` records `FirmContext` as implemented without assigning PF-081/PF-082 placement; this backlog entry and `docs/PROJECT_STATUS.md` record verified status and delivery evidence. No architecture, ADR, Sprint Plan, or module documentation changes are authorized by implementation.
+
+**Definition of Ready.** Objective, owner, dependencies, namespace, identifier representation, membership boundary, exact API, acceptance criteria, exclusions, allowed and forbidden files, tests, security implications, PostgreSQL prerequisite, setting-name ownership, and Firm foreign-key ownership are resolved. The reconciliation decisions above are explicitly approved. The 10 August amendment to DOM-006's “Tenancy and security” paragraph records that approval; ADR-012 Decision 3 quotes DOM-006's 29 July wording, and its rejection of deferral is unaffected because verified membership remains mandatory as a construction precondition. No architecture blocker remains. The story becomes Ready only when this documentation contract is reviewed, approved, and merged; until then implementation remains Backlog and is not authorized.
 
 **Definition of Done.** The exact carrier contract is implemented only in the allowed files; focused, guard, and full tests pass in canonical Docker PHP 8.4; static analysis, formatting, validation, and audits pass without weakening configuration; independent code and architecture review reports no unresolved P0 or P1; all four protected checks pass on the final head; the required human approval comment is recorded; the PR merges to `main`; tracking records verified evidence and status; and the implementation branch/worktree are deleted locally and remotely. No claim is made that PF-081 tenant resolution, PF-082 middleware, transaction-scoped `SET LOCAL`, Row-Level Security, IdentityAccess, PlatformAdministration, or any business module is implemented.
 
