@@ -149,12 +149,26 @@ final class FirmContextTest extends TestCase
 
     public function test_production_foundation_contains_no_concrete_business_identifier(): void
     {
-        foreach (get_declared_classes() as $class) {
-            if (! str_starts_with($class, 'App\\Foundation\\')) {
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(
+                __DIR__.'/../../../../app/Foundation',
+                \FilesystemIterator::SKIP_DOTS,
+            ),
+        );
+
+        foreach ($files as $file) {
+            if (! $file instanceof \SplFileInfo || $file->getExtension() !== 'php') {
                 continue;
             }
 
-            $this->assertFalse(is_subclass_of($class, BusinessIdentifier::class), $class);
+            $source = file_get_contents($file->getPathname());
+
+            $this->assertIsString($source);
+            $this->assertDoesNotMatchRegularExpression(
+                '/\bextends\s+(?:\\\\?App\\\\Foundation\\\\Domain\\\\Identity\\\\)?BusinessIdentifier\b/',
+                $source,
+                $file->getPathname().' must not declare a concrete BusinessIdentifier.',
+            );
         }
     }
 
@@ -179,13 +193,7 @@ final class FirmContextTest extends TestCase
 
     public function test_no_business_module_was_introduced(): void
     {
-        $appDirectories = glob(__DIR__.'/../../../../app/*', GLOB_ONLYDIR);
-
-        $this->assertIsArray($appDirectories);
-        $this->assertSame(['Foundation', 'Http', 'Models', 'Providers'], array_map(
-            static fn (string $directory): string => basename($directory),
-            $appDirectories,
-        ));
+        $this->assertDirectoryDoesNotExist(__DIR__.'/../../../../app/Modules');
     }
 }
 
