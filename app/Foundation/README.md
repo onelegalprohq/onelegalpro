@@ -38,7 +38,7 @@ The approved concern namespaces, and the PF story that owns each, are:
 
 `FirmContext` consumes existing Foundation identifier abstractions and verified results supplied by the future IdentityAccess boundary. It owns no `Firm`, `FirmId`, actor, principal, membership, credential, entitlement, session, authentication, authorization, or tenant-resolution lifecycle. Concrete Firm and Actor identifier classes remain owned by their business contexts; Foundation does not define them. Breaking or expanding this boundary requires explicit human approval.
 
-No file exists under `App\Foundation\Tenancy` yet. PF-080's contract is under review; listing the namespace records an approved placement and is not a claim that `FirmContext` or any other type has been implemented.
+`FirmContext` is implemented as one `final readonly` carrier with exactly the approved Firm, Actor, and correlation identifiers and three accessors. It performs no discovery, authentication, membership, authorization, entitlement, session, tenant-resolution, persistence, or database work. PF-081 and PF-082 remain unimplemented.
 
 ## Approved implementation order
 
