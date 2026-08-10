@@ -1,6 +1,6 @@
 # Foundation Library
 
-**Sprint 0.3 — Foundation Library (PF-040 through PF-049).**
+**Platform Foundation conventions — Sprint 0.3 Foundation Library and the presently approved runtime primitive, FirmContext.**
 
 This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, **PF-044 — BusinessIdentifier**, the fifth, **PF-041 — Entity**, the sixth, **PF-043 — DomainEvent**, the seventh, and **PF-040 — AggregateRoot**, the eighth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. **It is a convention record, not the authoritative workflow-status source** — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for whether a given story is Ready, In Progress, or Done.
 
@@ -31,6 +31,14 @@ The approved concern namespaces, and the PF story that owns each, are:
 **`App\Foundation\Domain\Exception`, `App\Foundation\Domain\Time`, `App\Foundation\Domain\Identity`, `App\Foundation\Domain\Event`, and `App\Foundation\Domain\Model` are implemented** — `Identity` containing `UuidV7`, `UuidV7Generator`, `SystemUuidV7Generator` (PF-048), and `BusinessIdentifier` (PF-044). **`Identity` contains no concrete business-identifier leaf/subclass** — that does not deny that `UuidV7` is an existing concrete technical identifier primitive; it means no concrete `BusinessIdentifier` subclass exists here, because a concrete business-identifier leaf belongs to the module that owns it. `Event` contains exactly `DomainEvent` (PF-043) and no concrete domain event of any kind. **`Model` contains exactly `ValueObject` (PF-042), `Entity` (PF-041), and `AggregateRoot` (PF-040) — no concrete value object, entity, or aggregate of any kind.** Every namespace marked *Reserved* is an approved reservation for a story that has not been implemented yet — listing it here is not a claim that any type inside it exists.
 
 **Each story creates only its own files.** Never pre-create another story's type, stub, placeholder, or empty directory. A namespace comes into existence when its owning story implements it.
+
+## Approved platform-runtime root
+
+`App\Foundation\Tenancy` is the approved sibling runtime namespace for the framework-independent `FirmContext` carrier delivered by PF-080. It is deliberately outside `App\Foundation\Domain`: context propagation is platform runtime infrastructure, not a reusable domain-model primitive and not a business bounded context. PF-081 and PF-082 remain Backlog; their placement is undecided and each requires its own approved story contract, because a database-coupled resolver or Laravel HTTP middleware cannot live under `app/Foundation` while the standing framework-dependency guard applies to every Foundation PHP file.
+
+`FirmContext` consumes existing Foundation identifier abstractions and verified results supplied by the future IdentityAccess boundary. It owns no `Firm`, `FirmId`, actor, principal, membership, credential, entitlement, session, authentication, authorization, or tenant-resolution lifecycle. Concrete Firm and Actor identifier classes remain owned by their business contexts; Foundation does not define them. Breaking or expanding this boundary requires explicit human approval.
+
+No file exists under `App\Foundation\Tenancy` yet. PF-080's contract is under review; listing the namespace records an approved placement and is not a claim that `FirmContext` or any other type has been implemented.
 
 ## Approved implementation order
 
@@ -198,6 +206,8 @@ The order follows dependency direction: the exception taxonomy comes first becau
 ## What never belongs in Foundation Domain
 
 No tenancy, `FirmContext`, `FirmId`, actor, principal, or session semantics. No authorization, Ethical Wall, or access-control decisions. No audit, logging, telemetry, metrics, or reporting. No AI. No persistence, ORM, repositories, aggregate versioning, or reconstitution. No serialization API. No event dispatch. No HTTP status codes, error-code catalogue, translations, or user-facing message rendering. No exception handler, renderer, service provider, or bootstrap registration.
+
+This prohibition is intentionally scoped to `App\Foundation\Domain`. It does not prohibit the separately approved `App\Foundation\Tenancy` runtime namespace, whose presently approved type, `FirmContext`, may carry already-verified technical context without owning or deciding any of the prohibited semantics.
 
 **Exception messages are developer-facing diagnostics.** They must never be exposed verbatim to an external caller, and must never contain tenant identifiers, actor identities, credentials, session data, client or matter content, or privileged narrative.
 

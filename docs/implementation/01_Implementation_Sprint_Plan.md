@@ -80,6 +80,8 @@ implementation is **Done**: independent implementation-review corrections were a
 - PF-093 Consumer foundation
 - PF-100 through PF-104 Testing Infrastructure
 
+**PF-080 contract-review note (10 August 2026).** PF-033 is Done and the repository owner explicitly approved the reconciliation decisions recorded in `docs/implementation/03_Engineering_Backlog.md`. PF-080's story contract is in review; no implementation begins until that contract is approved and merged. `App\Foundation\Tenancy` is approved for PF-080's framework-independent `FirmContext` carrier only. PF-081 and PF-082 remain Backlog with placement undecided and require their own approved contracts. Membership remains an IdentityAccess-owned construction precondition rather than stored context state, and concrete Firm and Actor identifiers remain owned by their respective business contexts.
+
 ## Architecture track (parallel to sprint numbering)
 
 **ARCH-001 — Thailand-First Legal Intelligence Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/05_AI_Architecture.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/09_Legal_Intelligence_Architecture.md`, and `docs/adr/ADR-002-Thailand-First-Legal-Intelligence.md`.

@@ -15,9 +15,11 @@
 
 EPIC-001 — Platform Foundation (repository implementation track). EPIC-002 — Legal Intelligence, EPIC-003 — White-Label Platform, EPIC-004 — Communications Hub, EPIC-005 — Digital Presence Platform, EPIC-006 — Practice Management Core, EPIC-007 — Documents & Knowledge Management, EPIC-008 — Billing, Trust Accounting & Finance, EPIC-009 — Identity, Security & Access Control, EPIC-010 — API & Integration Platform, and EPIC-011 — AI Copilot & Workflow Automation are proposed at the architecture level only; see `docs/architecture/08_Roadmap.md`.
 
-## Current story (repository implementation track)
+## Current work (repository implementation track)
 
 **`PF-033` — PostgreSQL Continuous Integration, Done.** Its story contract and independent review were approved through PR #33; ARCH-012 was accepted through PR #34, satisfying the last readiness dependency. Independent implementation review identified three P2 corrections; all were applied and verified. The branch was reconciled with current `main` and the dependency-security hotfix, all four required `Protect main` checks passed, the required human approval comment was recorded, and PR #44 merged to `main` as `40e7b0d` on 10 August 2026; the implementation branch and worktree were then deleted locally and remotely. The required `Application Tests` job now uses an ephemeral PostgreSQL 16 service, a disposable non-superuser test role/database, migrations, and a fail-closed PostgreSQL engine/role guard. The four required check names remain unchanged. No production database, credential, schema redesign, tenant policy, backup, deployment, Redis, queue worker, or business module was introduced.
+
+**`PF-080` — Firm Context, contract in review; implementation not started.** Its architecture-reconciliation decisions were explicitly approved by the repository owner on 10 August 2026. The proposed contract places the carrier in `App\Foundation\Tenancy`, outside Foundation Domain; accepts Firm and Actor identifiers through `BusinessIdentifier`; treats active verified membership as a construction precondition rather than stored Foundation state; carries exactly Firm, Actor, and correlation identifiers; leaves the PostgreSQL setting-name constant to PF-073/PF-082's later transaction-context work; and leaves the Firm foreign-key decision to PlatformAdministration's Firm schema story. The 10 August amendment to DOM-006's “Tenancy and security” paragraph records that approved reconciliation. ADR-012's Alternatives considered bullet rejecting deferral of PF-080/PF-081/PF-082 quotes DOM-006 as it stood on 29 July 2026; that rejection is unaffected because verified membership remains a mandatory construction precondition. ADR-012 Decision 3's own DOM-006 clause — tenant isolation in application logic, repositories, and database policy — is unchanged by the amendment. No PF-080 implementation is authorized until the contract is reviewed, approved, and merged.
 
 **`PF-040` — AggregateRoot, Done.** `app/Foundation/Domain/Model/AggregateRoot.php` and `tests/Unit/Foundation/Domain/Model/AggregateRootTest.php` were delivered through PR #31, alongside a docblock-only correction to `Entity.php` and the documentation in `app/Foundation/README.md`, `docs/implementation/03_Engineering_Backlog.md`, and this file. Implemented under the repository owner's approved pre-implementation analysis and decisions **D1** (no aggregate version — versioning is a persistence concern outside Foundation, and `Entity`'s stale docblock corrected), **D2** (`recordThat()` protected and final), and **D3** (one combined `releaseEvents()`, with no separate peek, read, count, clear, flush, discard, or public recording method).
 
@@ -35,7 +37,9 @@ One pre-existing assertion required updating: `EntityTest` asserted that `app/Fo
 
 **`ARCH-013` — Deployment & Operations Architecture is Completed: architecture Approved, ADR-022 through ADR-026 Accepted.** Explicit repository-owner approval was recorded on PR #35 on 1 August 2026 after independent review and all four required `Protect main` checks passed on commit `a163fce`. Approval satisfies only the approved-deployment-architecture evidence item; it schedules no implementation, selects no provider, authorizes no expenditure, deployment, credential, or production access, and makes no claim that backup, restore, monitoring, incident, migration, or other operational capability exists or is effective.
 
-## Next story (repository implementation track)
+## Next stories (repository implementation track)
+
+**Release 0.1 critical path: PF-080 — Firm Context.** Its story contract is in review. Once that contract is approved and merged, PF-080 implementation is the next Release 0.1 code story, followed by PF-073 Transaction Manager, which remains Backlog and requires its own approved entry and Definition of Ready; PF-081 and PF-082 follow only after their own dependency-complete contracts. This runtime lane may proceed independently of the remaining reusable Foundation Library catalogue entries because it depends only on the already-completed identifier primitives and PF-033, not on Money or Result.
 
 **PF-045 — Money**, the ninth in the approved Foundation Library order, follows `PF-040` — AggregateRoot. It remains **Backlog** — not Ready, In Progress, or Done — and requires its own approved entry and Definition of Ready in `docs/implementation/03_Engineering_Backlog.md` before implementation begins; no PF-045 implementation has started. **`PF-040` is complete; PF-045 remains unstarted and requires its own approved Definition of Ready.** The complete approved order is:
 
@@ -45,7 +49,7 @@ The remaining order after PF-040 is **PF-045 → PF-046**, and both remain **Bac
 
 ## Then
 
-Platform Runtime (Sprint 0.4), per `docs/implementation/01_Implementation_Sprint_Plan.md`.
+After PF-080: PF-073 Transaction Manager, which remains Backlog and requires its own approved entry and Definition of Ready; then PF-081 Tenant Resolver and PF-082 Tenant Middleware, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of PF-080.
 
 ## Architecture track
 
