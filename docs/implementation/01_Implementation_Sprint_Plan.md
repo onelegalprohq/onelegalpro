@@ -34,8 +34,9 @@ Every sprint must preserve module boundaries, Firm isolation, authorization, aud
 `Application Tests` check from SQLite `:memory:` to an ephemeral PostgreSQL 16
 service without renaming any required check. It must land before PF-080 begins.
 Its story contract is recorded in
-`docs/implementation/03_Engineering_Backlog.md`; listing it here assigns the
-story identifier but does not approve or begin implementation.
+`docs/implementation/03_Engineering_Backlog.md`. Its contract and independent
+review were approved through PR #33, ARCH-012 was accepted through PR #34, and
+implementation is **Ready for Review** on its isolated PF-033 branch; its independent implementation-review corrections were applied and the branch was reconciled onto current `main` on 10 August 2026, pending focused confirmation before staging.
 
 ### Sprint 0.3 — Foundation Library
 - PF-040 AggregateRoot
