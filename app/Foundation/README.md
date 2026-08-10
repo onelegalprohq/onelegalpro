@@ -1,6 +1,6 @@
 # Foundation Library
 
-**Platform Foundation conventions — Sprint 0.3 Foundation Library and approved runtime primitives.**
+**Platform Foundation conventions — Sprint 0.3 Foundation Library and the presently approved runtime primitive, FirmContext.**
 
 This document is the standing convention record for `app/Foundation`. It was created by **PF-049 — Foundation Exception Hierarchy**, the first Foundation story, and extended by **PF-047 — Clock**, the second, **PF-042 — ValueObject**, the third, **PF-048 — UUIDv7**, the fourth, **PF-044 — BusinessIdentifier**, the fifth, **PF-041 — Entity**, the sixth, **PF-043 — DomainEvent**, the seventh, and **PF-040 — AggregateRoot**, the eighth. It states what Foundation is, what it may never contain, and the rules every later Foundation story must obey. **It is a convention record, not the authoritative workflow-status source** — `docs/PROJECT_STATUS.md` and `docs/implementation/03_Engineering_Backlog.md` remain authoritative for whether a given story is Ready, In Progress, or Done.
 
@@ -207,7 +207,7 @@ The order follows dependency direction: the exception taxonomy comes first becau
 
 No tenancy, `FirmContext`, `FirmId`, actor, principal, or session semantics. No authorization, Ethical Wall, or access-control decisions. No audit, logging, telemetry, metrics, or reporting. No AI. No persistence, ORM, repositories, aggregate versioning, or reconstitution. No serialization API. No event dispatch. No HTTP status codes, error-code catalogue, translations, or user-facing message rendering. No exception handler, renderer, service provider, or bootstrap registration.
 
-This prohibition is intentionally scoped to `App\Foundation\Domain`. It does not prohibit the separately approved `App\Foundation\Tenancy` runtime namespace, whose types may carry already-verified technical context without owning or deciding any of the prohibited semantics.
+This prohibition is intentionally scoped to `App\Foundation\Domain`. It does not prohibit the separately approved `App\Foundation\Tenancy` runtime namespace, whose presently approved type, `FirmContext`, may carry already-verified technical context without owning or deciding any of the prohibited semantics.
 
 **Exception messages are developer-facing diagnostics.** They must never be exposed verbatim to an external caller, and must never contain tenant identifiers, actor identities, credentials, session data, client or matter content, or privileged narrative.
 
