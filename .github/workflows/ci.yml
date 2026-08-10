@@ -14,11 +14,25 @@
 # check name that no longer reports. Security scanning remains PF-032 scope and
 # is not implemented here.
 #
+# PF-033 (PostgreSQL Continuous Integration) moved the "Application Tests" job
+# off phpunit.xml's SQLite ":memory:" fallback and onto an ephemeral
+# PostgreSQL 16 service, with a job-local non-superuser NOBYPASSRLS role owning
+# a fresh disposable database. Laravel migrations and the complete suite run
+# against that database, and a fail-closed engine guard
+# (tests/Feature/PostgreSqlTestDatabaseGuardTest.php) rejects a wrong driver,
+# an unreachable server, a non-16 server, a superuser, or a BYPASSRLS role.
+# The job name is unchanged, so the "Protect main" ruleset is unaffected.
+# PF-033 added no Redis service, queue worker, dependency, or deployment step,
+# and no production credential, endpoint, or database.
+#
 # This workflow calls the existing Composer/npm scripts directly. It never
 # invokes the PF-023 Git hooks, which remain optional, bypassable, local-only
 # developer feedback.
 #
-# Every third-party and official action is pinned to a full commit SHA.
+# Every third-party and official action is pinned to a full commit SHA. The
+# PostgreSQL service image is pinned to the contract-authorized
+# "postgres:16-alpine" tag, and the engine guard independently asserts the
+# major version at runtime.
 
 name: CI
 
@@ -104,6 +118,28 @@ jobs:
   tests:
     name: Application Tests
     runs-on: ubuntu-24.04
+    env:
+      REQUIRE_POSTGRESQL_TEST_DATABASE: 'true'
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: onelegalpro_test
+      DB_USERNAME: onelegalpro_test
+      DB_PASSWORD: onelegalpro_test_only
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: onelegalpro_bootstrap
+          POSTGRES_PASSWORD: onelegalpro_bootstrap_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U onelegalpro_bootstrap -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     # The Feature test renders a view containing @vite(...). A fresh runner has
     # no Vite dev server and therefore no "public/hot" file, so Laravel resolves
     # assets through public/build/manifest.json instead. That manifest must exist
@@ -117,7 +153,7 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.4'
-          extensions: ctype, dom, fileinfo, filter, hash, iconv, json, libxml, mbstring, openssl, pdo, pdo_sqlite, session, sqlite3, tokenizer, xml, xmlwriter
+          extensions: ctype, dom, fileinfo, filter, hash, iconv, json, libxml, mbstring, openssl, pdo, pdo_pgsql, session, tokenizer, xml, xmlwriter
           coverage: none
           tools: composer:v2
 
@@ -141,7 +177,38 @@ jobs:
       - name: Verify build manifest is present
         run: test -f public/build/manifest.json
 
-      # Runs against SQLite ":memory:" per phpunit.xml. No PostgreSQL, Redis,
-      # queue worker, or external service is required.
+      # Bootstrap credentials are fixed, non-secret, and confined to this
+      # disposable service. Laravel never receives them: the suite and
+      # migrations use the separate non-superuser database owner below.
+      - name: Create disposable PostgreSQL test role and database
+        env:
+          PGPASSWORD: onelegalpro_bootstrap_only
+        run: |
+          psql --version
+          psql --host=127.0.0.1 --port=5432 --username=onelegalpro_bootstrap --dbname=postgres --set=ON_ERROR_STOP=1 \
+            --command="CREATE ROLE onelegalpro_test LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'onelegalpro_test_only'"
+          psql --host=127.0.0.1 --port=5432 --username=onelegalpro_bootstrap --dbname=postgres --set=ON_ERROR_STOP=1 \
+            --command="CREATE DATABASE onelegalpro_test OWNER onelegalpro_test"
+
+      # Fails the job outright — never skips — when the guard flag is missing,
+      # renamed, or not exactly "true". Without this, deleting or renaming the
+      # job-level env block above would silently disarm the guard AND drop
+      # Laravel back to phpunit.xml's SQLite fallback, leaving a green
+      # "Application Tests" check that never touched PostgreSQL. This step reads
+      # the variable defensively (":-") so an absent env block reaches the
+      # failure branch instead of erroring on an unbound variable.
+      - name: Assert the PostgreSQL engine guard is armed
+        run: |
+          if [ "${REQUIRE_POSTGRESQL_TEST_DATABASE:-}" != "true" ]; then
+            echo "::error::REQUIRE_POSTGRESQL_TEST_DATABASE must be exactly 'true' for the Application Tests job. Got: '${REQUIRE_POSTGRESQL_TEST_DATABASE:-<unset>}'. The PF-033 PostgreSQL engine guard (tests/Feature/PostgreSqlTestDatabaseGuardTest.php) is inert without it, and the suite would silently fall back to SQLite. Restore the job-level env block in .github/workflows/ci.yml."
+            exit 1
+          fi
+          echo "PostgreSQL engine guard armed."
+
+      - name: Run migrations on the disposable PostgreSQL database
+        run: php artisan migrate --force --no-interaction
+
+      # The explicit guard flag makes a missing service, wrong driver, wrong
+      # major version, superuser, or BYPASSRLS role a hard test failure.
       - name: Run test suite
         run: composer test
