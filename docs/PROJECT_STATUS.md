@@ -19,6 +19,8 @@ EPIC-001 — Platform Foundation (repository implementation track). EPIC-002 —
 
 **`PF-033` — PostgreSQL Continuous Integration, Done.** Its story contract and independent review were approved through PR #33; ARCH-012 was accepted through PR #34, satisfying the last readiness dependency. Independent implementation review identified three P2 corrections; all were applied and verified. The branch was reconciled with current `main` and the dependency-security hotfix, all four required `Protect main` checks passed, the required human approval comment was recorded, and PR #44 merged to `main` as `40e7b0d` on 10 August 2026; the implementation branch and worktree were then deleted locally and remotely. The required `Application Tests` job now uses an ephemeral PostgreSQL 16 service, a disposable non-superuser test role/database, migrations, and a fail-closed PostgreSQL engine/role guard. The four required check names remain unchanged. No production database, credential, schema redesign, tenant policy, backup, deployment, Redis, queue worker, or business module was introduced.
 
+**`PF-080` — Firm Context, Ready for Review (story contract only).** Its six architecture-reconciliation decisions were explicitly approved by the repository owner on 10 August 2026. The proposed contract places the carrier in `App\Foundation\Tenancy`, outside Foundation Domain; accepts Firm and Actor identifiers through `BusinessIdentifier`; treats active verified membership as a construction precondition rather than stored Foundation state; carries exactly Firm, Actor, and correlation identifiers; leaves the PostgreSQL setting-name constant to the later transaction-context story; and leaves the Firm foreign-key decision to PlatformAdministration's Firm schema story. No PF-080 implementation is authorized until the contract is reviewed, approved, and merged.
+
 **`PF-040` — AggregateRoot, Done.** `app/Foundation/Domain/Model/AggregateRoot.php` and `tests/Unit/Foundation/Domain/Model/AggregateRootTest.php` were delivered through PR #31, alongside a docblock-only correction to `Entity.php` and the documentation in `app/Foundation/README.md`, `docs/implementation/03_Engineering_Backlog.md`, and this file. Implemented under the repository owner's approved pre-implementation analysis and decisions **D1** (no aggregate version — versioning is a persistence concern outside Foundation, and `Entity`'s stale docblock corrected), **D2** (`recordThat()` protected and final), and **D3** (one combined `releaseEvents()`, with no separate peek, read, count, clear, flush, discard, or public recording method).
 
 Validated in the canonical Docker PHP 8.4 container: Pint clean (52 files); PHPStan level 5 clean (36 files, no baseline, suppression, or ignored error); an informational level-6 dry run clean; the focused PF-040 suite passed (33 tests, 106 assertions); the PF-049 architecture guard passed **byte-identical and unchanged** (8 tests, 270 assertions); **the complete suite passed (414 tests, 1078 assertions**, up from the 381/955 baseline**)**; `composer validate --strict` valid; both dependency audits clean; `git diff --check` clean.
@@ -35,7 +37,9 @@ One pre-existing assertion required updating: `EntityTest` asserted that `app/Fo
 
 **`ARCH-013` — Deployment & Operations Architecture is Completed: architecture Approved, ADR-022 through ADR-026 Accepted.** Explicit repository-owner approval was recorded on PR #35 on 1 August 2026 after independent review and all four required `Protect main` checks passed on commit `a163fce`. Approval satisfies only the approved-deployment-architecture evidence item; it schedules no implementation, selects no provider, authorizes no expenditure, deployment, credential, or production access, and makes no claim that backup, restore, monitoring, incident, migration, or other operational capability exists or is effective.
 
-## Next story (repository implementation track)
+## Next stories (repository implementation track)
+
+**Release 0.1 critical path: PF-080 — Firm Context.** Its story contract is Ready for Review. Once that contract is approved and merged, PF-080 implementation is the next Release 0.1 code story, followed by PF-081 and PF-082. This runtime lane may proceed independently of the remaining reusable Foundation Library catalogue entries because it depends only on the already-completed identifier primitives and PF-033, not on Money or Result.
 
 **PF-045 — Money**, the ninth in the approved Foundation Library order, follows `PF-040` — AggregateRoot. It remains **Backlog** — not Ready, In Progress, or Done — and requires its own approved entry and Definition of Ready in `docs/implementation/03_Engineering_Backlog.md` before implementation begins; no PF-045 implementation has started. **`PF-040` is complete; PF-045 remains unstarted and requires its own approved Definition of Ready.** The complete approved order is:
 
@@ -45,7 +49,7 @@ The remaining order after PF-040 is **PF-045 → PF-046**, and both remain **Bac
 
 ## Then
 
-Platform Runtime (Sprint 0.4), per `docs/implementation/01_Implementation_Sprint_Plan.md`.
+After PF-080: PF-081 Tenant Resolver, then PF-082 Tenant Middleware, each under its own approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of PF-080.
 
 ## Architecture track
 

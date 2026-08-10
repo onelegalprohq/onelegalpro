@@ -60,7 +60,7 @@ Aggregates record domain events. State changes and outbox records commit atomica
 
 ## Tenancy and security
 
-An explicit FirmContext carries Firm ID, Actor ID, membership, and correlation ID. Tenant isolation is enforced in application logic, repositories, database policy where appropriate, and tests. Global scopes alone are insufficient. Ethical Walls apply to matters, documents, tasks, search, reports, exports, and AI retrieval.
+An explicit `FirmContext` carries a Firm identifier, an Actor identifier, and a correlation identifier. Active, verified Firm membership is a mandatory construction precondition supplied by IdentityAccess; membership is not stored in `FirmContext`, and Platform Foundation neither owns nor decides it. Concrete Firm and Actor identifier classes remain owned by their business contexts and are consumed through Foundation's existing `BusinessIdentifier` abstraction. Tenant isolation is enforced in application logic, repositories, database policy where appropriate, and tests. Global scopes alone are insufficient. Ethical Walls apply to matters, documents, tasks, search, reports, exports, and AI retrieval.
 
 ## AI
 

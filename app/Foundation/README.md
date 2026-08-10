@@ -32,6 +32,12 @@ The approved concern namespaces, and the PF story that owns each, are:
 
 **Each story creates only its own files.** Never pre-create another story's type, stub, placeholder, or empty directory. A namespace comes into existence when its owning story implements it.
 
+## Approved platform-runtime root
+
+`App\Foundation\Tenancy` is the approved sibling runtime namespace for the minimum multi-tenant technical primitives delivered by PF-080 through PF-082. It is deliberately outside `App\Foundation\Domain`: tenancy propagation is platform runtime infrastructure, not a reusable domain-model primitive and not a business bounded context. PF-080 owns `FirmContext`; PF-081 and PF-082 retain their separately approved resolver and middleware responsibilities.
+
+`FirmContext` consumes existing Foundation identifier abstractions and verified results supplied by the future IdentityAccess boundary. It owns no `Firm`, `FirmId`, actor, principal, membership, credential, entitlement, session, authentication, authorization, or tenant-resolution lifecycle. Concrete Firm and Actor identifier classes remain owned by their business contexts; Foundation does not define them. Breaking or expanding this boundary requires explicit human approval.
+
 ## Approved implementation order
 
 The `PF-040`–`PF-049` numbers are a **story catalogue, not an execution order**. Nothing has been renamed, renumbered, merged, split, or deleted. The human-approved serial order is:
@@ -198,6 +204,8 @@ The order follows dependency direction: the exception taxonomy comes first becau
 ## What never belongs in Foundation Domain
 
 No tenancy, `FirmContext`, `FirmId`, actor, principal, or session semantics. No authorization, Ethical Wall, or access-control decisions. No audit, logging, telemetry, metrics, or reporting. No AI. No persistence, ORM, repositories, aggregate versioning, or reconstitution. No serialization API. No event dispatch. No HTTP status codes, error-code catalogue, translations, or user-facing message rendering. No exception handler, renderer, service provider, or bootstrap registration.
+
+This prohibition is intentionally scoped to `App\Foundation\Domain`. It does not prohibit the separately approved `App\Foundation\Tenancy` runtime namespace, whose types may carry already-verified technical context without owning or deciding any of the prohibited semantics.
 
 **Exception messages are developer-facing diagnostics.** They must never be exposed verbatim to an external caller, and must never contain tenant identifiers, actor identities, credentials, session data, client or matter content, or privileged narrative.
 
