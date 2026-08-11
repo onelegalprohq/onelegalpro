@@ -49,7 +49,7 @@ The remaining order after PF-040 is **PF-045 → PF-046**, and both remain **Bac
 
 ## Then
 
-After PF-080: approve and implement PF-073 Transaction Manager; then PF-081 Tenant Resolver and PF-082 Tenant Middleware, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
+After PF-080: finish independent correction confirmation and merge the PF-073 Transaction Manager contract; PF-073 implementation may begin only after that Definition of Ready is met. PF-081 Tenant Resolver and PF-082 Tenant Middleware follow, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
 
 ## Architecture track
 
