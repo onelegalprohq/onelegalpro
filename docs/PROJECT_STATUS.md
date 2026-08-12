@@ -39,7 +39,7 @@ One pre-existing assertion required updating: `EntityTest` asserted that `app/Fo
 
 ## Next stories (repository implementation track)
 
-**Release 0.1 critical path: PF-073 — Transaction Manager.** PF-080 is Done. PF-073 remains Backlog while its story contract is prepared and independently reviewed; no implementation has started. Its proposed contract defines the single transaction-local Firm setting, fail-closed ambient/nested-transaction behavior, no automatic retry, and a narrow Laravel/PostgreSQL adapter outside `app/Foundation`. PF-081 and PF-082 follow only after their own dependency-complete contracts. This runtime lane remains independent of the reusable Foundation Library catalogue because it does not depend on Money or Result.
+**Release 0.1 critical path: PF-073 — Transaction Manager.** PF-080 is Done. PF-073 is **Ready**, not In Progress: its corrected contract passed independent review with no remaining P0–P3, all four required checks passed on exact final head `9f6ffbf`, technical-owner approval was recorded, and PR #51 merged as `c2b7549` on 11 August 2026. No implementation has started. The approved contract defines the single transaction-local Firm setting, fail-closed ambient/nested-transaction behavior, no automatic retry, and a narrow Laravel/PostgreSQL adapter outside `app/Foundation`. PF-081 and PF-082 follow only after their own dependency-complete contracts. This runtime lane remains independent of the reusable Foundation Library catalogue because it does not depend on Money or Result.
 
 **PF-045 — Money**, the ninth in the approved Foundation Library order, follows `PF-040` — AggregateRoot. It remains **Backlog** — not Ready, In Progress, or Done — and requires its own approved entry and Definition of Ready in `docs/implementation/03_Engineering_Backlog.md` before implementation begins; no PF-045 implementation has started. **`PF-040` is complete; PF-045 remains unstarted and requires its own approved Definition of Ready.** The complete approved order is:
 
@@ -49,7 +49,7 @@ The remaining order after PF-040 is **PF-045 → PF-046**, and both remain **Bac
 
 ## Then
 
-After PF-080: finish independent correction confirmation and merge the PF-073 Transaction Manager contract; PF-073 implementation may begin only after that Definition of Ready is met. PF-081 Tenant Resolver and PF-082 Tenant Middleware follow, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
+Implement PF-073 Transaction Manager within its approved allowlist; then PF-081 Tenant Resolver and PF-082 Tenant Middleware follow, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
 
 ## Architecture track
 
