@@ -1124,11 +1124,351 @@ The existing Foundation framework-dependency guard must pass unchanged. The full
 
 **Definition of Ready (met).** Objective, owner, dependencies, namespace, identifier representation, membership boundary, exact API, acceptance criteria, exclusions, allowed and forbidden files, tests, security implications, PostgreSQL prerequisite, setting-name ownership, and Firm foreign-key ownership were resolved. The reconciliation decisions were explicitly approved, independently reviewed, corrected, and merged through PR #48 as `25e8b31` on 10 August 2026. The 10 August amendment to DOM-006's “Tenancy and security” paragraph records that approval. ADR-012's Alternatives considered bullet rejecting deferral of PF-080/PF-081/PF-082 quotes DOM-006 as it stood on 29 July 2026; that rejection is unaffected because verified membership remains mandatory as a construction precondition. ADR-012 Decision 3's own DOM-006 clause — tenant isolation in application logic, repositories, and database policy — is unchanged by the amendment.
 
-**Implementation evidence.** The exact carrier and focused test were implemented within the five-file allowlist. Independent review found no unresolved P0, P1, or P2. Pint passed across 55 files; PHPStan level 5 passed across 37 files; the focused PF-080 and unchanged Foundation guard suites passed with 19 tests and 386 assertions; and the final head's protected PostgreSQL-backed CI suite passed with 426 tests and 1,202 assertions. All four required protected checks passed, the required human approval was recorded, and PR #49 merged as `959a047` on 10 August 2026. The implementation branch, isolated Docker stack, and worktree were deleted locally and remotely after `main` was synchronized. PF-080 is Done; PF-073 remains Backlog and requires its own approved Definition of Ready before implementation.
+**Implementation evidence.** The exact carrier and focused test were implemented within the five-file allowlist. Independent review found no unresolved P0, P1, or P2. Pint passed across 55 files; PHPStan level 5 passed across 37 files; the focused PF-080 and unchanged Foundation guard suites passed with 19 tests and 386 assertions; and the final head's protected PostgreSQL-backed CI suite passed with 426 tests and 1,202 assertions. All four required protected checks passed, the required human approval was recorded, and PR #49 merged as `959a047` on 10 August 2026. The implementation branch, isolated Docker stack, and worktree were deleted locally and remotely after `main` was synchronized. PF-080 is Done. PF-073 was Backlog and awaiting its own approved Definition of Ready when this paragraph was first written; it has since been approved, implemented, and merged as `bd12465` on 12 August 2026 and is **Done** under its own entry above. PF-081 and PF-082 remain **Backlog**.
 
 **Definition of Done.** The exact carrier contract is implemented only in the allowed files; focused, guard, and full tests pass in canonical Docker PHP 8.4; static analysis, formatting, validation, and audits pass without weakening configuration; independent code and architecture review reports no unresolved P0 or P1; all four protected checks pass on the final head; the required human approval comment is recorded; the PR merges to `main`; tracking records verified evidence and status; and the implementation branch/worktree are deleted locally and remotely. No claim is made that PF-081 tenant resolution, PF-082 middleware, transaction-scoped `SET LOCAL`, Row-Level Security, IdentityAccess, PlatformAdministration, or any business module is implemented.
 
 **Explicitly excluded.** Concrete `FirmId` or Actor ID classes; `Firm`, `FirmMembership`, principal, credential, invitation, session, role, capability, permission, entitlement, Ethical Wall, or authorization result; tenant discovery or resolution; request or job middleware; Firm switching; transaction management; PostgreSQL setting names or statements; RLS; persistence, migrations, schema, repositories, Eloquent, casts, DTOs, controllers, routes, service providers, container bindings, logging, audit, telemetry, serialization, caching, queues, events, outbox, and all business modules.
+
+### PF-081 — Tenant Resolver — Backlog (Definition of Ready **not** met)
+
+**Status.** `Backlog`. **Not** Ready, In Progress, Code Review, Architecture Review, QA, Approved, or Done. **No PF-081 implementation has started**, no PF-081 production file exists, and nothing is deployed. This entry is the story **contract** only; recording a contract never schedules or starts a story, and approving this contract would not by itself make PF-081 Ready — the Definition of Ready below is **not met** and names exactly why.
+
+**Objective.** Define the single transport-neutral application boundary that turns an **already authenticated** actor plus an **authoritatively verified, currently active** Firm membership into one `App\Foundation\Tenancy\FirmContext`. PF-081 orchestrates that resolution and owns the application-layer ports it requires. It authenticates nobody, decides no membership, reads no registry itself, adapts no transport, authorizes no resource, and opens no transaction.
+
+**Owner.** Platform Foundation — technical runtime orchestration only. Platform Foundation does not own or decide `Firm`, membership, authentication, entitlement, session, authorization, or any business lifecycle.
+
+**Dependencies.**
+
+*Done and consumed:*
+
+- **PF-080 Firm Context — Done.** `App\Foundation\Tenancy\FirmContext` is PF-081's sole output type and is consumed **unchanged**.
+- **PF-044 BusinessIdentifier, PF-048 UUIDv7 — Done.** Firm and Actor identifiers stay `BusinessIdentifier`; the correlation identifier is a `UuidV7` obtained from `UuidV7Generator`.
+- **PF-033 PostgreSQL Continuous Integration — Done.** The required `Application Tests` check runs on PostgreSQL 16 as a non-superuser `NOBYPASSRLS` role.
+
+*Done and deliberately **not** invoked:*
+
+- **PF-073 Transaction Manager — Done.** `App\Infrastructure\Database\FirmTransactionManager` consumes a `FirmContext`; **PF-081 never calls it.** Composing resolved context with the transaction boundary belongs to PF-082 or a later application boundary.
+
+*Approved architecture:*
+
+- ARCH-012 Approved; `docs/adr/ADR-016-Tenant-Isolation-Model.md` Accepted (Decisions 4, 4a, 8, 9 are directly load-bearing here); `docs/architecture/03_Database_Design.md` §2.4, §2.5, §3.4 Approved; `docs/adr/ADR-009-Identity-Security-Access-Control.md` and `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §6, §8, §24, §42, §45 Accepted/Approved; `docs/adr/ADR-012-Release-0-1-Product-Scope-and-Matter-Desk-Slice.md` Decision 3 and `docs/adr/ADR-013-Firm-Provisioning-and-Subscription-Entitlement-Ownership.md` Accepted; Constitution Articles 26–30 and 45–48.
+
+*Absent, mandatory, and therefore blocking — see the blocker table below:*
+
+- **PlatformAdministration story 1** — the `Firm` aggregate, the PlatformAdministration-owned `FirmId` type, the Firm registry relation, and its narrow query/adapter contract. **Backlog.**
+- **IdentityAccess EPIC-009 stage 1** — `Principal`, the actor reference, and the Firm security-realm foundation. **Backlog.**
+- **IdentityAccess EPIC-009 stage 2** — `FirmMembership` with suspension and revocation, and the authoritative **active, verified membership result** PF-081 requires. **Backlog.**
+- **The concrete PlatformAdministration adapter** implementing PF-081's `CandidateFirmDirectory` port. **Does not exist; not created by PF-081.**
+
+*Future dependents, never dependencies:* PF-082 Tenant Middleware; every Firm-scoped repository, RLS policy, and business module.
+
+**Blockers — honest dependency table.**
+
+| # | Missing dependency | Owning context / story | Status | Why PF-081 cannot be Ready without it |
+|---|---|---|---|---|
+| B1 | `Firm` aggregate, owned `FirmId` type, Firm registry relation, narrow registry query/adapter contract | `PlatformAdministration`, EPIC-012 story 1 | `Backlog` | Nothing can implement `CandidateFirmDirectory`, and no concrete `FirmId` exists to narrow PF-081's abstract parameter types to. |
+| B2 | `Principal`, actor reference, Firm security-realm foundation | IdentityAccess, EPIC-009 stage 1 | `Backlog` | Nothing can implement `AuthenticatedActor`; there is no authenticated actor for PF-081 to resolve for. |
+| B3 | `FirmMembership` with suspension/revocation, and the authoritative **active verified membership** result | IdentityAccess, EPIC-009 stage 2 | `Backlog` | Nothing can implement `FirmMembershipVerifier`. This is PF-081's **mandatory** input; without it PF-081 has no authority to construct a `FirmContext` from, and a substitute would be a fabricated authorization. |
+| B4 | Concrete PlatformAdministration adapter for `CandidateFirmDirectory` | `PlatformAdministration`, follows B1 | Does not exist | Candidate discovery has no implementation. PF-081 defines the port only and **must not** supply the adapter. |
+
+**These blockers are recorded as dependencies, not worked around.** PF-081 must not paper over B1–B4 with a temporary scalar, an array, a framework object, a session bag, an Eloquent model, a stub, a fake, a null object, a default, or a "resolve from configuration" path. Per `docs/adr/ADR-015-Deferred-Professional-Responsibility-Controls.md`, an approximated control is more dangerous than an absent one.
+
+**Approved reconciliation decisions.** The technical owner approved decisions 1–11 on 12 August 2026 after independent review. Approval settles the contract but **does not make PF-081 Ready**: B1–B4 remain mandatory implementation blockers.
+
+1. **Namespace: `App\Application\Tenancy`** (owner-confirmed). PF-081 is a transport-neutral **application** boundary: neither a reusable Foundation domain primitive nor a framework/database adapter. It is **not** placed under `app/Foundation` for two independent reasons — the standing framework-dependency guard in `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php` applies to every Foundation PHP file, and, decisively, `app/Foundation/README.md` records that Foundation owns no `Firm`, `FirmId`, actor, principal, **membership**, credential, entitlement, session, authentication, authorization, or tenant-resolution lifecycle, whereas PF-081's required input contract is membership-shaped by necessity. The new root sits under the existing `App\` PSR-4 mapping, so **no `composer.json` change is required** — the same reconciliation PF-073 Decision 1 established for `App\Infrastructure`, and the same reading of "Platform Foundation owns" as technical ownership and governance rather than a directory requirement. This also reconciles the conceptual `app/Foundation/Persistence` "tenancy context contract" sketch in `docs/architecture/03_Database_Design.md` §24, which is explicitly conceptual and creates no directory.
+2. **Candidate discovery is a port only** (owner-confirmed). PF-081 declares `CandidateFirmReference` and the `CandidateFirmDirectory` port and **implements no registry adapter, repository, query, or schema**. `docs/adr/ADR-016-Tenant-Isolation-Model.md` Decision 4 and `docs/architecture/03_Database_Design.md` §2.4/§2.5 name "the tenant resolver" as one of only two pre-context readers of the Firm-identifying registry; that architectural role is satisfied by PF-081's port **plus** a later PlatformAdministration-owned adapter (B4), so the registry stays owned, privileged, and narrowly contracted by `PlatformAdministration`. **Registry readability is not membership and grants no access to anything inside any Firm.**
+3. **Candidate discovery and membership verification are separate facts, separated structurally rather than by convention.** The resolver's constructor takes **no** `CandidateFirmDirectory`, so a candidate value cannot reach the resolution path at all; a focused test asserts that absence.
+4. **The output is exactly the existing `FirmContext`, unchanged.** PF-081 introduces no second carrier, no resolution-result wrapper, no envelope, and no subclass, and proposes no change to `FirmContext`'s shape, constructor, or accessors. Altering `FirmContext` would be a breaking Foundation contract change requiring its own explicit human approval; PF-081 neither requests nor pre-approves one.
+5. **Firm and Actor identifiers remain the abstract `BusinessIdentifier`.** PF-081 invents no `FirmId`, `ActorId`, `PrincipalId`, or other concrete identifier, in Foundation or anywhere. Narrowing these declared types once B1 and B2 exist is a separate breaking-contract follow-up requiring explicit approval.
+6. **PF-081 discharges the transposition obligation PF-080 delegated to it.** Because both identifier parameters share the abstract `BusinessIdentifier` declaration, PF-080's contract requires every construction site to use named arguments and to carry its own boundary test proving Firm and Actor cannot be reversed. PF-081 is that construction site and owns that test.
+7. **PF-081 never calls `FirmTransactionManager`** and takes no connection, no `Illuminate\Database\Connection`, and no transaction state. PF-082 or a later application boundary composes resolved context with PF-073.
+8. **One uniform, deny-by-default failure.** Every internal cause produces one externally indistinguishable outcome (see *Failure semantics*).
+9. **PF-081 caches nothing.** No positive membership, assertion, resolved context, correlation identifier, or candidate lookup is retained between calls. There is no cache, memo, static property, registry, or singleton state of any kind, so no stale positive can survive membership removal, suspension, role revocation, policy change, or session invalidation.
+10. **PF-081 logs nothing** and emits no event, audit record, metric, or telemetry. Security-event recording is IdentityAccess's (`docs/adr/ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md` Decision 5a); a resolution failure with no verified Firm context must never borrow a candidate Firm's identity as `firm_id`.
+11. **PF-081 is transport-neutral and therefore serves synchronous and queued execution identically.** It defines no queue, job, serializer, middleware, or container binding.
+
+**Exact responsibility boundary.**
+
+| Concern | Owner | PF-081 |
+|---|---|---|
+| Candidate-Firm **discovery** (hostname, custom domain, route, parameter, header, cookie, body, submitted email domain → a candidate identifier) | `PlatformAdministration` registry behind PF-081's port; extraction itself is PF-082's | **Declares the port and the unverified-reference type. Performs no extraction, holds no adapter, and excludes the port from the resolution path.** |
+| Authenticated **realm selection** for authentication | IdentityAccess | **No.** PF-081 runs after authentication, never to enable it. |
+| **Authentication** — credentials, MFA, passkeys, magic links, session issuance/rotation/revocation | IdentityAccess | **No.** |
+| **Membership verification** — active, verified `FirmMembership` | **IdentityAccess** | **Consumes it as a mandatory input through a port. Never decides, derives, infers, or approximates it.** |
+| **`FirmContext` construction** | **PF-081** | **Yes — its single purpose**, and only after Firm identity, Actor identity, and active verified membership agree. |
+| **HTTP adaptation** — request extraction, middleware ordering, route/host adaptation, session adaptation, request attributes, container binding | **PF-082** | **No.** |
+| **Background-job adaptation** — job payloads, provenance carriage, serialization, queue wiring | A later approved transport story | **No.** PF-081 supplies the transport-neutral contract such an adapter calls. |
+| **Authorization** — capabilities, roles, permissions, deny rules, Ethical Walls | Each owning domain; Practice Management alone for walls via `CheckEthicalWallAccess` | **No.** Resolution is not authorization. |
+| **Entitlement** | `PlatformAdministration` state, evaluated by IdentityAccess at exactly two gates | **No.** Never a per-request input, never in PF-081. |
+| **Transaction establishment** and the transaction-local Firm setting | **PF-073** | **No.** PF-081 never invokes it. |
+
+**Exact proposed namespace and API.** All of the following are **proposed**, in `App\Application\Tenancy`, at `app/Application/Tenancy/`. Every import is either a Foundation type or a PHP global type; **no Laravel, Illuminate, Eloquent, HTTP, queue, container, facade, configuration, vendor SDK, or database reference appears anywhere.**
+
+`AuthenticatedActor`, `ActiveFirmMembershipAssertion`, `FirmMembershipVerifier`, and `CandidateFirmDirectory` are **ports PF-081 declares and requires** — the narrow contracts PF-081 needs from future bounded contexts. **They are not, and must not be described as, IdentityAccess or PlatformAdministration domain types**, and PF-081 implements none of them. Each is satisfied later by its owning context's own type under that context's own approved story (B1–B4).
+
+```php
+namespace App\Application\Tenancy;
+
+use App\Foundation\Domain\Identity\BusinessIdentifier;
+use App\Foundation\Domain\Identity\UuidV7Generator;
+use App\Foundation\Tenancy\FirmContext;
+
+// ---------- Ports required from IdentityAccess (B2, B3) ----------
+
+/** An actor whose identity IdentityAccess has already authenticated. */
+interface AuthenticatedActor
+{
+    public function actorId(): BusinessIdentifier;
+}
+
+/**
+ * IdentityAccess's authoritative statement that a named actor holds an active,
+ * verified membership in a named Firm, as at the moment it was verified.
+ * It is a transported assertion from the authority, never a capability: holding
+ * one grants nothing, and a retained instance is never re-used as authority.
+ */
+interface ActiveFirmMembershipAssertion
+{
+    public function firmId(): BusinessIdentifier;
+
+    public function actorId(): BusinessIdentifier;
+}
+
+/** The authority. It may throw any failure; PF-081 normalizes that failure at its boundary. */
+interface FirmMembershipVerifier
+{
+    public function verifyActiveMembership(
+        AuthenticatedActor $actor,
+        BusinessIdentifier $firmId,
+    ): ActiveFirmMembershipAssertion;
+}
+
+// ---------- Candidate discovery: separate, unverified, outside the resolution path (B1, B4) ----------
+
+/** Where an unverified candidate value came from. A provenance label, never an extractor. */
+enum CandidateFirmSourceKind
+{
+    case Hostname;
+    case CustomDomain;
+    case RoutePath;
+    case RequestParameter;
+    case RequestHeader;
+    case Cookie;
+    case RequestBody;
+    case SubmittedEmailDomain;
+}
+
+/** An untrusted candidate value. Structurally not a resolution input and never proof of anything. */
+final readonly class CandidateFirmReference
+{
+    public function __construct(
+        private CandidateFirmSourceKind $sourceKind,
+        private string $unverifiedValue,
+    ) {}
+
+    public function sourceKind(): CandidateFirmSourceKind;
+
+    public function unverifiedValue(): string;
+}
+
+/**
+ * The narrow pre-context Firm-registry read ADR-016 Decision 4a permits, implemented
+ * later by PlatformAdministration (B4). Returns a *candidate* identifier or null.
+ * A returned identifier is not membership and grants no access to any Firm.
+ */
+interface CandidateFirmDirectory
+{
+    public function findCandidateFirmId(CandidateFirmReference $reference): ?BusinessIdentifier;
+}
+
+// ---------- The resolution boundary PF-081 owns ----------
+
+final class VerifiedFirmContextResolver
+{
+    /** Deliberately takes no CandidateFirmDirectory, no connection, and no transaction manager. */
+    public function __construct(
+        private FirmMembershipVerifier $verifier,
+        private UuidV7Generator $correlationIds,
+    ) {}
+
+    /**
+     * Verify authoritatively, then construct. The supplied Firm identifier is a
+     * proposal until the verifier asserts this actor's active membership in
+     * exactly that Firm and the assertion's own identifiers agree with the inputs.
+     *
+     * @throws FirmResolutionDenied on every failure, with one indistinguishable outcome
+     */
+    public function resolve(
+        AuthenticatedActor $actor,
+        BusinessIdentifier $firmId,
+    ): FirmContext;
+}
+
+/** The single uniform failure. Carries no discriminating detail. */
+final class FirmResolutionDenied extends \RuntimeException
+{
+    private const MESSAGE = 'Firm context could not be resolved.';
+
+    private function __construct()
+    {
+        parent::__construct(self::MESSAGE);
+    }
+
+    public static function denied(): self
+    {
+        return new self();
+    }
+}
+```
+
+**Input trust model.**
+
+- **Only two things confer authority: the authenticated actor (`AuthenticatedActor`, from IdentityAccess) and the active-membership assertion (`ActiveFirmMembershipAssertion`, from `FirmMembershipVerifier`).** Nothing else does.
+- **The supplied `$firmId` is a proposal, not authority.** It may legitimately originate from a verified session or from candidate discovery; PF-081 does not and cannot know which, so it treats it as unverified in either case. Authority is conferred **solely** by PF-081's own mandatory verification call. A caller-supplied Firm identifier that the verifier does not confirm produces no `FirmContext`.
+- **No hostname, custom domain, email address, header, cookie, route value, request parameter, body value, or caller-supplied Firm identifier is ever accepted as proof of Firm membership.** `CandidateFirmReference` exists precisely so such a value is typed as unverified and can never be mistaken for an identifier.
+- **PF-081 accepts no request, response, session, container, connection, configuration, array, or scalar identifier**, and no membership snapshot, role, permission, capability, entitlement, or authorization result.
+- **Email is never a global identity key**, and PF-081 performs no cross-Firm identity linking, matching, merging, or lookup of any kind.
+- **The correlation identifier is generated, never adopted.** It comes from `UuidV7Generator` and is never taken from a header, parameter, cookie, route, or body — the rule PF-080's contract already fixes.
+
+**Output model.** Exactly one `App\Foundation\Tenancy\FirmContext`, unchanged, constructed **only** when all three agree: the verified Firm identity, the authenticated Actor identity, and the active verified membership binding them. Concretely: the assertion's `firmId()` must equal the supplied `$firmId`, and its `actorId()` must equal the actor's `actorId()`, both by `BusinessIdentifier::equals()`; a disagreement is a denial, never a reconciliation, a preference for one side, or a warning. Construction uses **named arguments**. On failure, no `FirmContext` is constructed, returned, cached, or partially built. Possessing the returned context proves no membership, entitlement, role, permission, Ethical Wall outcome, or resource access, and every protected action still performs its owning domain's own current authorization.
+
+**Failure semantics — deny by default, fail closed.**
+
+- **Every failure path throws `FirmResolutionDenied` and returns nothing.** There is no null return, no false, no empty context, no default Firm, no anonymous or system context, no partial result, and no silent success.
+- **Absent, invited-only, suspended, revoked, and expired membership, an unavailable or indeterminate verifier, a disagreeing assertion, and a verifier that throws are all one outcome.** Availability never outranks Firm isolation (Constitution Article 30): an unreachable authority is a denial, never an assumption.
+- **Only the verifier call is wrapped** in `catch (\Throwable)`, which is replaced by a fresh, unchained `FirmResolutionDenied::denied()`. Assertion comparison follows that block. Correlation-ID generation occurs only after verification and comparison succeed and **outside** that catch, so `\Random\RandomException` is never normalized into a membership denial.
+- **No retry, backoff, fallback authority, degraded mode, or cached previous answer.** A second attempt is a fresh verification.
+- **`\Random\RandomException` from correlation-identifier generation propagates untranslated**, consistent with `app/Foundation/README.md`: a CSPRNG failure is a catastrophic environment failure, not a domain condition, and must not be swallowed as a denial.
+
+**Information-disclosure constraints.**
+
+- **Different internal causes are externally indistinguishable.** The single factory `FirmResolutionDenied::denied()` produces one fixed message; there is no reason code, error code, subclass, cause enum, or public property from which a caller could distinguish "no such Firm" from "not a member" from "suspended" from "verifier unavailable".
+- **No failure enumerates Firms, memberships, identities, or cross-Firm relationships**, and no message, exception property, or chained previous exception contains a Firm identifier, actor identifier, candidate value, hostname, domain, email address, membership state, or verifier detail. PF-081 constructs no message from input.
+- **A verifier exception is deliberately not chained** into `FirmResolutionDenied`, so provider-specific detail cannot reach a caller through `getPrevious()`. `FirmResolutionDenied` has a private constructor and is created only by its fixed-message `denied()` factory, preventing verifier or caller code from attaching a discriminating message, code, or previous exception.
+- **PF-081 messages are developer-facing diagnostics and must never be exposed verbatim to an external caller.** External response shape, text, and practicable timing normalization are PF-082's obligation at the transport boundary; PF-081 makes no timing-uniformity claim of its own and must not be described as providing one.
+- **A `BusinessIdentifier` is not a secret but is sensitive metadata**; PF-081 renders none to a log, message, or output.
+
+**Dependency direction.**
+
+```text
+PF-082 Tenant Middleware / a later background-transport adapter   (transport)
+        │  calls
+        ▼
+PF-081 App\Application\Tenancy                                    (application contract)
+        │  requires ports              │  produces
+        ▼                              ▼
+IdentityAccess (B2, B3)          PF-080 App\Foundation\Tenancy\FirmContext
+PlatformAdministration (B1, B4)  PF-044 BusinessIdentifier / PF-048 UuidV7Generator
+```
+
+PF-081 depends on Foundation and on its own ports, and on nothing else. **Foundation does not depend on PF-081**; no Foundation file is added, edited, or referenced by PF-081's implementation, and the framework-dependency guard is untouched. PF-081 depends on **no** Laravel class, HTTP object, connection, container, module, repository, or business module, and on no other `PF-*` implementation except the Foundation types listed. **Nothing under `app/Foundation` may ever depend on `App\Application\Tenancy`.**
+
+**Interaction with adjacent stories and contexts.**
+
+- **PF-080 Firm Context (Done).** Consumed unchanged as the sole output type. PF-081 discharges the named-argument and transposition-test obligation PF-080's contract delegated to it. No `FirmContext` change is proposed.
+- **PF-073 Transaction Manager (Done).** **Never invoked by PF-081.** PF-073 consumes a `FirmContext`; deciding when to open a transaction with one is PF-082's or a later application boundary's. PF-081 introduces no PostgreSQL setting, statement, connection, or transaction state, and the `onelegalpro.firm_id` constant remains PF-073's alone.
+- **PF-082 Tenant Middleware (Backlog, unchanged).** Owns HTTP request extraction, candidate extraction from host/route/header, middleware registration and ordering, session adaptation, request attributes, container binding, external response shape and timing normalization, and composition of resolved context with PF-073. **PF-081 must not implement any of it**, and this contract does not make PF-082 Ready.
+- **IdentityAccess.** Owns principals, membership, authentication, sessions, and membership verification. PF-081 consumes verified results through ports and **never** decides, derives, infers, caches, or approximates any of them. Identity ownership does not move into Platform Foundation.
+- **`PlatformAdministration`.** Owns `Firm`, `FirmId`, the Firm registry, and its lifecycle. PF-081 reads no registry, owns no `Firm`, and creates no registry adapter, repository, query, or schema. Registry readability is not membership.
+- **Practice Management.** Sole Ethical Wall authority via `CheckEthicalWallAccess`. PF-081 contains no wall logic, wall-shaped flag, or per-actor visibility rule; Release 0.1 has no wall to compose, and its absence is never stubbed.
+
+**Synchronous and queued/background considerations.**
+
+- **One contract serves both.** PF-081 is invoked identically on an interactive request and inside a queued job; queued and background work receives **no weaker treatment** than an interactive request (Constitution Article 28; `docs/architecture/16_Identity_Security_Access_Control_Architecture.md` §45).
+- **A queued job preserves initiating identity provenance and re-verifies current membership at execution time.** The transport adapter carries the initiating actor's identity and provenance into the job and calls `resolve()` **afresh when the job runs**.
+- **An old `FirmContext` is never an indefinite grant** and must not be serialized into a job payload, cached, stored, or replayed as authority. Because PF-081 holds no state and caches nothing, a job that re-resolves cannot obtain a stale positive: membership removed, suspended, revoked, or policy-changed between enqueue and execution yields a denial.
+- **PF-081 itself defines no queue, job, worker, payload, serializer, scheduler, or provenance record.** Which transport carries provenance, and how, is a later approved story's contract.
+- **A long-running or resumed operation re-resolves before each protected step** rather than holding one context open indefinitely. PF-081 makes this possible by being cheap and stateless; enforcing it is the calling story's obligation.
+
+**Acceptance criteria.** A future PF-081 implementation is correct only if all of the following hold:
+
+1. The types exist at exactly `app/Application/Tenancy/` in namespace `App\Application\Tenancy`, matching the complete API sketch above member for member; where the sketch includes a method body, that body is normative.
+2. `VerifiedFirmContextResolver` is `final`, holds exactly the two declared constructor dependencies, and exposes exactly one public method, `resolve()`.
+3. Its constructor accepts **no** `CandidateFirmDirectory`, connection, transaction manager, request, session, container, configuration, logger, clock, or cache, and the class declares no static or mutable property.
+4. `resolve()` calls `verifyActiveMembership()` **exactly once, before** any `FirmContext` construction, and constructs nothing when it throws.
+5. The returned assertion's `firmId()` and `actorId()` are compared by `BusinessIdentifier::equals()` against the supplied Firm identifier and the actor's identifier; **any disagreement denies**.
+6. `FirmContext` is constructed with **named arguments**, from the verified Firm identifier, the actor identifier, and a correlation identifier obtained from `UuidV7Generator`; the exact instances are preserved.
+7. **Firm and Actor cannot be transposed** — proved by a test in which the two identifiers are distinct concrete `BusinessIdentifier` subtypes, discharging PF-080's delegated obligation.
+8. Every failure throws `FirmResolutionDenied`; no path returns null, false, a default, an empty, or a partial context.
+9. All internal causes yield one indistinguishable failure: one fixed message, no reason code or cause discriminator, no chained verifier exception, and no identifier, candidate value, or membership state in any message or property.
+10. A verifier that throws, returns a disagreeing assertion, or is unavailable produces the same denial as absent membership, with no retry, fallback, or degraded mode. The implementation catches `\Throwable` around **only** the verifier call, creates a fresh unchained denial, and performs correlation-ID generation after that catch scope.
+11. Nothing is cached, memoized, stored statically, logged, or emitted as an event, metric, or audit record; two calls perform two verifications.
+12. `\Random\RandomException` propagates untranslated.
+13. `CandidateFirmReference` is `final readonly`, carries exactly a source kind and an unverified string, and is reachable from no resolution path.
+14. `CandidateFirmDirectory` and `FirmMembershipVerifier` have **no production implementation** anywhere in the repository.
+15. No production file imports Laravel, Illuminate, Eloquent, HTTP, queue, container, facade, configuration, vendor SDK, or database symbols; no Laravel global helper is called.
+16. No Foundation production source or Foundation test is added or edited; the documentation-only `app/Foundation/README.md` status update is the sole allowed Foundation-tree change, and `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php` passes **byte-identical and unchanged**.
+17. `App\Infrastructure\Database\FirmTransactionManager` is neither imported nor invoked, and `app/Infrastructure/Database/FirmTransactionManager.php` is unchanged.
+18. No concrete `FirmId`, `ActorId`, `PrincipalId`, `Firm`, `FirmMembership`, principal, session, entitlement, role, capability, or authorization type is created.
+19. No middleware, controller, route, service provider, container binding, migration, schema, RLS policy, repository, Eloquent model, module, or `app/Modules` directory is created.
+20. `composer.json`, `composer.lock`, `package.json`, `package-lock.json`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `.github/`, `.githooks/`, and Docker/environment files are unchanged, and no dependency is added.
+
+**Definition of Ready — NOT met.**
+
+*Resolved:* objective; owner; responsibility boundary; namespace (owner-confirmed decision 1); candidate-discovery scope (owner-confirmed decision 2); exact API; input trust model; output model; failure semantics; disclosure constraints; dependency direction; PF-080/PF-073/PF-082 interaction; synchronous and queued treatment; acceptance criteria; security implications; allowlist and forbidden files; test plan; validation plan.
+
+*Not resolved — why PF-081 is not Ready:* **its mandatory dependencies do not exist.** B3 is decisive: PF-081's entire purpose is to construct a `FirmContext` from an authoritatively verified active membership, and **no IdentityAccess membership verification contract exists** (EPIC-009 stage 2, `Backlog`). B2 leaves `AuthenticatedActor` unimplementable (EPIC-009 stage 1, `Backlog`). B1 leaves no `Firm`, no owned `FirmId`, and no registry (EPIC-012 story 1, `Backlog`), and B4 leaves `CandidateFirmDirectory` without an adapter. This dependency order does not contradict the roadmap's statement that PF-080/PF-081/PF-082 are mandatory for the Release 0.1 business slice: the pre-context class-(b) Firm registry exists precisely before `FirmContext` and does not require PF-081, while Firm-scoped business records remain blocked on the runtime sequence. Implementing PF-081 today would produce ports no context can satisfy and a resolver with no authority to consult — and the only ways to make it executable would each be prohibited: a temporary scalar, a framework object, a session bag, a stub, a fake, or a null-object verifier.
+
+**Therefore PF-081 remains `Backlog`.** The technical owner has decided to hold PF-081 implementation until B1–B4 exist; **approving this contract does not make PF-081 Ready, and nothing here schedules, starts, or authorizes implementation.**
+
+**Definition of Done.** PF-081 is Done only when: the approved contract is implemented strictly within its final allowlist; every acceptance criterion above passes; the focused suite passes; the unchanged PF-049 Foundation guard and PF-033 PostgreSQL engine/role guard pass byte-identical; the complete canonical PostgreSQL-backed suite passes with no removed, weakened, renamed, skipped, or suppressed test, assertion, guard, static-analysis level, formatting rule, security control, or approval gate; Pint, PHPStan level 5 (no baseline, suppression, or ignored error), `composer validate --strict`, both dependency audits, and `git diff --check` pass; independent review reports no unresolved P0, P1, or P2; **all four required protected checks pass on the exact final implementation head**; the required human approval comment is recorded; the PR merges to `main`; tracking records only verified evidence; and the implementation branch and worktree are removed locally and remotely. **Done would make no claim** that PF-082 middleware, HTTP tenant enforcement, tenant isolation as a whole, Row-Level Security, Firm schema, application-runtime roles, repositories, IdentityAccess, `PlatformAdministration`, audit, or any business module is implemented, or that Release 0.1 is production-ready.
+
+**Security implications.**
+
+- **Never treats a hostname, custom domain, email address, header, cookie, route value, request parameter, body value, or caller-supplied Firm identifier as proof of Firm membership** (Constitution Article 27; ADR-016 alternatives). Authority comes only from IdentityAccess's assertion.
+- **Candidate-Firm discovery and verified membership remain separate facts**, separated by type and by the resolver's constructor rather than by convention.
+- **`FirmContext` is constructed only from verified identity and active verified membership**, and only when all three facts agree.
+- **Resolution is not authorization.** A resolved context is not a capability, role, permission, entitlement, session, Ethical Wall outcome, or proof of provenance; every protected action still composes its owning domain's current authorization, and Practice Management alone decides walls.
+- **Deny by default, fail closed, enumeration-resistant**, with availability never outranking Firm isolation.
+- **No stale positive can survive** membership removal, suspension, role revocation, policy change, or session invalidation, because nothing is cached and every call re-verifies.
+- **PF-081 deliberately does not record security events.** The calling transport/application boundary must submit an enumeration-safe platform-realm security event when PF-081 denies resolution, including an assertion/input identity disagreement, through the future IdentityAccess recording contract required by ADR-018 Decision 5a. Until that contract exists, the calling path is not Ready; it must never log identifiers or candidate values locally, attribute an unverified event to a Firm, or suppress the recording obligation.
+- **Queued work preserves initiating provenance and re-verifies**; an old context is never an indefinite grant.
+- **No cross-Firm enumeration, linking, matching, or email-as-global-identity behavior**, and no Firm switching — a Firm change is an explicit authorized transition owned by IdentityAccess, carrying no authorization across.
+- **No secret, credential, session token, recovery material, identifier, candidate value, or privileged content is logged, chained, serialized, or placed in any message** — PF-081 logs nothing at all.
+- **This is an authorization- and Firm-isolation-adjacent change and therefore hits the `AGENTS.md` approval gate** before implementation, independently of this contract's approval.
+- **No security or production-readiness claim is made beyond what executable acceptance criteria can prove.** PF-081 does not complete tenant isolation: application-layer resolution is one of the four independent layers ADR-016 Decision 5 requires, alongside Firm-scoped repositories, forced Row-Level Security, and executed PostgreSQL tests — **none of the other three exists**.
+
+**Documentation impact.** On implementation: this entry and `docs/PROJECT_STATUS.md` record verified status and delivery evidence; `docs/implementation/01_Implementation_Sprint_Plan.md` records the lifecycle note; `app/Foundation/README.md` may record only that PF-081 landed **outside** Foundation, without placing any code under Foundation and without a namespace-table change. **No architecture or ADR file is edited by implementation.** No architectural contradiction requiring an ADR amendment was found in preparing this contract: the ADR-016 Decision 4a "tenant resolver" registry role is reconciled by decision 2, and the `docs/architecture/03_Database_Design.md` §24 `app/Foundation/Persistence` sketch — explicitly conceptual, creating no directory — is reconciled by decision 1 on the pattern PF-073 Decision 1 established.
+
+**Allowed implementation files.** A future approved PF-081 implementation may create or change **only**:
+
+- `app/Application/Tenancy/AuthenticatedActor.php`;
+- `app/Application/Tenancy/ActiveFirmMembershipAssertion.php`;
+- `app/Application/Tenancy/FirmMembershipVerifier.php`;
+- `app/Application/Tenancy/CandidateFirmSourceKind.php`;
+- `app/Application/Tenancy/CandidateFirmReference.php`;
+- `app/Application/Tenancy/CandidateFirmDirectory.php`;
+- `app/Application/Tenancy/VerifiedFirmContextResolver.php`;
+- `app/Application/Tenancy/FirmResolutionDenied.php`;
+- `tests/Unit/Application/Tenancy/VerifiedFirmContextResolverTest.php`;
+- `tests/Unit/Application/Tenancy/TenancyContractShapeTest.php`;
+- `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`, for verified lifecycle and evidence updates;
+- `docs/implementation/01_Implementation_Sprint_Plan.md`, for the lifecycle note only;
+- `app/Foundation/README.md`, **only** to record that the resolver landed outside Foundation.
+
+Any additional source, test, provider, configuration, workflow, or database file requires a separately reviewed contract correction and explicit approval before editing.
+
+**Forbidden files and changes.** No change to `app/Foundation/Tenancy/FirmContext.php`, `app/Infrastructure/Database/FirmTransactionManager.php`, or **any** existing Foundation or Infrastructure source or test file. No change to `composer.json`, `composer.lock`, `package.json`, `package-lock.json`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `.github/`, `.githooks/`, Docker or environment files, Laravel bootstrap or configuration, service providers, routes, controllers, middleware, jobs, commands, migrations, schema, RLS policies, PostgreSQL roles/grants/functions, modules, `app/Modules`, repositories, outbox, audit, or idempotency persistence. **No architecture or ADR file may be edited by the implementation story.** **No required check, test, assertion, guard, static-analysis level, formatting rule, security control, or approval gate may be removed, weakened, renamed, skipped, or suppressed.**
+
+**Explicit exclusions.** PF-081 delivers none of, and must not stub, approximate, simulate, partially implement, or rename any of: authentication, credentials, password hashing, MFA, passkeys, magic links, invitations, recovery, lockout; session issuance, storage, rotation, revocation, or adaptation; principals, actor categories, service principals, delegation, acting-on-behalf-of, privileged-access or break-glass grants; `Firm`, `FirmId`, `FirmProvisioning`, `SubscriptionEntitlement`, the Firm registry, its schema, repository, query, or adapter; `FirmMembership` and its lifecycle; entitlement or seat-limit evaluation; authorization, roles, capabilities, permissions, deny rules, authorization decisions or their caching; **Ethical Walls of any shape** — no wall, flag, allow-list, restricted-matter marker, or per-actor visibility rule; Firm switching or realm transition; HTTP middleware, controllers, routes, request or response handling, request attributes, container bindings, service providers; queues, jobs, workers, schedulers, payload serialization, provenance records; database schema, migrations, RLS policies or functions, roles, grants, connections, transactions, or the transaction-local Firm setting; repositories, Eloquent models, casts, DTOs, persistence, or serialization; caches of any kind; events, outbox, audit, security-event recording, logging, telemetry, or metrics; rate limiting, timing normalization, or response shaping; concrete identifier types; test doubles under `app/`; and every business module. **PF-082 Tenant Middleware remains `Backlog` and is not silently implemented, in whole or in part, by PF-081.**
+
+**Focused test plan.** Two pure unit suites under `tests/Unit/Application/Tenancy/`, extending `PHPUnit\Framework\TestCase` directly, booting no Laravel application and touching no database. Test-local fixtures — concrete `BusinessIdentifier` marker subtypes, a scripted `AuthenticatedActor`, a scripted `ActiveFirmMembershipAssertion`, scripted verifiers (agreeing, disagreeing, denying, throwing, and call-counting), and a scripted `UuidV7Generator` — are declared **inside the test files**, per the standing rule that no test double belongs under `app/`.
+
+*`TenancyContractShapeTest`* proves by reflection: exact namespaces and file locations; `VerifiedFirmContextResolver` final with exactly two constructor parameters of the exact declared types and exactly one public method; the absence, by name, of a `CandidateFirmDirectory`, connection, transaction-manager, request, session, container, configuration, logger, clock, and cache parameter or property; no static or mutable property; `CandidateFirmReference` final and readonly with exactly its two values; each port's exact method set and signatures; `FirmResolutionDenied` final, extending `\RuntimeException`, with a private constructor, one private fixed-message constant, exactly one public factory `denied()`, and no reason code, cause discriminator, public property, or caller-controlled previous exception; that no production file under `app/Application` references a forbidden framework namespace or Laravel global helper; that `FirmTransactionManager` and the `onelegalpro.firm_id` literal appear nowhere under `app/Application`; and that **no production implementation of `FirmMembershipVerifier`, `AuthenticatedActor`, `ActiveFirmMembershipAssertion`, or `CandidateFirmDirectory` exists anywhere under `app/`**. The three candidate-discovery types are intentionally unused until B4 implements the port; that is the approved consequence of decision 2, not dead production behavior claimed as executable.
+
+*`VerifiedFirmContextResolverTest`* proves behaviourally: a `FirmContext` is returned only on the fully agreeing path, carrying the exact supplied identifier instances and a generator-produced correlation identifier; verification is invoked exactly once and strictly before construction; **Firm and Actor cannot be transposed**, using two distinct concrete identifier subtypes; a Firm-identifier disagreement, an Actor-identifier disagreement, a denying verifier, and a throwing verifier each raise `FirmResolutionDenied` and construct nothing; all four failures produce an **identical** message with no identifier, candidate value, or membership detail, and `getPrevious()` is `null` on the throwing-verifier path; two calls perform two verifications, proving nothing is cached; a candidate value cannot enter the resolution path; and `\Random\RandomException` from the generator propagates untranslated.
+
+**Full validation plan.** In the canonical Docker PHP 8.4 / PostgreSQL 16 environment, against a disposable non-superuser `NOBYPASSRLS` role and database per the documented `CONTRIBUTING.md` recipe: `git diff --check`; `composer validate --strict`; `composer pint:test`; `composer phpstan` at level 5 with no baseline, suppression, or ignored error; the two focused suites; `tests/Unit/Foundation/FoundationLayerHasNoFrameworkDependenciesTest.php` passing **byte-identical and unchanged**; `tests/Feature/PostgreSqlTestDatabaseGuardTest.php` passing unchanged; the existing PF-080 `tests/Unit/Foundation/Tenancy/FirmContextTest.php` and PF-073 `tests/Unit/Infrastructure/Database/FirmTransactionManagerTest.php` and `tests/Feature/Infrastructure/Database/FirmTransactionManagerPostgreSqlTest.php` passing unchanged; the complete PostgreSQL-backed suite passing with a recorded test and assertion count strictly above the measured pre-implementation baseline; and `composer audit --locked --abandoned=report` and `npm audit --audit-level=high` both clean. Independent review and architecture review record no unresolved P0, P1, or P2.
+
+**The four required `Protect main` checks remain exactly:**
+
+- `PHP Code Quality`
+- `Frontend Build`
+- `Application Tests`
+- `Dependency Audit`
+
+**Implementation sequencing decision (approved 12 August 2026).** Hold PF-081 implementation until B1–B4 exist. Implementing the ports and resolver ahead of their authoritative production implementers would create unusable security-shaped abstractions and would not advance an executable tenant-resolution path. The next work is the dependency chain: PlatformAdministration EPIC-012 story 1, IdentityAccess EPIC-009 stage 1, IdentityAccess EPIC-009 stage 2, and the concrete PlatformAdministration `CandidateFirmDirectory` adapter. After those land, PF-081 readiness is reassessed under the `AGENTS.md` authorization gate.
 
 ## Event Infrastructure
 - PF-090 through PF-093
