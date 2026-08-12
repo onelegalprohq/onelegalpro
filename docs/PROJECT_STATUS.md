@@ -1,6 +1,6 @@
 # OneLegalPro Project Status
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-12
 **Phase:** Platform Foundation
 
 > This repository is **not production-ready**. There is no production deployment, environment, or pipeline.
@@ -39,7 +39,9 @@ One pre-existing assertion required updating: `EntityTest` asserted that `app/Fo
 
 ## Next stories (repository implementation track)
 
-**Release 0.1 critical path: PF-073 — Transaction Manager.** PF-080 is Done. PF-073 is **Ready**, not In Progress: its corrected contract passed independent review with no remaining P0–P3, all four required checks passed on exact final head `9f6ffbf`, technical-owner approval was recorded, and PR #51 merged as `c2b7549` on 11 August 2026. No implementation has started. The approved contract defines the single transaction-local Firm setting, fail-closed ambient/nested-transaction behavior, no automatic retry, and a narrow Laravel/PostgreSQL adapter outside `app/Foundation`. PF-081 and PF-082 follow only after their own dependency-complete contracts. This runtime lane remains independent of the reusable Foundation Library catalogue because it does not depend on Money or Result.
+**Release 0.1 critical path: PF-073 — Transaction Manager.** PF-080 is Done. PF-073 is **In Progress**, not Done: its contract passed independent review with no remaining P0–P3, all four required checks passed on exact final head `9f6ffbf`, technical-owner approval was recorded, and the contract PR #51 merged as `c2b7549` on 11 August 2026. Implementation began on 12 August 2026 on `feature/pf-073-transaction-manager`, branched from `main` at `a2b1ee9`, and added only the three allowlisted new files — the `App\Infrastructure\Database\FirmTransactionManager` adapter, its focused unit suite, and its gated PostgreSQL feature suite. The approved contract defines the single transaction-local Firm setting, fail-closed ambient/nested-transaction behavior, no automatic retry, and a narrow Laravel/PostgreSQL adapter outside `app/Foundation`.
+
+Verified in the canonical Docker PHP 8.4 / PostgreSQL 16 environment: Pint passed (58 files); PHPStan level 5 passed (38 files, no baseline or suppression); the focused unit suite passed (42 tests, 335 assertions); the gated PostgreSQL feature suite passed (12 tests, 44 assertions armed; 12 tests, 16 assertions on the ordinary SQLite path); and the complete PostgreSQL-backed suite passed at **480 tests and 1,581 assertions**, up from the 426/1,202 baseline on `a2b1ee9`. The unchanged PF-049 Foundation and PF-033 PostgreSQL guards, `composer validate --strict`, `git diff --check`, and both dependency audits also passed. On 12 August 2026 the technical owner approved Pint's imported `Connection` spelling for the callback annotation; it denotes the identical concrete Laravel type and requires no formatter-rule exception. Independent review corrected and regression-tested failed transaction opening, rollback failure during setting/context abandonment, Laravel's silent reconnect during `BEGIN`, and exact role-probe SQL identity. **PF-073 remains In Progress and is not Done; no implementation pull request has been opened.** PF-081 and PF-082 remain Backlog and follow only after their own dependency-complete contracts. This runtime lane remains independent of the reusable Foundation Library catalogue because it does not depend on Money or Result.
 
 **PF-045 — Money**, the ninth in the approved Foundation Library order, follows `PF-040` — AggregateRoot. It remains **Backlog** — not Ready, In Progress, or Done — and requires its own approved entry and Definition of Ready in `docs/implementation/03_Engineering_Backlog.md` before implementation begins; no PF-045 implementation has started. **`PF-040` is complete; PF-045 remains unstarted and requires its own approved Definition of Ready.** The complete approved order is:
 
@@ -49,7 +51,7 @@ The remaining order after PF-040 is **PF-045 → PF-046**, and both remain **Bac
 
 ## Then
 
-Implement PF-073 Transaction Manager within its approved allowlist; then PF-081 Tenant Resolver and PF-082 Tenant Middleware follow, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
+Complete independent review and delivery of PF-073 Transaction Manager within its approved allowlist; then PF-081 Tenant Resolver and PF-082 Tenant Middleware follow, each only after its own dependency-complete approved story contract. PF-045 Money and PF-046 Result remain a separate Foundation Library lane and are not prerequisites of this runtime sequence.
 
 ## Architecture track
 
