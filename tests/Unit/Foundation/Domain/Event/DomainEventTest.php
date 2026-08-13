@@ -268,9 +268,41 @@ final class DomainEventTest extends TestCase
         $this->assertFalse(property_exists($this, 'app'));
     }
 
-    public function test_no_business_module_was_introduced(): void
+    /**
+     * The dependency direction is one-way: modules consume Foundation, never
+     * the reverse. This replaces an earlier guard that asserted `app/Modules`
+     * did not exist at all — a scope check that was only ever true because no
+     * approved business module had been implemented yet, and that would have
+     * to be deleted rather than satisfied once one was.
+     *
+     * Detection is token-aware, so only a **real** PHP reference counts: a
+     * qualified or fully-qualified name appears as `T_NAME_QUALIFIED` or
+     * `T_NAME_FULLY_QUALIFIED`, while a namespace mentioned in a docblock or a
+     * string literal never does. That distinction matters here, because this
+     * contract's documentation legitimately discusses where business
+     * capabilities live.
+     */
+    public function test_the_domain_event_contract_does_not_depend_on_business_modules(): void
     {
-        $this->assertDirectoryDoesNotExist(\dirname(__DIR__, 5).'/app/Modules');
+        $source = file_get_contents(\dirname(__DIR__, 5).'/app/Foundation/Domain/Event/DomainEvent.php');
+
+        $this->assertIsString($source);
+
+        $references = [];
+
+        foreach (token_get_all($source) as $token) {
+            if (! \is_array($token) || ! \in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)) {
+                continue;
+            }
+
+            $name = ltrim($token[1], '\\');
+
+            if ($name === 'App\\Modules' || str_starts_with($name, 'App\\Modules\\')) {
+                $references[] = $token[1];
+            }
+        }
+
+        $this->assertSame([], $references, 'DomainEvent must not depend on the App\Modules namespace.');
     }
 
     public function test_domain_event_directory_contains_exactly_domain_event_php(): void
