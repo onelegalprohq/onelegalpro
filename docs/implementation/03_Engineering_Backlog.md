@@ -1156,7 +1156,7 @@ The existing Foundation framework-dependency guard must pass unchanged. The full
 
 *Absent, mandatory, and therefore blocking — see the blocker table below:*
 
-- **`PA-001` — Firm Aggregate Foundation** (PlatformAdministration, EPIC-012 story 1) — the `Firm` aggregate, the PlatformAdministration-owned `FirmId` type, and the normative Firm registry boundary. **Backlog**; its story contract is recorded under EPIC-012 below and is **prepared for independent review, not accepted**.
+- **`PA-001` — Firm Aggregate Foundation** (PlatformAdministration, EPIC-012 story 1) — the `Firm` aggregate, the PlatformAdministration-owned `FirmId` type, and the normative Firm registry boundary. **`Code Review`**; its story contract is recorded under EPIC-012 below, is **accepted**, and its first-business-module authorization is recorded. Its domain implementation exists **only on an unmerged branch** awaiting independent review.
 - **`PA-007` — Firm Registry Relation and Candidate-Firm Directory Adapter** — the ADR-016 class-(b) registry relation, its privileges and access posture, and the narrow query plus the concrete adapter. **Backlog; no contract exists.**
 - **IdentityAccess EPIC-009 stage 1** — `Principal`, the actor reference, and the Firm security-realm foundation. **Backlog.**
 - **IdentityAccess EPIC-009 stage 2** — `FirmMembership` with suspension and revocation, and the authoritative **active, verified membership result** PF-081 requires. **Backlog.**
@@ -1168,7 +1168,7 @@ The existing Foundation framework-dependency guard must pass unchanged. The full
 
 | # | Missing dependency | Owning context / story | Status | Why PF-081 cannot be Ready without it |
 |---|---|---|---|---|
-| B1 | `Firm` aggregate, owned `FirmId` type, Firm registry relation, narrow registry query/adapter contract | `PlatformAdministration`, EPIC-012 story 1 — **split across `PA-001`** (aggregate and owned `FirmId`; contract recorded below, prepared for independent review and not accepted) **and `PA-007`** (registry relation, access posture, narrow query; no contract) | `Backlog` | Nothing can implement `CandidateFirmDirectory`, and no concrete `FirmId` exists to narrow PF-081's abstract parameter types to. **`PA-001` alone does not clear B1**; the registry half remains absent until `PA-007`. |
+| B1 | `Firm` aggregate, owned `FirmId` type, Firm registry relation, narrow registry query/adapter contract | `PlatformAdministration`, EPIC-012 story 1 — **split across `PA-001`** (aggregate and owned `FirmId`; contract recorded below and accepted) **and `PA-007`** (registry relation, access posture, narrow query; no contract) | **Not cleared.** `PA-001` is at `Code Review`, with its half implemented **only on an unmerged branch**; `PA-007` is `Backlog` | Nothing can implement `CandidateFirmDirectory`, and no concrete `FirmId` exists on `main` to narrow PF-081's abstract parameter types to. **`PA-001` alone does not clear B1** even once merged; the registry half remains absent until `PA-007`. |
 | B2 | `Principal`, actor reference, Firm security-realm foundation | IdentityAccess, EPIC-009 stage 1 | `Backlog` | Nothing can implement `AuthenticatedActor`; there is no authenticated actor for PF-081 to resolve for. |
 | B3 | `FirmMembership` with suspension/revocation, and the authoritative **active verified membership** result | IdentityAccess, EPIC-009 stage 2 | `Backlog` | Nothing can implement `FirmMembershipVerifier`. This is PF-081's **mandatory** input; without it PF-081 has no authority to construct a `FirmContext` from, and a substitute would be a fabricated authorization. |
 | B4 | Concrete PlatformAdministration adapter for `CandidateFirmDirectory` | `PlatformAdministration`, **`PA-007`**, follows `PA-001` | Does not exist | Candidate discovery has no implementation. PF-081 defines the port only and **must not** supply the adapter; `PA-001` does not supply it either. |
@@ -1409,7 +1409,7 @@ PF-081 depends on Foundation and on its own ports, and on nothing else. **Founda
 
 *Resolved:* objective; owner; responsibility boundary; namespace (owner-confirmed decision 1); candidate-discovery scope (owner-confirmed decision 2); exact API; input trust model; output model; failure semantics; disclosure constraints; dependency direction; PF-080/PF-073/PF-082 interaction; synchronous and queued treatment; acceptance criteria; security implications; allowlist and forbidden files; test plan; validation plan.
 
-*Not resolved — why PF-081 is not Ready:* **its mandatory dependencies do not exist.** B3 is decisive: PF-081's entire purpose is to construct a `FirmContext` from an authoritatively verified active membership, and **no IdentityAccess membership verification contract exists** (EPIC-009 stage 2, `Backlog`). B2 leaves `AuthenticatedActor` unimplementable (EPIC-009 stage 1, `Backlog`). B1 leaves no `Firm`, no owned `FirmId`, and no registry (EPIC-012 story 1, `Backlog` — `PA-001`'s contract is recorded but unimplemented, and `PA-007` has no contract), and B4 leaves `CandidateFirmDirectory` without an adapter. This dependency order does not contradict the roadmap's statement that PF-080/PF-081/PF-082 are mandatory for the Release 0.1 business slice: the pre-context class-(b) Firm registry exists precisely before `FirmContext` and does not require PF-081, while Firm-scoped business records remain blocked on the runtime sequence. Implementing PF-081 today would produce ports no context can satisfy and a resolver with no authority to consult — and the only ways to make it executable would each be prohibited: a temporary scalar, a framework object, a session bag, a stub, a fake, or a null-object verifier.
+*Not resolved — why PF-081 is not Ready:* **its mandatory dependencies do not exist.** B3 is decisive: PF-081's entire purpose is to construct a `FirmContext` from an authoritatively verified active membership, and **no IdentityAccess membership verification contract exists** (EPIC-009 stage 2, `Backlog`). B2 leaves `AuthenticatedActor` unimplementable (EPIC-009 stage 1, `Backlog`). B1 leaves no `Firm`, no owned `FirmId`, and no registry on `main` (EPIC-012 story 1 — `PA-001`'s contract is accepted and its domain half is implemented **only on an unmerged branch at `Code Review`**, and `PA-007` has no contract), and B4 leaves `CandidateFirmDirectory` without an adapter. This dependency order does not contradict the roadmap's statement that PF-080/PF-081/PF-082 are mandatory for the Release 0.1 business slice: the pre-context class-(b) Firm registry exists precisely before `FirmContext` and does not require PF-081, while Firm-scoped business records remain blocked on the runtime sequence. Implementing PF-081 today would produce ports no context can satisfy and a resolver with no authority to consult — and the only ways to make it executable would each be prohibited: a temporary scalar, a framework object, a session bag, a stub, a fake, or a null-object verifier.
 
 **Therefore PF-081 remains `Backlog`.** The technical owner has decided to hold PF-081 implementation until B1–B4 exist; **approving this contract does not make PF-081 Ready, and nothing here schedules, starts, or authorizes implementation.**
 
@@ -1469,7 +1469,7 @@ Any additional source, test, provider, configuration, workflow, or database file
 - `Application Tests`
 - `Dependency Audit`
 
-**Implementation sequencing decision (approved 12 August 2026; dependency chain named 12 August 2026).** Hold PF-081 implementation until B1–B4 exist. Implementing the ports and resolver ahead of their authoritative production implementers would create unusable security-shaped abstractions and would not advance an executable tenant-resolution path. The next work is the dependency chain, now carrying assigned identifiers: **`PA-001`** — Firm Aggregate Foundation (contract recorded under EPIC-012 below, prepared for independent review and not accepted; `Backlog`), **`PA-007`** — Firm Registry Relation and Candidate-Firm Directory Adapter (`Backlog`, no contract), IdentityAccess EPIC-009 stage 1, and IdentityAccess EPIC-009 stage 2. After those land, PF-081 readiness is reassessed under the `AGENTS.md` authorization gate. **Assigning `PA-001` and naming `PA-007` changes nothing in PF-081's approved contract**: no PF-081 decision, API, acceptance criterion, allowed file, exclusion, or status is altered, and PF-081 remains `Backlog` with its Definition of Ready unmet.
+**Implementation sequencing decision (approved 12 August 2026; dependency chain named 12 August 2026).** Hold PF-081 implementation until B1–B4 exist. Implementing the ports and resolver ahead of their authoritative production implementers would create unusable security-shaped abstractions and would not advance an executable tenant-resolution path. The next work is the dependency chain, now carrying assigned identifiers: **`PA-001`** — Firm Aggregate Foundation (contract recorded under EPIC-012 below and accepted; `Code Review`), **`PA-007`** — Firm Registry Relation and Candidate-Firm Directory Adapter (`Backlog`, no contract), IdentityAccess EPIC-009 stage 1, and IdentityAccess EPIC-009 stage 2. After those land, PF-081 readiness is reassessed under the `AGENTS.md` authorization gate. **Assigning `PA-001` and naming `PA-007` changes nothing in PF-081's approved contract**: no PF-081 decision, API, acceptance criterion, allowed file, exclusion, or status is altered, and PF-081 remains `Backlog` with its Definition of Ready unmet.
 
 ## Event Infrastructure
 - PF-090 through PF-093
@@ -1569,7 +1569,7 @@ Architecture is **Approved** (ARCH-011 — Completed through explicit owner appr
 
 **Story identifiers in this epic (assigned 12 August 2026).** Until now no EPIC-012 story carried an identifier. The technical owner assigned the **`PA-`** prefix for `PlatformAdministration` implementation stories, on the same convention `PF-` already establishes for Platform Foundation (EPIC-001) and `ARCH-` for the architecture track. **`PA-001` through `PA-006` are reserved, in order, for the six approved `PlatformAdministration` stages** in `docs/architecture/19_Platform_Administration_Architecture.md` §28 and in the outline below; **`PA-007` is the follow-on Firm registry relation and `CandidateFirmDirectory` adapter story**, which is deliberately **not** one of those six and is recorded as a distinct dependency by `PF-081`'s blocker table above.
 
-**Only `PA-001` has a story contract, and it is prepared for independent review rather than accepted.** It is recorded in full below; **it has not passed independent review and has not received final technical acceptance.** `PA-002` through `PA-007` carry reserved identifiers and **no contract, no Definition of Ready, and no authorization**. Assigning an identifier is a tracking record, not a schedule: **no story becomes Ready or In Progress because it now has a name**, and **no `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled** by this assignment. The `PA-` prefix is confined to `PlatformAdministration`; IdentityAccess, Practice Management, and the cross-cutting, operations, and operator-surface stories below remain unidentified and unchanged.
+**Only `PA-001` has a story contract, and it is accepted.** It is recorded in full below; its Definition of Ready is met, its separate first-business-module authorization is recorded, and it is at **`Code Review`** — not Architecture Review, QA, Approved, or Done. `PA-002` through `PA-007` carry reserved identifiers and **no contract, no Definition of Ready, and no authorization**. Assigning an identifier is a tracking record, not a schedule: **no story becomes Ready or In Progress because it now has a name, and none becomes Ready because `PA-001` started**, and **no `PF-*` story is added, renamed, renumbered, merged, split, deleted, or rescheduled** by this assignment. The `PA-` prefix is confined to `PlatformAdministration`; IdentityAccess, Practice Management, and the cross-cutting, operations, and operator-surface stories below remain unidentified and unchanged.
 
 **`PF-040` — AggregateRoot is Done, unchanged in scope by this epic. No story in this epic is `Ready`, `In Progress`, or `Code Review`.** Planning is not scheduling, and architecture approval never schedules implementation.
 
@@ -1589,7 +1589,7 @@ Ownership is preserved elsewhere: **IdentityAccess alone owns credentials, authe
 
 **`PlatformAdministration` stories — all `Backlog`:**
 
-1. **`PA-001` — `Firm` aggregate foundation** — identity, canonical name, jurisdiction reference, lifecycle state, audited transitions. Depends on `PF-040`, `PF-080`. **Its story contract is recorded below; it remains `Backlog`.** The Firm registry relation and the `CandidateFirmDirectory` adapter are **not** part of it — they are `PA-007`.
+1. **`PA-001` — `Firm` aggregate foundation** — identity, canonical name, jurisdiction reference, lifecycle state, audited transitions. Depends on `PF-040`, `PF-080`. **Its story contract is recorded below and is accepted; it is at `Code Review`.** Audited transitions are **not** delivered by `PA-001` — they are `PA-002`'s — and the Firm registry relation and the `CandidateFirmDirectory` adapter are **not** part of it either; they are `PA-007`.
 2. **`PA-002` — `FirmProvisioning` lifecycle** — requested → provisioned → active → closed; every transition explicitly human-authorized and audited; **a Firm never becomes usable as a side effect**, and there is no self-service signup. **No Firm-level suspended state and no Firm-wide disable** — a future Firm-level suspension or emergency-disable capability is its own separately approved decision, defining authorizing authority, session effects, recovery, notification, queued-and-in-flight-work behaviour, and audit semantics. Depends on 1.
 3. **`PA-003` — `SubscriptionEntitlement`** — term, status, seat limit, **with the monetary prohibition enforced by the model itself**: no amount, price, currency, `Money`, `Currency`, invoice, payment, ledger entry, balance, discount, proration, tax rate, or tax treatment, and no field from which one could be reconstructed. Depends on 1.
 4. **`PA-004` — Entitlement lapse semantics and the published entitlement query** — the **fail-closed** contract IdentityAccess consumes; expired or suspended entitlement is a **commercial/administrative** fact that **blocks new authentication** while existing valid sessions continue only to normal expiry, whereas membership suspension or revocation is an **individual security event** terminating that principal's sessions immediately; **the two never share code, audit meaning, or policy semantics, and neither is a Firm-wide disable**. Depends on 3.
@@ -1642,9 +1642,147 @@ Ownership is preserved elsewhere: **IdentityAccess alone owns credentials, authe
 32. **Public OneLegalPro marketing website and inquiry form** — the **operator's own surface**, categorically **not a Firm tenant website and not the Client Portal** (both EPIC-005, out of scope). Creates **no Client Portal principal, no `ClientPortalAccessProfile`, and no Firm membership**, and does not weaken the Firm-facing white-label rules. Personal data in the inquiry form is never placed in URL parameters or query strings.
 33. **Privacy Notice, Terms, and pilot agreement** — the **contractual** half of the disclosure obligation, covering the **four mandatory disclosures**: absent Ethical Walls, absent automated conflict checking, absent automated reminders and notifications, and absent document storage. **This is distinct from, and does not substitute for, the in-product disclosures owned by story 25** — the person opening a Matter is often not the person who signed the agreement, and the person who signed it is deciding whether to adopt the product at all. **External Thai-qualified legal review is mandatory**, and **all of this copy — plus all marketing and security copy — remains draft until that review and the owner's approval are recorded.** No reviewer is engaged and no review has occurred.
 
-## PA-001 — Firm Aggregate Foundation — Backlog (Definition of Ready **not** met)
+## PA-001 — Firm Aggregate Foundation — Code Review
 
-**Status.** `Backlog`. **Not** Ready, In Progress, Code Review, Architecture Review, QA, Approved, or Done. **This story contract is prepared for independent review; it has not passed independent review and has not received final technical acceptance.** **No `PA-001` implementation has started**, no `PA-001` production file exists, no `PA-001` test exists, `app/Modules` does not exist, and nothing is deployed. This entry is the story **contract** only; recording a contract never schedules or starts a story, and accepting this contract would not by itself make `PA-001` Ready — the Definition of Ready below is **not met** and names exactly why.
+**Status.** `Code Review`. **Not** Architecture Review, QA, Approved, or Done. Implementation began on 12 August 2026 on `feature/pa-001-firm-aggregate-foundation`, branched from `main` at `d038f4c`, in a dedicated worktree, after the recorded baseline below. **Independent review on 13 August 2026 returned `READY FOR NARROW CORRECTION` with no P0 and two findings; both are now applied under their own recorded owner authorization** — see *Resolved review findings* below. The complete canonical PostgreSQL-backed suite now passes with **no failures**. **`PA-001` stays at `Code Review`**: applying the correction advances no status, and a final confirmation review is still outstanding. Nothing is staged, committed, pushed, or merged, and nothing is deployed.
+
+**Both former Definition-of-Ready counts are now satisfied.** The contract is accepted, and the separate first-business-module authorization gate was explicitly satisfied by the repository owner on 12 August 2026, recorded verbatim:
+
+> "I authorize PA-001 implementation as the first business module, strictly under the accepted contract and file allowlist."
+
+That authorization satisfies the `docs/PROJECT_STATUS.md` gate *"Do not begin business modules until separately approved."* **It does not expand `PA-001`'s scope**, does not extend the file allowlist, and does not authorize any change this contract forbids. Wording elsewhere in this entry that still describes the contract as unaccepted or the gate as unmet is **historical, as of drafting**, and is superseded by this paragraph.
+
+### Resolved contract defect — the five obsolete Foundation scope guards
+
+**Recorded because the defect was real and its remedy required its own authorization.** Implementation established that three of this contract's requirements could not hold simultaneously. **Five existing Foundation tests each asserted that `app/Modules` does not exist** — a single `assertDirectoryDoesNotExist(.../app/Modules)`, added by each story as a scope guard proving *its own* story introduced no business module:
+
+| Test | Former method | Former line |
+|---|---|---|
+| `tests/Unit/Foundation/Domain/Event/DomainEventTest.php` | `test_no_business_module_was_introduced` | 273 |
+| `tests/Unit/Foundation/Domain/Identity/BusinessIdentifierTest.php` | `test_no_business_module_was_introduced` | 701 |
+| `tests/Unit/Foundation/Domain/Model/AggregateRootTest.php` | `test_no_business_module_was_introduced` | 481 |
+| `tests/Unit/Foundation/Domain/Model/EntityTest.php` | `test_no_business_module_was_introduced` | 530 |
+| `tests/Unit/Foundation/Tenancy/FirmContextTest.php` | `test_no_business_module_was_introduced` | 196 |
+
+**`PA-001` must create `app/Modules`**, so all five necessarily became false, and these three requirements could not hold at once:
+
+1. **Acceptance criterion 1** — the six source types exist at `app/Modules/PlatformAdministration/Domain/`;
+2. **Acceptance criterion 14** — `tests/Unit/Foundation/Tenancy/FirmContextTest.php` passes **byte-identical and unchanged** (it is one of the five);
+3. **Forbidden files and changes** — **no change to any existing test**, and no test or assertion may be removed, weakened, renamed, skipped, or suppressed.
+
+**This was a defect in the contract, not in the implementation.** The contract nowhere mentions `test_no_business_module_was_introduced`; the collision was not detected when the contract was prepared, and no third option existed — the guards asserted an absence the story exists to end. **Implementation stopped and reported rather than improvising**, and the five guards were left failing honestly until the owner decided.
+
+**Owner authorization (12 August 2026), recorded verbatim:**
+
+> "I authorize extending the PA-001 allowlist to the five named Foundation test files, solely to replace each obsolete app/Modules directory-absence guard with a permanent guard proving the tested Foundation contract does not depend on App\Modules. No assertion may be deleted without replacement, and no other part of those files may change."
+
+**This followed the `PF-040` precedent exactly.** `PF-040` hit the identical class of problem — `EntityTest` asserted that `app/Foundation/Domain/Model` contained exactly `Entity` and `ValueObject`, which creating `AggregateRoot.php` made false by design — and the owner explicitly authorized extending that story's allowed files by one file for that one change.
+
+**What replaced each guard, and why it is stronger.** The old assertion enforced *"no business module exists anywhere"*, which was only ever true of a repository that had none and which would have to be **deleted** rather than satisfied once any approved module landed. Each replacement instead enforces the durable invariant `app/Foundation/README.md` already states — **the dependency direction is one-way; modules consume Foundation, never the reverse** — by inspecting that file's own production contract and proving it holds no reference to the `App\Modules` namespace:
+
+| Test | New method | Production contract inspected |
+|---|---|---|
+| `DomainEventTest` | `test_the_domain_event_contract_does_not_depend_on_business_modules` | `app/Foundation/Domain/Event/DomainEvent.php` |
+| `BusinessIdentifierTest` | `test_the_business_identifier_contract_does_not_depend_on_business_modules` | `app/Foundation/Domain/Identity/BusinessIdentifier.php` |
+| `AggregateRootTest` | `test_the_aggregate_root_contract_does_not_depend_on_business_modules` | `app/Foundation/Domain/Model/AggregateRoot.php` |
+| `EntityTest` | `test_the_entity_contract_does_not_depend_on_business_modules` | `app/Foundation/Domain/Model/Entity.php` |
+| `FirmContextTest` | `test_the_firm_context_carrier_does_not_depend_on_business_modules` | `app/Foundation/Tenancy/FirmContext.php` |
+
+**Detection is token-aware**, using `token_get_all()` and the `T_NAME_QUALIFIED` / `T_NAME_FULLY_QUALIFIED` tokens — the same idiom the `PF-049` guard already uses in this test tree. It catches an imported `use`, a fully-qualified inline reference, an aliased import, a bare namespace import, and a parameter or return type hint; it ignores a namespace named only in a docblock, a line comment, or a string literal, which matters because Foundation documentation legitimately discusses where business capabilities live. It names **only the `App\Modules` root** — it is **not** coupled to `PlatformAdministration`, holds no inventory of approved modules, and does not over-fire on a similar prefix such as `App\ModulesRegistry`.
+
+**Deliberately not adopted**, because each would go stale as approved modules land: asserting `app/Modules` is absent; asserting only `PlatformAdministration` exists; a fixed inventory of approved modules; or anything coupled to `PA-001` specifically.
+
+**Nothing was weakened.** No assertion was deleted without replacement, and **each of the five files gained one assertion rather than losing any** (73→74, 171→172, 106→107, 113→114, 99→100), with test counts unchanged. Each file's diff is one contiguous region touching **only** that single method — two removed lines, being the old signature and its one assertion. No production Foundation file changed. No other method, assertion, fixture, helper, import, or formatting in those five files changed. The guards were additionally **mutation-tested**: injecting a synthetic `use App\Modules\SomeFutureModule\Domain\Thing;` into a copy of each of the five production contracts was detected in all five cases, proving the guard is not vacuous.
+
+### Resolved review findings — the authorized narrow correction (13 August 2026)
+
+**Independent review returned `READY FOR NARROW CORRECTION`** with no P0 and two findings requiring resolution before staging. Both are now applied and verified. **`PA-001` remains at `Code Review`.**
+
+**Owner authorization (13 August 2026), recorded verbatim:**
+
+> "I authorize the PA-001 narrow correction: declare symfony/polyfill-intl-normalizer ^1.38 as a direct runtime dependency in composer.json and update composer.lock only as Composer requires; correct FirmCreated to require a plain native DateTimeImmutable whose timezone identity is UTC; add or update only allowlisted tests and tracking evidence necessary to prove both corrections. No unrelated dependency update, production change, or scope expansion is authorized."
+
+**This authorization extends the allowlist by exactly two files — `composer.json` and `composer.lock` — and nothing else.** It supersedes acceptance criterion 18 for those two files only; every other file named there and in *Forbidden files and changes* remains unchanged and still forbidden.
+
+| Finding | What was wrong | Resolution | Files |
+|---|---|---|---|
+| **P1-1** (review P1) | `FirmName` normalized through the global `\Normalizer`, which resolved **only** through `symfony/polyfill-intl-normalizer` — a package present in `composer.lock` purely as a transitive dependency of `symfony/polyfill-intl-idn` and `symfony/string`, declared nowhere in `composer.json`. `ext-intl` is declared in neither `composer.json`, the `Dockerfile`, nor either CI job. Depending on an undeclared package hits the `AGENTS.md` **new-runtime-dependency approval gate**, which the accepted contract had made unreachable by forbidding `composer.json` edits. | `"symfony/polyfill-intl-normalizer": "^1.38"` is now a **direct production requirement** under `require`. The lock was refreshed with the narrowest operation available (`composer update --lock --no-install`), which reported *"Nothing to modify in lock file"*: **the only lock change is the `content-hash`.** | `composer.json`, `composer.lock` |
+| **P2-1** (review P2) | `FirmCreated` enforced UTC with `getOffset() !== 0`. A zero offset is a property of an *instant*, not of a *zone*, so `Europe/London` was **accepted** on 2026-01-15 (offset zero) and rejected on 2026-08-12, and `Atlantic/Reykjavik` and `Africa/Abidjan` were accepted year-round — each then carrying a named regional zone through the system labelled UTC. The inline comment additionally claimed, incorrectly, that every zone other than `UTC`/`GMT`/`+00:00`/`Z` was refused. | The check now compares the **timezone identity** against the single canonical `UTC`. The pre-existing exact-class rule is unchanged and still runs first, so a `Carbon\CarbonImmutable`-shaped subclass is rejected even when it carries UTC. **Nothing is converted or normalized** — an unacceptable instant is refused. The inaccurate comments in `FirmCreated` and `Firm` are corrected. | `FirmCreated.php`, `Firm.php` (docblock), `FirmTest.php` |
+
+**`ext-intl` is *not* installed and is not claimed to be.** `extension_loaded('intl')` is `false` in the canonical image, and the `Dockerfile` and both CI `extensions:` lists are unchanged. The approved runtime implementation of Unicode NFC normalization is **the explicitly declared Symfony polyfill**, which `\Normalizer` resolves to at `vendor/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php`. Declaring it directly is what removes the reproducibility risk; installing an extension was neither required nor authorized.
+
+**Dependency-diff proof.** Comparing `composer.lock` before and after, package by package: `packages` **76 → 76**, `packages-dev` **36 → 36**, **0 added, 0 removed, 0 version or dist-reference changes across all 112 packages**. `symfony/polyfill-intl-normalizer` stays at **v1.38.0** (`2d446c214bdbe5b71bde5011b060a05fece3ae6b`) in the production `packages` section. Every other top-level lock key — `_readme`, `aliases`, `minimum-stability`, `stability-flags`, `prefer-stable`, `prefer-lowest`, `platform`, `platform-dev`, `plugin-api-version` — is byte-identical. No repository, stability, platform, script, or Composer configuration setting changed, and no other dependency was added, upgraded, downgraded, or removed.
+
+**UTC acceptance and rejection, executed against the corrected type:**
+
+| Instant | Timezone identity | Offset | Result |
+|---|---|---|---|
+| `new \DateTimeZone('UTC')` | `UTC` | 0 | **Accepted** |
+| PF-047 `SystemClock`'s own construction | `UTC` | 0 | **Accepted** |
+| `Europe/London`, 2026-01-15 | `Europe/London` | 0 | Rejected |
+| `Europe/London`, 2026-08-12 | `Europe/London` | +3600 | Rejected |
+| `Atlantic/Reykjavik` | `Atlantic/Reykjavik` | 0 | Rejected |
+| `Africa/Abidjan` | `Africa/Abidjan` | 0 | Rejected |
+| `GMT` | `GMT` | 0 | Rejected |
+| `Z` | `Z` | 0 | Rejected |
+| `+00:00` | `+00:00` | 0 | Rejected |
+| `Etc/UTC` | `Etc/UTC` | 0 | Rejected |
+| `Asia/Bangkok` | `Asia/Bangkok` | +25200 | Rejected |
+| `\DateTimeImmutable` subclass carrying `UTC` | `UTC` | 0 | Rejected (exact-class rule) |
+
+**`GMT`, `Z`, `Etc/UTC`, and `+00:00` denote the same instant but are distinct timezone identities, and the accepted contract names UTC alone** — so each is refused rather than silently treated as an alias. The rule is **compatible with Foundation**: PF-047's `SystemClock` constructs its instant with `new \DateTimeZone('UTC')` and therefore always satisfies it, verified by execution. Every rejection message is the same static text and contains no supplied zone, instant, identifier, name, or jurisdiction value.
+
+**No API, payload, event identity, or event behaviour changed**, and no unrelated production code was touched. `FirmCreated`'s public surface is unchanged — the new `UTC_TIMEZONE_IDENTITY` constant is `private`, so it is a construction rule rather than a published part of the type. The obsolete `test_a_zero_offset_instant_is_accepted_however_its_zone_is_spelled`, which asserted exactly the behaviour now known to be wrong, was **replaced by a strictly stronger matrix** rather than deleted: `FirmTest` grew 16 → **35 tests** and 40 → **87 assertions**, adding an explicit acceptance case, a PF-047 compatibility case, a nine-entry rejection matrix, and a nine-entry non-conversion-and-non-disclosure matrix. **No assertion was removed anywhere.**
+
+### Verified implementation evidence (as of 13 August 2026)
+
+All measured in the canonical isolated Docker PHP 8.4.24 / PostgreSQL 16.14 environment, against a disposable `NOSUPERUSER NOBYPASSRLS` role owning a fresh database, with `REQUIRE_POSTGRESQL_TEST_DATABASE=true`. **No SQLite substitution.**
+
+| Check | Baseline at `d038f4c` | Final |
+|---|---|---|
+| Complete PostgreSQL-backed suite | **480 passed, 1,581 assertions** | **639 passed, 0 failed, 2,188 assertions** |
+| `PlatformAdministrationContractShapeTest` | — | 33 tests, 391 assertions, pass |
+| `FirmTest` | — | 35 tests, 87 assertions, pass |
+| `FirmValueObjectsTest` | — | 91 tests, 118 assertions, pass |
+| `DomainEventTest` (guard replaced) | 24 tests, 73 assertions | 24 tests, **74** assertions, pass |
+| `BusinessIdentifierTest` (guard replaced) | 118 tests, 171 assertions | 118 tests, **172** assertions, pass |
+| `AggregateRootTest` (guard replaced) | 33 tests, 106 assertions | 33 tests, **107** assertions, pass |
+| `EntityTest` (guard replaced) | 42 tests, 113 assertions | 42 tests, **114** assertions, pass |
+| `FirmContextTest` (guard replaced) | 11 tests, 99 assertions | 11 tests, **100** assertions, pass |
+| `PF-049` Foundation framework-dependency guard | 8 tests, 287 assertions | 8 tests, 287 assertions, **byte-identical** |
+| `PF-033` PostgreSQL engine/role guard | 1 test, 8 assertions | 1 test, 8 assertions, pass |
+| `FirmTransactionManagerTest` | — | 42 tests, 341 assertions, **byte-identical** |
+| `FirmTransactionManagerPostgreSqlTest` | — | 12 tests, 44 assertions, **byte-identical** |
+| Pint (stock Laravel preset) | 58 files, pass | 67 files, pass |
+| PHPStan level 5, no baseline or suppression | 38 files, no errors | 44 files, no errors |
+| `composer validate --strict` | valid | valid |
+| `composer audit --locked --abandoned=report` | clean | clean |
+| `npm audit --audit-level=high` | 0 vulnerabilities | 0 vulnerabilities |
+| `git diff --check` | clean | clean |
+| `composer.lock` package churn | — | **0 added, 0 removed, 0 changed** across 112 packages; `content-hash` only |
+
+**Every guard-replacement file gained an assertion and lost none**, and no test was lost anywhere.
+
+**Allowlist verification.** Exactly the ten originally allowlisted paths, the five owner-authorized Foundation test files, the three tracking files, and — under the 13 August 2026 correction authorization — `composer.json` and `composer.lock` changed. **Twenty paths in total, and nothing else.** **No production Foundation, Infrastructure, HTTP, model, or provider file is modified** — `git diff` against `d038f4c` over `app/Foundation`, `app/Infrastructure`, `app/Http`, `app/Models`, `app/Providers`, `.github/`, `.githooks/`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `package.json`, `package-lock.json`, `Dockerfile`, `compose.yaml`, `docker/`, `docs/architecture`, `docs/adr`, `docs/domain`, `tests/Feature`, and `tests/Unit/Infrastructure` is **empty**. The four required `Protect main` check names remain exactly `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit`. The existing file-local fixtures `TestFirmIdentifier` (twice), `TestActorIdentifier`, and `PostgreSqlTestFirmIdentifier` are **unmodified**.
+
+**Forbidden-reference scan.** Across all six module PHP sources, with comments and docblocks stripped, **no** reference exists to `Illuminate`, `Laravel`, `Livewire`, `Inertia`, `Orchestra`, `Facade`, `Carbon`, `Eloquent`, a repository, a service provider, a migration, a schema, `FirmContext`, `App\Application\Tenancy`, `FirmTransactionManager`, the `onelegalpro.firm_id` literal, `CandidateFirmDirectory`, `CandidateFirmReference`, `FirmProvisioning`, `SubscriptionEntitlement`, `EthicalWall`, `PrivilegedAccessGrant`, or `FirmMembership`, and no Laravel global helper is called.
+
+### Implementation decisions the contract left undetermined
+
+Three points were underdetermined and were fixed by explicit owner answer on 12 August 2026, recorded here because each becomes part of a published shape:
+
+1. **`FirmLifecycleState` is placed at `Domain/ValueObjects/FirmLifecycleState.php`**, per *Allowed implementation files* and acceptance criterion 1, which name only the `ValueObjects`, `Aggregates`, and `Events` sub-namespaces. `docs/architecture/19_Platform_Administration_Architecture.md` §28 declares no `Enums/` directory, and none was created.
+2. **`FirmName` is bounded at 1 to 200 code points inclusive.** The contract states the rule ("bounds length by code points", empty rejected) but no number, unlike `FirmJurisdiction`'s owner-selected 2–32. The minimum follows from the empty-result rejection; **the maximum was selected by the technical owner** rather than by an implementation author, on the contract's own reasoning that widening is additive and narrowing is a breaking change to a published type.
+3. **Unicode NFC normalization uses the global `\Normalizer` class — now backed by an explicitly declared direct dependency.** *(Superseded 13 August 2026; the original wording is retained here as history.)* At implementation, `ext-intl` was installed in neither the canonical Docker image nor either CI job, so `Normalizer` resolved through `symfony/polyfill-intl-normalizer`, a **transitive** package in `composer.lock`, and declaring it directly would have required editing `composer.json`, which acceptance criterion 18 forbade. Independent review found that this **failed the `AGENTS.md` new-runtime-dependency approval gate** rather than merely carrying risk. **Under the 13 August 2026 owner authorization, `symfony/polyfill-intl-normalizer` `^1.38` is now a direct production requirement in `composer.json`.** `ext-intl` remains uninstalled and unclaimed; the declared polyfill is the approved runtime implementation.
+
+### Residual risks, each outside `PA-001`'s scope
+
+- ~~**NFC normalization depends on an undeclared transitive package.**~~ **Resolved 13 August 2026** — see *Resolved review findings* above. `symfony/polyfill-intl-normalizer` `^1.38` is declared directly under `require`, so the package can no longer be dropped by an unrelated dependency change without a visible, reviewed `composer.json` edit. The historical risk is recorded here rather than erased.
+- **`FirmName` rejects Unicode control characters (`\p{Cc}`) only.** Unicode **format** characters (`\p{Cf}` — zero-width joiners, bidi overrides, and a leading byte-order mark, which makes two visually identical names unequal) remain acceptable, because the contract says "control character" and widening it here would be an unapproved narrowing of accepted input. A homograph and spoofing policy for Firm names belongs to a later approved story.
+- **The 1–200 code-point bound is newly selected, not contract-derived.** Widening it later is additive; narrowing it would be a breaking change requiring explicit human approval.
+- **The `PlatformAdministration` guard scanner is duplicated across the five Foundation test files.** The 13 August 2026 authorization for those files permits only the one replaced method in each, so a shared helper would need a new file outside every allowlist. The duplication is deliberate and currently harmless — all five were mutation-tested and behave identically — but de-duplication belongs to its own approved follow-up.
+
+**No claim is made** that the Firm registry, its access posture, Row-Level Security, tenant isolation, `FirmProvisioning`, `SubscriptionEntitlement`, entitlement or seat-limit enforcement, administrative audit persistence, actor attribution, `PF-081` tenant resolution, `PF-082` middleware, IdentityAccess, or any other business module exists — or that anything is deployed or production-ready.
 
 **Objective.** Introduce the minimum `PlatformAdministration`-owned **`Firm` aggregate foundation**: the aggregate root, its owned identifier, its canonical name, its jurisdiction reference, its lifecycle state, and the single recorded creation fact — and nothing else. It is the first dependency in `PF-081`'s blocker **B1**, and it clears only the aggregate-and-identifier half of it.
 
@@ -1674,12 +1812,14 @@ Ownership is preserved elsewhere: **IdentityAccess alone owns credentials, authe
 
 The owner additionally **selected the opaque jurisdiction-code shape parameters** in decision 7, because fixing them silently would have created an unsupported permanent contract.
 
-**Everything else below is prepared for independent review and has not been accepted.** The remaining decisions — namespace and file placement (2), the lifecycle scope and the deliberate absence of transitions (4, 5), the absence of an aggregate version (6), and the domain-event and audit-claim boundary (8) — together with the registry-boundary rules, security and audit rules, acceptance criteria, allowed files, exclusions, and test obligations, are this contract's **proposal**. **The complete `PA-001` contract has not passed independent review or final technical acceptance.**
+**The complete contract has since been accepted (12 August 2026).** The remaining decisions — namespace and file placement (2), the lifecycle scope and the deliberate absence of transitions (4, 5), the absence of an aggregate version (6), and the domain-event and audit-claim boundary (8) — together with the registry-boundary rules, security and audit rules, acceptance criteria, allowed files, exclusions, and test obligations, were this contract's proposal at drafting and are now accepted with it. The three-decision list above records what carried explicit owner approval **at drafting time**, not the current approval state.
 
-Nothing here is implementation authorization, and **none of it makes `PA-001` Ready** — its Definition of Ready is unmet for the separate reason recorded below.
+**Acceptance did not repair the contract.** Implementation established that three of its own requirements cannot hold at once — see *Blocker* at the head of this entry — and that defect is resolvable only by an owner decision, not by an implementation choice.
+
+**Two points remained undetermined by the accepted contract and were fixed by explicit owner answer**, because leaving either to an implementation author would have created an unsupported permanent contract: `FirmLifecycleState`'s placement in `ValueObjects/`, and `FirmName`'s code-point bounds. Both are recorded under *Implementation decisions the contract left undetermined* at the head of this entry.
 
 1. **Identifier `PA-001`, under the new `PA-` prefix.** No EPIC-012 story previously carried an identifier. The `PA-` prefix names `PlatformAdministration` implementation stories on the convention `PF-` already establishes for Platform Foundation and `ARCH-` for the architecture track, and it is deliberately **not** a `PF-` number, because `PF-` denotes Platform Foundation and would misattribute the owning context.
-2. **Namespace `App\Modules\PlatformAdministration\Domain`, at `app/Modules/PlatformAdministration/Domain/`.** This is the first code under `app/Modules`, exactly as `docs/domain/06_Laravel_Module_Blueprint.md` requires for a business capability. The existing `App\` → `app/` PSR-4 mapping already covers it, so **no `composer.json` change is required** — the same reconciliation `PF-073` established for `App\Infrastructure` and `PF-081` for `App\Application`. **No concrete business identifier is placed in `app/Foundation`**, per the standing Foundation rule.
+2. **Namespace `App\Modules\PlatformAdministration\Domain`, at `app/Modules/PlatformAdministration/Domain/`.** This is the first code under `app/Modules`, exactly as `docs/domain/06_Laravel_Module_Blueprint.md` requires for a business capability. The existing `App\` → `app/` PSR-4 mapping already covers it, so **no autoload, namespace, or PSR-4 change is required** — the same reconciliation `PF-073` established for `App\Infrastructure` and `PF-081` for `App\Application`. *(As drafted this read "no `composer.json` change is required". That remained true of **placement**, and is still true of it; the 13 August 2026 correction added one unrelated direct runtime requirement for Unicode normalization, recorded under* Resolved review findings *above.)* **No concrete business identifier is placed in `app/Foundation`**, per the standing Foundation rule.
 3. **Domain only. No persistence, and therefore no registry relation.** `PA-001` creates no schema, migration, Eloquent record, repository contract, query contract, adapter, service provider, container binding, route, or controller. The Firm registry relation, its access posture, its narrow read, and the `CandidateFirmDirectory` adapter are **`PA-007`**. This split is deliberate: the class-(b) registry needs module migrations, relation-class declaration, dedicated PostgreSQL privileges, and the ADR-016 Decision 10 role separation, **none of which exists in this repository**, and bundling them here would put a database-design and security change inside a story whose approved scope is the aggregate foundation.
 4. **Creation into `Requested` only, with the complete approved state vocabulary declared.** `FirmLifecycleState` declares exactly the four approved cases `Requested`, `Provisioned`, `Active`, and `Closed` (`docs/architecture/19_Platform_Administration_Architecture.md` §7), so `PA-002` cannot invent a different vocabulary and does not have to modify a published type. **Only `Requested` is reachable, and no transition method of any kind exists.** This is absence, not a stub: nothing is renamed, simulated, defaulted, or partially implemented, and **"a Firm never becomes usable as a side effect" is preserved structurally** — no code path can leave `Requested`.
 5. **Every `Requested → Provisioned → Active → Closed` transition remains `PA-002`'s**, together with its authorization, its reason recording, and its provisioning semantics. **No correction command is delivered here.** The standing rule is nevertheless fixed by this contract and binds every later story: **a correction is a new recorded transition or fact, never a mutation of history**, on the discipline `docs/adr/ADR-018-Audit-Persistence-and-Append-Only-Enforcement.md` Decision 6 and Constitution Articles 8, 18, 23, and 30 establish.
@@ -1780,18 +1920,18 @@ Six framework-independent domain source files, one module README, and three focu
 
 **Ordering findings, stated honestly.** **This foundation can be implemented before `PF-081`** — `PF-081` consumes a Firm identifier, never a `Firm` record, and the class-(b) registry exists precisely before `FirmContext`. **`PA-007` can also be implemented before IdentityAccess**, because neither the registry nor its adapter authenticates anyone or resolves membership; what `PA-007` genuinely requires is PostgreSQL role separation and privileges, not identity. **What cannot be done before IdentityAccess is actor attribution**, and what cannot be done before `PF-091` and `PA-006` is durable administrative audit — which is precisely why `PA-001` claims neither.
 
-### Definition of Ready — NOT met
+### Definition of Ready — met (both former counts resolved 12 August 2026)
 
 *Resolved:* objective; owner; ownership boundaries; identifier and prefix convention; namespace and file placement; exact aggregate scope; identifier representation; canonical-name rules; jurisdiction-reference representation; lifecycle scope and the deliberate absence of transitions; registry boundary and its compensating controls; the `PF-081` adapter boundary and its deferral to `PA-007`; security, failure, confidentiality, enumeration-resistance, and audit rules; dependency analysis; acceptance criteria; allowed and forbidden files; explicit exclusions; test obligations; validation plan; sequencing; documentation impact.
 
-*Not resolved — why `PA-001` is not Ready, on two independent counts:*
+*The two counts that formerly blocked readiness, and how each was resolved on 12 August 2026:*
 
-1. **This contract has not been independently reviewed or technically accepted.** Three decisions carry explicit owner approval — the identifier and `PA-` prefix, the domain-only scope, and the deferral of the registry relation and adapter to `PA-007` — plus the owner's selection of the opaque jurisdiction-code shape parameters. **The contract as a whole is a proposal prepared for independent review**, on the same discipline `PF-073` and `PF-081` followed before their own contracts were accepted.
-2. **The first-business-module authorization gate is unsatisfied.** `docs/PROJECT_STATUS.md` states plainly: *"Do not begin business modules until separately approved."* `PA-001` would create `app/Modules` and the first business capability in this repository, and every prior module has been deferred under that rule. **Implementation requires explicit human authorization of that gate under `AGENTS.md`**, recorded separately from any acceptance of this contract.
+1. **Contract acceptance — resolved.** The contract was accepted by the technical owner. It had previously carried explicit owner approval of three decisions only — the identifier and `PA-` prefix, the domain-only scope, and the deferral of the registry relation and adapter to `PA-007` — plus the owner's selection of the opaque jurisdiction-code shape parameters.
+2. **The first-business-module authorization gate — resolved.** The repository owner recorded the explicit authorization quoted at the head of this entry, satisfying the `docs/PROJECT_STATUS.md` rule *"Do not begin business modules until separately approved."* It is recorded separately from contract acceptance, as that rule requires, and **expands no scope and extends no allowlist.**
 
-**No dependency is missing and no substitute is proposed** — every technical dependency is Done. Nothing here schedules, starts, or authorizes implementation.
+**No dependency is missing and no substitute was proposed** — every technical dependency is Done.
 
-**Therefore `PA-001` remains `Backlog`.**
+**`PA-001` is therefore at `Code Review`.** The contract defect discovered during implementation — three of its own requirements that could not hold simultaneously — is recorded and resolved under *Resolved contract defect* at the head of this entry, under its own recorded owner authorization.
 
 ### Acceptance criteria
 
@@ -1807,7 +1947,7 @@ A future `PA-001` implementation is correct only if all of the following hold:
 6. `Firm` is `final`, extends `AggregateRoot`, declares `@extends AggregateRoot<FirmId>`, and exposes exactly its identity, name, jurisdiction, and lifecycle-state accessors plus the inherited `releaseEvents()`.
 7. **No path can leave `Requested`** — no transition, setter, mutator, rename, `with*`, state-assignment, or reflection-free mutation member exists on `Firm`.
 8. Creation records **exactly one** `FirmCreated`; `releaseEvents()` returns it once, in recording order, and leaves the buffer empty.
-9. `FirmCreated` is `final readonly`, implements exactly `DomainEvent`, receives its `UuidV7` and `\DateTimeImmutable` as constructor data, returns a **plain native `\DateTimeImmutable` whose timezone is UTC**, and carries no `Entity`, aggregate, mutable object, or confidential value.
+9. `FirmCreated` is `final readonly`, implements exactly `DomainEvent`, receives its `UuidV7` and `\DateTimeImmutable` as constructor data, returns a **plain native `\DateTimeImmutable` whose timezone is UTC**, and carries no `Entity`, aggregate, mutable object, or confidential value. **"Whose timezone is UTC" means the timezone *identity* is exactly `UTC`** — a zero offset alone does not satisfy it, because a zero offset is a property of an instant rather than of a zone, and `GMT`, `Z`, `Etc/UTC`, and a fixed `+00:00` are distinct identities this contract does not name. An instant that fails the rule is **rejected, never converted**. *(Clarified 13 August 2026 after independent review found the original implementation testing the offset instead; the criterion's meaning is unchanged.)*
 10. `Firm` and its value objects read **no ambient time and no ambient randomness**, and hold **no `Clock` and no `UuidV7Generator`**.
 11. No exception message, code, or property contains a rejected input value, a Firm identifier, a Firm name, a jurisdiction value, or any candidate value.
 12. **No repository, query contract, port, Eloquent model, migration, schema, RLS policy, service provider, container binding, route, controller, middleware, adapter, cache, logger, or `PF-081` reference exists anywhere under `app/Modules`.**
@@ -1816,7 +1956,7 @@ A future `PA-001` implementation is correct only if all of the following hold:
 15. The existing file-local test fixtures `TestFirmIdentifier` (twice) and `PostgreSqlTestFirmIdentifier` are **left in place and unmodified**. `PA-001` does not migrate them to `FirmId`; doing so would narrow `PF-080`'s abstract parameter types and is a separate breaking-contract follow-up requiring explicit approval.
 16. No `FirmProvisioning`, `SubscriptionEntitlement`, entitlement, seat-limit, principal, membership, session, credential, invitation, role, capability, permission, authorization, branding, domain, monetary, operator-access, Ethical Wall, or Firm-business-data type is created — and none is stubbed, approximated, simulated, partially implemented, or renamed.
 17. No Firm-level **suspended** state, Firm-wide disable, emergency shutdown, self-service signup path, or provisioning workflow exists in any form.
-18. `composer.json`, `composer.lock`, `package.json`, `package-lock.json`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `.github/`, `.githooks/`, and Docker/environment files are unchanged, and **no dependency is added**.
+18. `package.json`, `package-lock.json`, `phpunit.xml`, `phpstan.neon.dist`, `pint.json`, `.github/`, `.githooks/`, and Docker/environment files are unchanged. **`composer.json` and `composer.lock` change only as the 13 August 2026 correction authorization permits** — one direct production requirement, `symfony/polyfill-intl-normalizer: ^1.38`, and the resulting `content-hash`. **No other dependency is added, upgraded, downgraded, or removed**, no package moves between `require` and `require-dev`, and no repository, stability, platform, script, or Composer configuration setting changes. *(As originally written this criterion required `composer.json` and `composer.lock` to be unchanged and no dependency to be added; independent review established that this made the `AGENTS.md` new-runtime-dependency gate unsatisfiable, and the owner authorized this narrow supersession.)*
 19. The four required `Protect main` check names remain exactly `PHP Code Quality`, `Frontend Build`, `Application Tests`, and `Dependency Audit`.
 
 ### Focused test plan
@@ -1850,7 +1990,24 @@ A future `PA-001` implementation — once this contract is accepted **and** the 
 - `docs/implementation/03_Engineering_Backlog.md` and `docs/PROJECT_STATUS.md`, for verified lifecycle and evidence updates;
 - `docs/implementation/01_Implementation_Sprint_Plan.md`, for the lifecycle note only.
 
-Any additional source, test, provider, configuration, workflow, or database file requires a separately reviewed contract correction and explicit approval before editing. **No wildcard access to `app/Modules`, to any architecture document, or to any other module is authorized.**
+**Owner-authorized extension (12 August 2026) — five Foundation test files, for one method each.** Implementation established that this list was incomplete: the five obsolete `app/Modules` absence guards recorded under *Resolved contract defect* above could not be satisfied without it. The owner authorized adding, **solely** to replace that one guard method in each:
+
+- `tests/Unit/Foundation/Domain/Event/DomainEventTest.php`;
+- `tests/Unit/Foundation/Domain/Identity/BusinessIdentifierTest.php`;
+- `tests/Unit/Foundation/Domain/Model/AggregateRootTest.php`;
+- `tests/Unit/Foundation/Domain/Model/EntityTest.php`;
+- `tests/Unit/Foundation/Tenancy/FirmContextTest.php`.
+
+**This extension is exhausted.** It authorizes no further change to those files, no other test file, and no production Foundation file — **and it did not weaken the *Forbidden files and changes* rule below**, which continues to bind every other existing test: no assertion may be deleted without replacement, and none may be removed, weakened, renamed, skipped, or suppressed.
+
+**Owner-authorized extension (13 August 2026) — two dependency files, for the narrow correction.** Independent review established that the accepted contract made the `AGENTS.md` new-runtime-dependency gate unsatisfiable: `FirmName` requires `\Normalizer`, and acceptance criterion 18 forbade the only files in which that dependency could be declared. The owner authorized adding, **solely** to declare that one direct production requirement:
+
+- `composer.json`;
+- `composer.lock`.
+
+**This extension is exhausted too.** It authorizes exactly one added requirement — `symfony/polyfill-intl-normalizer: ^1.38` — and the `content-hash` Composer must rewrite as a result. It authorizes **no** other dependency change, no `ext-intl` declaration, no Docker, CI, PHP-configuration, Composer-script, repository, stability, or platform change, and no scope expansion of any kind. The verbatim authorization is recorded under *Resolved review findings* above.
+
+Any additional source, test, provider, configuration, workflow, or database file requires a separately reviewed contract correction and explicit approval before editing. **No wildcard access to `app/Modules`, to any architecture document, to `app/Foundation`, or to any other module is authorized.**
 
 ### Forbidden files and changes
 
@@ -1878,7 +2035,7 @@ On implementation: this entry and `docs/PROJECT_STATUS.md` record verified statu
 
 ## Standing constraints for this epic
 
-- **Every story above is `Backlog`.** None is Ready, In Progress, Code Review, Architecture Review, QA, Approved, or Done. **`PA-001` now carries an assigned identifier and a story contract prepared for independent review; neither makes it Ready**, that contract has not been accepted, and its Definition of Ready is explicitly unmet on two counts.
+- **`PA-001` is at `Code Review`; every other story in this epic is `Backlog`.** None of the others is Ready, In Progress, Code Review, Architecture Review, QA, Approved, or Done. `PA-001`'s contract is accepted, its Definition of Ready is met, the separate first-business-module authorization gate is satisfied and recorded, and the two independent-review findings are corrected under their own recorded authorization; it is nevertheless **not** Architecture Review, QA, Approved, or Done, and it is unmerged and undeployed. **Correcting review findings advances no status**, and a final confirmation review, the four required protected checks on an exact final head, and the recorded human approval all remain outstanding. **`PA-002` through `PA-007` carry reserved identifiers with no contract, no Definition of Ready, and no authorization**, and none becomes Ready because `PA-001` started.
 - **Pull requests remain serialized — one active implementation PR at a time**, one approved story per PR, per `CONTRIBUTING.md`.
 - **Authentication, authorization, database-design, security-control, and destructive-operation changes each require the explicit human approval gate** in `AGENTS.md` before merge, regardless of this epic's planning status.
 - **No control may be weakened to meet a date.** Firm isolation, authorize-before-retrieval, denied-existence confidentiality, actor attribution, human approval, immutable audit, fail-closed behaviour, white-label presentation, and the Thai-language legal-authority rules are not schedule variables.

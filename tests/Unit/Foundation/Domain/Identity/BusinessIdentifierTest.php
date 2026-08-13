@@ -696,9 +696,43 @@ final class BusinessIdentifierTest extends TestCase
         $this->assertFalse(property_exists($this, 'app'));
     }
 
-    public function test_no_business_module_was_introduced(): void
+    /**
+     * The dependency direction is one-way: modules consume Foundation, never
+     * the reverse. This replaces an earlier guard that asserted `app/Modules`
+     * did not exist at all — a scope check that was only ever true because no
+     * approved business module had been implemented yet, and that would have
+     * to be deleted rather than satisfied once one was.
+     *
+     * It matters especially for this contract: **every concrete business
+     * identifier lives in the module that owns it**, so this base must be
+     * reachable from a module without ever reaching back into one.
+     *
+     * Detection is token-aware, so only a **real** PHP reference counts: a
+     * qualified or fully-qualified name appears as `T_NAME_QUALIFIED` or
+     * `T_NAME_FULLY_QUALIFIED`, while a namespace mentioned in a docblock or a
+     * string literal never does.
+     */
+    public function test_the_business_identifier_contract_does_not_depend_on_business_modules(): void
     {
-        $this->assertDirectoryDoesNotExist(\dirname(__DIR__, 5).'/app/Modules');
+        $source = file_get_contents(\dirname(__DIR__, 5).'/app/Foundation/Domain/Identity/BusinessIdentifier.php');
+
+        $this->assertIsString($source);
+
+        $references = [];
+
+        foreach (token_get_all($source) as $token) {
+            if (! \is_array($token) || ! \in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)) {
+                continue;
+            }
+
+            $name = ltrim($token[1], '\\');
+
+            if ($name === 'App\\Modules' || str_starts_with($name, 'App\\Modules\\')) {
+                $references[] = $token[1];
+            }
+        }
+
+        $this->assertSame([], $references, 'BusinessIdentifier must not depend on the App\Modules namespace.');
     }
 
     public function test_foundation_ships_no_concrete_identifier(): void
