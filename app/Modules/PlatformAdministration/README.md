@@ -2,7 +2,7 @@
 
 **Standing convention record for the `PlatformAdministration` bounded context.**
 
-Created by **PA-001 — Firm Aggregate Foundation**, the first `PlatformAdministration` story and the first code under `app/Modules`. It states what this context owns, what it may never contain, exactly what PA-001 delivered, and what remains `PA-002`–`PA-007`.
+Created by **PA-001 — Firm Aggregate Foundation**, the first `PlatformAdministration` story and the first code under `app/Modules`. It states what this context owns, what it may never contain, exactly what PA-001 delivered, and what remains `PA-002`–`PA-008`.
 
 **It is a convention record, not the authoritative workflow-status source** — [`docs/PROJECT_STATUS.md`](../../../docs/PROJECT_STATUS.md) and [`docs/implementation/03_Engineering_Backlog.md`](../../../docs/implementation/03_Engineering_Backlog.md) remain authoritative for whether a given story is Ready, In Progress, Code Review, or Done.
 
@@ -53,7 +53,7 @@ Foundation primitives are **consumed unchanged, never duplicated**: `PF-040` `Ag
 
 **None of the following exists in this repository, and none of it is stubbed, approximated, simulated, partially implemented, or renamed:**
 
-- **No registry.** The Firm registry relation — its schema, migration, privileges, access posture, narrow query, and adapter — does not exist. It is `PA-007`.
+- **No registry.** The Firm registry relation — its schema, migration, privileges, access posture, and narrow query — does not exist. It is `PA-007`, whose contract is recorded but whose Definition of Ready is not met. The concrete `CandidateFirmDirectory` adapter is neither `PA-001`'s nor `PA-007`'s — it is **`PA-008`**, which follows `PF-081`.
 - **No persistence of any kind.** No schema, migration, Eloquent record, repository contract, query contract, adapter, cast, DTO, or serialization.
 - **No authorization.** No role, capability, permission, deny rule, authorization cache, or composed decision.
 - **No provisioning.** No `FirmProvisioning`, no lifecycle transition, no activation path, and no self-service signup.
@@ -94,14 +94,17 @@ The standard module structure in [`docs/domain/06_Laravel_Module_Blueprint.md`](
 
 ## Remaining stages
 
-**`PA-001` is the only `PlatformAdministration` story with a contract.** `PA-002` through `PA-007` carry reserved identifiers and **no contract, no Definition of Ready, and no authorization** — assigning an identifier is a tracking record, not a schedule.
+**`PA-001` and `PA-007` have contracts; `PA-008` has a scope outline; `PA-002` through `PA-006` have nothing.** `PA-001` is `Done`. `PA-007`'s contract is recorded in `docs/implementation/03_Engineering_Backlog.md` with its **Definition of Ready not met**, so it stays `Backlog`. `PA-002` through `PA-006` carry reserved identifiers and **no contract, no Definition of Ready, and no authorization** — assigning an identifier, or recording a contract or an outline, is a tracking record and never a schedule.
 
 | Story | Scope | Status |
 |---|---|---|
-| `PA-002` | `Firm` lifecycle transitions — `Requested → Provisioned → Active → Closed` — with authorization, reason recording, and provisioning semantics | Reserved, no contract |
+| `PA-002` | `Firm` lifecycle transitions — `Requested → Provisioned → Active → Closed` — with authorization, reason recording, and provisioning semantics. **It also owns the aggregate version and its conflict semantics**, which `PA-007` deliberately does not deliver | Reserved, no contract |
 | `PA-003`–`PA-006` | The remaining approved `PlatformAdministration` stages, including `FirmProvisioning`, `SubscriptionEntitlement`, seat limits, and the append-only administrative audit relation (`PA-006`) | Reserved, no contract |
-| `PA-007` | The Firm registry relation, its access posture and dedicated privileges, its narrow named query, the aggregate version and its conflict semantics, and the concrete `CandidateFirmDirectory` adapter satisfying `PF-081`'s port | Reserved, no contract |
+| `PA-007` | The Firm registry relation, its access posture and dedicated privileges, and its narrow named query — **read-only**, with no writer, no version column, and no idempotency record | Contract recorded; `Backlog`, Definition of Ready **not** met |
+| `PA-008` | A thin adapter from `PA-007`'s narrow registry query to `PF-081`'s `CandidateFirmDirectory` port, sequenced **after** `PF-081` publishes it | Scope outline; `Backlog`, no full contract |
 
-`PA-007` is **deliberately not one of the six approved stages**. It is a database-design and security change requiring PostgreSQL role separation and dedicated privileges that do not exist in this repository, and it must never introduce a permissive `USING (true)` Row-Level Security policy — that would present as a control while permitting everything.
+**`PA-007` and `PA-008` are deliberately not among the six approved stages, and neither adds a fourth concept** — this context still owns exactly `Firm`, `FirmProvisioning`, and `SubscriptionEntitlement`. `PA-007` is a database-design and security change requiring PostgreSQL role separation and dedicated privileges that do not exist in this repository, and it must never introduce a permissive `USING (true)` Row-Level Security policy — that would present as a control while permitting everything. Its Definition of Ready stays unmet until **`PF-074`** (PostgreSQL Runtime Role Separation) and **`PF-064`** (Module Migration Registration) are both `Done` — both are Platform Foundation's, not this context's, and they are **independent of each other and may proceed in parallel**. `PF-064` is one narrow capability, not three stories: registering each approved module's migration directory with Laravel's migrator. Its contract is recorded in `docs/implementation/03_Engineering_Backlog.md`.
 
-The named sequence is **`PA-001` → `PA-007` → IdentityAccess EPIC-009 stages 1 and 2 → reassess `PF-081`.**
+**The `CandidateFirmDirectory` adapter is `PA-008`, not `PA-007`.** An adapter cannot precede the port it implements. Per the technical owner's decision of 13 August 2026, `PF-081` blocker **B4 gates operational completeness and integration, not `PF-081`'s implementation start**: `PF-081` may begin once B1, B2, and B3 are cleared, and must not be declared operationally complete or integrated until `PA-008` exists. `PF-081` acceptance criterion 14 is unchanged.
+
+The named sequence is **`PA-001` (Done) → `PF-074` and `PF-064`, in parallel → `PA-007` → IdentityAccess EPIC-009 stages 1 and 2 → `PF-081` → `PA-008` → `PF-082`.**
