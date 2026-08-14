@@ -93,6 +93,7 @@ docker compose build
 docker compose up -d
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --database=pgsql_migration
+docker compose exec -T postgres sh /docker-entrypoint-initdb.d/10-provision-roles.sh grants
 docker compose up -d queue
 docker compose ps
 curl -fsS http://127.0.0.1:8080/up
@@ -102,8 +103,9 @@ docker compose exec app php artisan test
 Notes on this sequence:
 
 - **Migrations are explicit and never automatic.** No container runs `artisan migrate` on its own; it is always a deliberate command a developer runs through the dedicated `pgsql_migration` connection. Application and queue traffic use the non-owning `pgsql` runtime connection.
+- **The `grants` step is required, not optional.** The `postgres` container's init mount runs the provisioning script's `bootstrap` phase only, and it runs while the database is still empty, so no table exists to grant on. Until `grants` runs, the runtime role can connect but holds **no table privileges at all** — and because `SESSION_DRIVER` and `CACHE_STORE` are `database`, the application cannot serve a request and the queue worker cannot read `jobs`. The command takes no credential: the role names and passwords come from the `postgres` service's own environment in [`compose.yaml`](compose.yaml). Re-run it after every later migration that adds a relation.
 - **On a completely fresh database, the queue container may stop right after `docker compose up -d`**, because its database-backed tables (`cache`, `jobs`) do not exist yet until migrations run. This is expected, not a failure to troubleshoot.
-- `docker compose up -d queue`, run again after `artisan migrate` completes, starts the queue worker normally against the now-migrated database.
+- `docker compose up -d queue`, run again after `artisan migrate` **and** the `grants` step complete, starts the queue worker normally against the now-migrated database with the runtime role's grants in place.
 - `docker compose ps` should show all **six** services (`app`, `web`, `postgres`, `redis`, `vite`, `queue`) running (and `postgres`/`redis` healthy) once this sequence completes.
 - Application URL: `http://127.0.0.1:8080` · Health URL: `http://127.0.0.1:8080/up` · Vite dev server: `http://127.0.0.1:5173`.
 

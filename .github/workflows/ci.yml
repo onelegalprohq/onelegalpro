@@ -136,7 +136,7 @@ jobs:
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: onelegalpro_bootstrap
-          POSTGRES_PASSWORD: onelegalpro_bootstrap_only
+          POSTGRES_PASSWORD: onelegalpro_bootstrap_test_only
         ports:
           - 5432:5432
         options: >-
@@ -186,7 +186,7 @@ jobs:
       # migrations use the separate non-superuser database owner below.
       - name: Provision separated PostgreSQL test roles and database
         env:
-          PGPASSWORD: onelegalpro_bootstrap_only
+          PGPASSWORD: onelegalpro_bootstrap_test_only
           POSTGRES_USER: onelegalpro_bootstrap
           POSTGRES_DB: onelegalpro_test
           PF074_MIGRATION_ROLE: onelegalpro_test_migration
@@ -221,7 +221,7 @@ jobs:
 
       - name: Grant the runtime role access to framework relations
         env:
-          PGPASSWORD: onelegalpro_bootstrap_only
+          PGPASSWORD: onelegalpro_bootstrap_test_only
           POSTGRES_USER: onelegalpro_bootstrap
           POSTGRES_DB: onelegalpro_test
           PF074_MIGRATION_ROLE: onelegalpro_test_migration
