@@ -1003,7 +1003,7 @@ Two declared members. No constructor, no constant, no static member, no interfac
 ## Module Infrastructure
 - PF-060 through PF-063
 
-### PF-064 — Module Migration Registration — Backlog
+### PF-064 — Module Migration Registration — Code Review
 
 **Identifier assigned by the technical owner on 13 August 2026.** The dependency analysis below is retained ahead of the contract because it is what justifies minting a new identifier rather than reusing an existing name; deleting it would leave `PF-064` looking arbitrary.
 
@@ -1028,7 +1028,7 @@ Two declared members. No constructor, no constant, no static member, no interfac
 
 #### Story contract
 
-**Status.** `Backlog`. **Not** Ready, In Progress, Code Review, Architecture Review, QA, Approved, or Done. **No `PF-064` implementation has started and no production `PF-064` file exists.** Nothing is deployed. **This contract carries no implementation authorization**; recording it schedules and authorizes nothing.
+**Status.** `Code Review`. The repository owner separately authorized implementation on 14 August 2026 under this accepted contract and its seven-file allowlist. The implementation now adds one shared `ModuleMigrationServiceProvider`, one bootstrap registration, and focused unit and PostgreSQL feature evidence; it adds no business migration, schema, model, repository, module loader, manifest, route, binding, command, bus, or deployment. The canonical PHP 8.4 / PostgreSQL 16 run, using a disposable non-superuser `NOBYPASSRLS` role with the database guard armed, passed with **643 tests and 2,215 assertions**; the focused PF-064 suites passed with **4 tests and 26 assertions**; Pint passed across 70 files and PHPStan level 5 passed across 45 files. Nothing is deployed. This evidence does not make PF-064 Approved or Done: independent review, the four protected checks on the exact final head, human approval, and merge remain outstanding.
 
 **Objective.** Make migrations owned by an approved module under `app/Modules/<Module>/Database/Migrations` discoverable and executable by Laravel's ordinary migration commands and by the test suite, **without placing any module migration in `database/migrations`** and without coupling shared infrastructure to any business module.
 
