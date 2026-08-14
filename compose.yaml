@@ -28,8 +28,12 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_DATABASE: onelegalpro
-      DB_USERNAME: onelegalpro
-      DB_PASSWORD: onelegalpro_dev_only
+      DB_USERNAME: onelegalpro_app
+      DB_PASSWORD: onelegalpro_app_dev_only
+      DB_MIGRATION_USERNAME: onelegalpro_migration
+      DB_MIGRATION_PASSWORD: onelegalpro_migration_dev_only
+      DB_OUTBOX_USERNAME: onelegalpro_outbox
+      DB_OUTBOX_PASSWORD: onelegalpro_outbox_dev_only
       REDIS_HOST: redis
       REDIS_PORT: "6379"
     volumes:
@@ -56,12 +60,19 @@ services:
       # Local-development-only defaults. Never used outside this Docker
       # environment and never valid credentials for any real environment.
       POSTGRES_DB: onelegalpro
-      POSTGRES_USER: onelegalpro
-      POSTGRES_PASSWORD: onelegalpro_dev_only
+      POSTGRES_USER: onelegalpro_bootstrap
+      POSTGRES_PASSWORD: onelegalpro_bootstrap_dev_only
+      PF074_MIGRATION_ROLE: onelegalpro_migration
+      PF074_MIGRATION_PASSWORD: onelegalpro_migration_dev_only
+      PF074_RUNTIME_ROLE: onelegalpro_app
+      PF074_RUNTIME_PASSWORD: onelegalpro_app_dev_only
+      PF074_OUTBOX_ROLE: onelegalpro_outbox
+      PF074_OUTBOX_PASSWORD: onelegalpro_outbox_dev_only
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/provision-roles.sh:/docker-entrypoint-initdb.d/10-provision-roles.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onelegalpro -d onelegalpro"]
+      test: ["CMD-SHELL", "pg_isready -U onelegalpro_app -d onelegalpro"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -112,8 +123,12 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_DATABASE: onelegalpro
-      DB_USERNAME: onelegalpro
-      DB_PASSWORD: onelegalpro_dev_only
+      DB_USERNAME: onelegalpro_app
+      DB_PASSWORD: onelegalpro_app_dev_only
+      DB_MIGRATION_USERNAME: onelegalpro_migration
+      DB_MIGRATION_PASSWORD: onelegalpro_migration_dev_only
+      DB_OUTBOX_USERNAME: onelegalpro_outbox
+      DB_OUTBOX_PASSWORD: onelegalpro_outbox_dev_only
       REDIS_HOST: redis
       REDIS_PORT: "6379"
     volumes:

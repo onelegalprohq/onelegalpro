@@ -124,8 +124,12 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_PORT: '5432'
       DB_DATABASE: onelegalpro_test
-      DB_USERNAME: onelegalpro_test
-      DB_PASSWORD: onelegalpro_test_only
+      DB_USERNAME: onelegalpro_test_app
+      DB_PASSWORD: onelegalpro_test_app_test_only
+      DB_MIGRATION_USERNAME: onelegalpro_test_migration
+      DB_MIGRATION_PASSWORD: onelegalpro_test_migration_test_only
+      DB_OUTBOX_USERNAME: onelegalpro_test_outbox
+      DB_OUTBOX_PASSWORD: onelegalpro_test_outbox_test_only
     services:
       postgres:
         image: postgres:16-alpine
@@ -180,15 +184,22 @@ jobs:
       # Bootstrap credentials are fixed, non-secret, and confined to this
       # disposable service. Laravel never receives them: the suite and
       # migrations use the separate non-superuser database owner below.
-      - name: Create disposable PostgreSQL test role and database
+      - name: Provision separated PostgreSQL test roles and database
         env:
           PGPASSWORD: onelegalpro_bootstrap_only
+          POSTGRES_USER: onelegalpro_bootstrap
+          POSTGRES_DB: onelegalpro_test
+          PF074_MIGRATION_ROLE: onelegalpro_test_migration
+          PF074_MIGRATION_PASSWORD: onelegalpro_test_migration_test_only
+          PF074_RUNTIME_ROLE: onelegalpro_test_app
+          PF074_RUNTIME_PASSWORD: onelegalpro_test_app_test_only
+          PF074_OUTBOX_ROLE: onelegalpro_test_outbox
+          PF074_OUTBOX_PASSWORD: onelegalpro_test_outbox_test_only
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
         run: |
           psql --version
-          psql --host=127.0.0.1 --port=5432 --username=onelegalpro_bootstrap --dbname=postgres --set=ON_ERROR_STOP=1 \
-            --command="CREATE ROLE onelegalpro_test LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'onelegalpro_test_only'"
-          psql --host=127.0.0.1 --port=5432 --username=onelegalpro_bootstrap --dbname=postgres --set=ON_ERROR_STOP=1 \
-            --command="CREATE DATABASE onelegalpro_test OWNER onelegalpro_test"
+          sh docker/postgres/provision-roles.sh bootstrap
 
       # Fails the job outright — never skips — when the guard flag is missing,
       # renamed, or not exactly "true". Without this, deleting or renaming the
@@ -205,8 +216,23 @@ jobs:
           fi
           echo "PostgreSQL engine guard armed."
 
-      - name: Run migrations on the disposable PostgreSQL database
-        run: php artisan migrate --force --no-interaction
+      - name: Run migrations with the migration role
+        run: php artisan migrate --force --no-interaction --database=pgsql_migration
+
+      - name: Grant the runtime role access to framework relations
+        env:
+          PGPASSWORD: onelegalpro_bootstrap_only
+          POSTGRES_USER: onelegalpro_bootstrap
+          POSTGRES_DB: onelegalpro_test
+          PF074_MIGRATION_ROLE: onelegalpro_test_migration
+          PF074_MIGRATION_PASSWORD: onelegalpro_test_migration_test_only
+          PF074_RUNTIME_ROLE: onelegalpro_test_app
+          PF074_RUNTIME_PASSWORD: onelegalpro_test_app_test_only
+          PF074_OUTBOX_ROLE: onelegalpro_test_outbox
+          PF074_OUTBOX_PASSWORD: onelegalpro_test_outbox_test_only
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+        run: sh docker/postgres/provision-roles.sh grants
 
       # The explicit guard flag makes a missing service, wrong driver, wrong
       # major version, superuser, or BYPASSRLS role a hard test failure.
