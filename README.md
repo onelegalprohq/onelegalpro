@@ -92,7 +92,8 @@ cp .env.example .env
 docker compose build
 docker compose up -d
 docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate
+docker compose exec app php artisan migrate --database=pgsql_migration
+docker compose exec -T postgres sh /docker-entrypoint-initdb.d/10-provision-roles.sh grants
 docker compose up -d queue
 docker compose ps
 curl -fsS http://127.0.0.1:8080/up
@@ -101,9 +102,10 @@ docker compose exec app php artisan test
 
 Notes on this sequence:
 
-- **Migrations are explicit and never automatic.** No container runs `artisan migrate` on its own; it is always a deliberate command a developer runs.
+- **Migrations are explicit and never automatic.** No container runs `artisan migrate` on its own; it is always a deliberate command a developer runs through the dedicated `pgsql_migration` connection. Application and queue traffic use the non-owning `pgsql` runtime connection.
+- **The `grants` step is required, not optional.** The `postgres` container's init mount runs the provisioning script's `bootstrap` phase only, and it runs while the database is still empty, so no table exists to grant on. Until `grants` runs, the runtime role can connect but holds **no table privileges at all** — and because `SESSION_DRIVER` and `CACHE_STORE` are `database`, the application cannot serve a request and the queue worker cannot read `jobs`. The command takes no credential: the role names and passwords come from the `postgres` service's own environment in [`compose.yaml`](compose.yaml). Re-run it after every later migration that adds a relation.
 - **On a completely fresh database, the queue container may stop right after `docker compose up -d`**, because its database-backed tables (`cache`, `jobs`) do not exist yet until migrations run. This is expected, not a failure to troubleshoot.
-- `docker compose up -d queue`, run again after `artisan migrate` completes, starts the queue worker normally against the now-migrated database.
+- `docker compose up -d queue`, run again after `artisan migrate` **and** the `grants` step complete, starts the queue worker normally against the now-migrated database with the runtime role's grants in place.
 - `docker compose ps` should show all **six** services (`app`, `web`, `postgres`, `redis`, `vite`, `queue`) running (and `postgres`/`redis` healthy) once this sequence completes.
 - Application URL: `http://127.0.0.1:8080` · Health URL: `http://127.0.0.1:8080/up` · Vite dev server: `http://127.0.0.1:5173`.
 
@@ -113,7 +115,7 @@ Notes on this sequence:
 
 - `APP_NAME`
 - `APP_URL`
-- PostgreSQL connection values (`DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`)
+- PostgreSQL connection values (`DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, the runtime `DB_USERNAME`/`DB_PASSWORD`, and the separately named migration/outbox credentials)
 - The `database`-driven cache/session/queue configuration (`CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_CONNECTION`)
 - Redis hostname and port (`REDIS_HOST`, `REDIS_PORT`)
 
@@ -134,13 +136,13 @@ docker compose down
 ### Additional checks
 
 ```bash
-docker compose exec app php artisan migrate:status
+docker compose exec app php artisan migrate:status --database=pgsql_migration
 docker compose exec app composer validate --strict
 docker compose exec vite npm run build
 docker compose logs queue --tail=50
 ```
 
-Postgres and Redis defaults (`onelegalpro` / `onelegalpro_dev_only`) in `compose.yaml` and `.env.example` are clearly-labelled local-development-only credentials, not secrets — they are meaningless outside a developer's own local Docker network.
+PostgreSQL's separated `onelegalpro_migration`, `onelegalpro_app`, and `onelegalpro_outbox` credentials in `compose.yaml` and `.env.example` are clearly labelled local-development-only values, not secrets. They are meaningless outside a developer's own local Docker network.
 
 ## Development tooling readiness (PF-012)
 
@@ -252,11 +254,11 @@ Three stable checks from the `CI` workflow appear on every pull request; PF-032'
 |---|---|---|
 | **PHP Code Quality** | `quality` | `composer validate --strict`, `composer install`, check-only `composer pint:test`, `composer phpstan` |
 | **Frontend Build** | `frontend` | `npm ci`, `npm run build`, verifies `public/build/manifest.json`, uploads `public/build/` as a 1-day artifact |
-| **Application Tests** | `tests` | `composer install`, `.env` from `.env.example` + `php artisan key:generate`, downloads the frontend artifact, provisions an ephemeral **PostgreSQL 16** service with a job-local non-superuser test role and disposable database, asserts the fail-closed engine guard is armed, then runs `php artisan migrate --force` and `composer test` against PostgreSQL |
+| **Application Tests** | `tests` | `composer install`, `.env` from `.env.example` + `php artisan key:generate`, downloads the frontend artifact, provisions an ephemeral **PostgreSQL 16** database with separate migration, runtime, and outbox roles, asserts the fail-closed engine guard is armed, migrates through `pgsql_migration`, grants the runtime role only approved framework access, then runs `composer test` through the non-owning runtime role |
 
 - **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` rather than the dev server. That manifest must exist before the test suite renders a view, so the tests job consumes the frontend job's build output instead of rebuilding it.
 - **Runtimes:** `ubuntu-24.04`, **PHP 8.4**, **Node 22**, Composer v2, coverage disabled, no version matrix — matching the Docker development environment.
-- **The authoritative `Application Tests` check runs on PostgreSQL 16, not SQLite (PF-033).** The job provisions an **ephemeral `postgres:16-alpine` service**, creates a **job-local, non-superuser, `NOBYPASSRLS` test role** that owns a **fresh disposable database**, and runs both the Laravel migrations and the **complete test suite** against it. The role and database are created empty for each run and disappear with the runner — no volume, no persistent listener, and no production credential, endpoint, or database is involved. Bootstrap credentials are fixed, non-secret, and confined to the disposable service; Laravel never receives them. `tests/Feature/PostgreSqlTestDatabaseGuardTest.php` fails the check closed when the connection is not `pgsql`, the server is unreachable, the server is not PostgreSQL 16, or the connected role is a superuser or holds `BYPASSRLS`. **PF-033 adds no Redis service, queue worker, external service, dependency, or deployment step** — the job graph is otherwise unchanged.
+- **The authoritative `Application Tests` check runs on PostgreSQL 16, not SQLite (PF-033/PF-074).** The job provisions an **ephemeral `postgres:16-alpine` service** and three distinct `LOGIN NOSUPERUSER NOBYPASSRLS` roles: a migration owner, a non-owning application runtime role, and an outbox role with no relation access. Laravel migrations use `pgsql_migration`; the complete suite uses `pgsql`. The roles and database disappear with the runner — no volume, persistent listener, production credential, endpoint, or database is involved. Bootstrap credentials are fixed, non-secret, and confined to provisioning. The engine guard and PF-074 catalogue/privilege tests fail closed when the expected PostgreSQL or role posture is absent.
 - **Local SQLite `:memory:` remains an optional fast fallback, not CI's engine.** [`phpunit.xml`](phpunit.xml) is unchanged and still selects SQLite `:memory:` for an ordinary local `composer test`, which is convenient for quick feedback. The CI job overrides it through job-scoped environment variables. **A local run that follows the SQLite fallback is not PF-033 completion evidence** — the canonical local PostgreSQL invocation is documented in [CONTRIBUTING.md](CONTRIBUTING.md#continuous-integration-pf-030).
 - **Every action is pinned to a full 40-character commit SHA**, with its human-readable release tag in an inline comment. PF-032 added Dependabot's `github-actions` ecosystem to keep those references current *without* unpinning them — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - **Read-only and secretless:** the workflow declares `permissions: contents: read`, uses no repository secret, and uses `pull_request` rather than `pull_request_target` — so pull requests from forks run with read-only access and never gain privileged base-repository permissions. It never comments on a pull request, pushes commits or tags, publishes an artifact externally, or deploys anything.

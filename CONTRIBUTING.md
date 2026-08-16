@@ -121,56 +121,35 @@ Three stable checks from the `CI` workflow appear on every pull request; PF-032'
 |---|---|---|
 | **PHP Code Quality** | `quality` | `composer validate --strict`, `composer install`, check-only `composer pint:test`, `composer phpstan` |
 | **Frontend Build** | `frontend` | `npm ci`, `npm run build`, then uploads `public/build/` as a short-retention artifact |
-| **Application Tests** | `tests` | provisions PostgreSQL 16, creates a disposable non-superuser test role/database, runs migrations and the fail-closed engine guard, then runs `composer test` |
+| **Application Tests** | `tests` | provisions PostgreSQL 16 with separate migration, runtime, and outbox roles, migrates through the owning migration connection, grants narrowly enumerated framework access, then runs the fail-closed guards and `composer test` through the non-owning runtime role |
 
 - **Application Tests depends on Frontend Build.** A fresh CI runner has no Vite dev server and therefore no `public/hot` file, so Laravel's `@vite` directive resolves assets through `public/build/manifest.json` instead. That manifest must exist before the suite runs, so the tests job consumes the frontend job's build output rather than rebuilding it.
-- CI uses **PHP 8.4**, **Node 22**, and an ephemeral **PostgreSQL 16** service on `ubuntu-24.04`, matching the development environment's database engine. The required `Application Tests` job creates a fresh non-superuser role and disposable database, runs migrations, and activates `PostgreSqlTestDatabaseGuardTest`; a missing service, non-`pgsql` connection, non-16 server, superuser role, or `BYPASSRLS` role fails the job. Redis, a queue worker, production credentials, persistent volumes, and deployment services are not involved.
+- CI uses **PHP 8.4**, **Node 22**, and an ephemeral **PostgreSQL 16** service on `ubuntu-24.04`, matching the development environment's database engine. The required `Application Tests` job creates separate non-superuser, `NOBYPASSRLS` migration/runtime/outbox roles and a disposable database. Migrations run only as the owning migration role; tests run as the non-owning runtime role. The engine and role-separation guards fail closed when that posture is absent. Redis, a queue worker, production credentials, persistent volumes, and deployment services are not involved.
 - [`phpunit.xml`](phpunit.xml) intentionally retains its SQLite `:memory:` fallback for ordinary fast local runs. That fallback is **not PF-033 completion evidence**. Canonical local PostgreSQL validation uses the running Compose services and explicit overrides:
 
   ```sh
+  # PF-074 provisioning runs only when PostgreSQL initializes an empty volume.
+  # This intentionally deletes all disposable local database data.
+  docker compose down -v
+  docker compose up -d postgres redis app
   docker compose exec -T app sh -c 'test -f .env || cp .env.example .env'
   docker compose exec -T app php artisan key:generate --ansi
-
-  docker compose exec -T postgres \
-    psql -U onelegalpro -d postgres -v ON_ERROR_STOP=1 \
-    -c "DROP DATABASE IF EXISTS onelegalpro_pf033_test"
-
-  docker compose exec -T postgres \
-    psql -U onelegalpro -d postgres -v ON_ERROR_STOP=1 \
-    -c "DROP ROLE IF EXISTS onelegalpro_pf033_test"
-
-  docker compose exec -T postgres \
-    psql -U onelegalpro -d postgres -v ON_ERROR_STOP=1 \
-    -c "CREATE ROLE onelegalpro_pf033_test LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'onelegalpro_pf033_test_only'"
-
-  docker compose exec -T postgres \
-    psql -U onelegalpro -d postgres -v ON_ERROR_STOP=1 \
-    -c "CREATE DATABASE onelegalpro_pf033_test OWNER onelegalpro_pf033_test"
-
-  docker compose exec -T \
-    -e REQUIRE_POSTGRESQL_TEST_DATABASE=true \
-    -e DB_CONNECTION=pgsql \
-    -e DB_HOST=postgres \
-    -e DB_PORT=5432 \
-    -e DB_DATABASE=onelegalpro_pf033_test \
-    -e DB_USERNAME=onelegalpro_pf033_test \
-    -e DB_PASSWORD=onelegalpro_pf033_test_only \
-    app php artisan migrate --force --no-interaction
-
-  docker compose exec -T \
-    -e REQUIRE_POSTGRESQL_TEST_DATABASE=true \
-    -e DB_CONNECTION=pgsql \
-    -e DB_HOST=postgres \
-    -e DB_PORT=5432 \
-    -e DB_DATABASE=onelegalpro_pf033_test \
-    -e DB_USERNAME=onelegalpro_pf033_test \
-    -e DB_PASSWORD=onelegalpro_pf033_test_only \
-    app composer test
+  docker compose exec -T app php artisan migrate --force --no-interaction --database=pgsql_migration
+  docker compose exec -T postgres sh /docker-entrypoint-initdb.d/10-provision-roles.sh grants
+  docker compose exec -T -e REQUIRE_POSTGRESQL_TEST_DATABASE=true app composer test
   ```
 
-  Two caveats for the commands above. `php artisan key:generate` **rewrites `APP_KEY` in your local `.env`** each time it runs — omit it if you need your existing local key preserved. And `Tests\Feature\ExampleTest` renders a view containing `@vite(...)`, so it needs either the Compose `vite` service running (which writes `public/hot`) or a previously built `public/build/manifest.json`; with neither present that test fails for a frontend reason unrelated to the database.
+  Three caveats for the commands above. `php artisan key:generate` **rewrites `APP_KEY` in your local `.env`** each time it runs — omit it if you need your existing local key preserved. `Tests\Feature\ExampleTest` renders a view containing `@vite(...)`, so it needs either the Compose `vite` service running (which writes `public/hot`) or a previously built `public/build/manifest.json`; with neither present that test fails for a frontend reason unrelated to the database. And **the recipe is safe only when run whole**: the leading `docker compose down -v` is what makes the target database disposable, so re-running only the final `composer test` line points the suite at `onelegalpro`, your working local database, and `migrate:fresh`-style suites will drop what is in it.
 
-  These are local-development-only defaults from the Compose environment, never production credentials. The guard checks exactly three things about the connection the suite is actually using: that the driver is `pgsql`, that the server's major version is 16, and that the connected role is neither a superuser nor a `BYPASSRLS` role. **It asserts nothing about production role design and demonstrates no conformance to it.** In particular, the CI/local test login *owns* its disposable database purely so it can migrate the schema — `docs/adr/ADR-016-Tenant-Isolation-Model.md` Decision 10 separates the migration role from a non-owning application runtime role, and this job-local convenience is deliberately **not** that separation. PF-033 claims no production topology, no implemented tenant policy, and no Row-Level Security guarantee.
+  These are local-development-only defaults from the Compose environment, never production credentials. PF-074 verifies the development/CI role split only; it does not provision production, create a Row-Level Security policy, or prove tenant isolation end to end.
+
+  **Manual teardown of the local roles** is destructive and therefore documented rather than automated. Run it per database, in this order, connected as the bootstrap superuser:
+
+  1. `REASSIGN OWNED BY <migration role> TO <new owner>` — every object the migration role owns must be transferred before the role can be dropped. **Choose the new owner deliberately:** reassigning to the bootstrap superuser recreates exactly the superuser-owns-every-relation arrangement PF-074 exists to remove, so do this only when the database itself is about to be dropped.
+  2. `DROP OWNED BY <role>` for each of the three roles — this removes the privileges granted to them, which `REASSIGN OWNED BY` does not touch.
+  3. `DROP ROLE <role>` for each of the three roles.
+
+  `REASSIGN OWNED BY` and `DROP OWNED BY` act only on the database you are connected to, so steps 1 and 2 must be repeated in **every** database the roles own objects in; `DROP ROLE` is cluster-wide and fails until they are clean everywhere.
 - **Every action is pinned to a full commit SHA**, with its human-readable release tag in an inline comment. PF-032 added Dependabot's `github-actions` ecosystem to propose updates to those references *without* unpinning them — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
 - The workflow uses **read-only permissions (`contents: read`) and no secrets**, and uses `pull_request` rather than `pull_request_target`, so pull requests from forks run safely without privileged access.
 - **All three of this workflow's checks are required to merge (PF-031).** PF-030 made them visible; PF-031 made them mandatory through the `Protect main` ruleset, so a pull request with a failing or missing check cannot be merged into `main` — see [Required status checks (PF-031)](#required-status-checks-pf-031) above. PF-032 later added a fourth required check, `Dependency Audit`, from a separate workflow — see [Security scanning (PF-032)](#security-scanning-pf-032) below.
