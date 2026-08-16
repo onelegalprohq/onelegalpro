@@ -81,6 +81,15 @@ SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'runtime_role') \gexec
 -- need no default-privilege entry: their built-in default already grants the
 -- runtime and outbox roles nothing, and the grants phase revokes every relation
 -- from both roles before granting the approved set.
+--
+-- EXPOSURE WINDOW, stated plainly: because the revocation is applied to objects
+-- rather than to defaults, a function or type is executable/usable by PUBLIC
+-- from the moment the migration role creates it until the grants phase next
+-- runs. That window is inherent to PostgreSQL 16 and cannot be closed here --
+-- closing it would need a DDL event trigger, which this story's accepted
+-- exclusions forbid. The mitigation is operational and is documented in
+-- README.md and CONTRIBUTING.md: run the grants phase after every migration.
+-- This is a known, accepted limitation, not a closed control.
 SQL
 }
 
@@ -119,8 +128,13 @@ WHERE n.nspname = 'public'
   AND (t.typrelid = 0 OR (SELECT c.relkind FROM pg_class c WHERE c.oid = t.typrelid) = 'c')
   AND NOT EXISTS (SELECT 1 FROM pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid) \gexec
 
+-- The enumerated, closed list of technical decision 7. `users` and
+-- `password_reset_tokens` are deliberately absent: they are stock Laravel
+-- scaffolding that no current test or route uses, and a later story needing
+-- them declares its own grant in the migration that needs it. Extending this
+-- list requires a reviewed contract correction, not an edit in passing.
 SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO %I', table_name, :'runtime_role')
-FROM (VALUES ('users'), ('password_reset_tokens'), ('sessions'), ('cache'), ('cache_locks'), ('jobs'), ('job_batches'), ('failed_jobs')) AS approved(table_name)
+FROM (VALUES ('sessions'), ('cache'), ('cache_locks'), ('jobs'), ('job_batches'), ('failed_jobs')) AS approved(table_name)
 WHERE to_regclass(format('public.%I', table_name)) IS NOT NULL \gexec
 -- Sequence privileges are derived from catalogue ownership, not from schema
 -- membership: only a sequence owned by a column of an approved table above is
@@ -128,7 +142,7 @@ WHERE to_regclass(format('public.%I', table_name)) IS NOT NULL \gexec
 -- public.migrations_id_seq, and would have auto-granted every future business
 -- sequence.
 SELECT format('GRANT USAGE, SELECT ON SEQUENCE %I.%I TO %I', n.nspname, s.relname, :'runtime_role')
-FROM (VALUES ('users'), ('password_reset_tokens'), ('sessions'), ('cache'), ('cache_locks'), ('jobs'), ('job_batches'), ('failed_jobs')) AS approved(table_name)
+FROM (VALUES ('sessions'), ('cache'), ('cache_locks'), ('jobs'), ('job_batches'), ('failed_jobs')) AS approved(table_name)
 JOIN pg_class t ON t.oid = to_regclass(format('public.%I', approved.table_name))
 JOIN pg_depend d ON d.refobjid = t.oid
     AND d.refclassid = 'pg_class'::regclass

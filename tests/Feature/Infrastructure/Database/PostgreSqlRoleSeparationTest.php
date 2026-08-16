@@ -12,10 +12,14 @@ use Tests\TestCase;
 final class PostgreSqlRoleSeparationTest extends TestCase
 {
     /**
-     * The closed list of framework tables the accepted contract permits the
-     * runtime role to reach. Nothing may be added here without a contract
-     * correction: the assertions below treat it as both a lower and an upper
-     * bound.
+     * The enumerated, closed list of technical decision 7 — the framework
+     * tables the accepted contract permits the runtime role to reach, in
+     * catalogue sort order. `users` and `password_reset_tokens` are
+     * deliberately absent; decision 7 excludes them by name.
+     *
+     * Nothing may be added here without a reviewed contract correction: the
+     * assertions below treat this list as both a lower and an upper bound, so
+     * a grant the contract does not authorise fails the suite.
      *
      * @var list<string>
      */
@@ -25,9 +29,7 @@ final class PostgreSqlRoleSeparationTest extends TestCase
         'failed_jobs',
         'job_batches',
         'jobs',
-        'password_reset_tokens',
         'sessions',
-        'users',
     ];
 
     /** @var list<string> */
