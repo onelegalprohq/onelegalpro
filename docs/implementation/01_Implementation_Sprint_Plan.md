@@ -123,6 +123,8 @@ implementation is **Done**: independent implementation-review corrections were a
 
 ## Architecture track (parallel to sprint numbering)
 
+**IdentityAccess Release 0.1 dependency lane (contracts prepared 14 August 2026; not scheduled).** `IA-001` — Principal, Actor Reference, and Firm Security Realm Foundation — and `IA-002` — Active Verified Firm Membership Foundation — are assigned under EPIC-009 and recorded in full in `docs/implementation/03_Engineering_Backlog.md`. Both remain `Backlog`; their contracts await independent review, neither Definition of Ready is yet claimed met, and no implementation is authorized. IA-001 precedes IA-002. They are independent of PF-064/PF-074/PA-007 and may be contracted in parallel with that database lane. Once implemented, IA-001 clears PF-081 blocker B2 and IA-002 clears B3; neither clears B1, supplies PA-008, authenticates a user, issues a session, or authorizes a resource. Assigning `IA-` identifiers schedules nothing and renumbers no `PF-*`, `PA-*`, or architecture story.
+
 **ARCH-001 — Thailand-First Legal Intelligence Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/05_AI_Architecture.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/09_Legal_Intelligence_Architecture.md`, and `docs/adr/ADR-002-Thailand-First-Legal-Intelligence.md`.
 
 **ARCH-002 — White-Label Platform & Multi-Tenant Branding Architecture: architecture approved (Completed).** See `docs/architecture/01_OneLegalPro_Constitution.md`, `docs/architecture/08_Roadmap.md`, `docs/architecture/10_White_Label_Platform_Architecture.md`, and `docs/adr/ADR-003-White-Label-Platform.md`.
