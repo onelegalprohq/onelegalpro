@@ -93,6 +93,10 @@ all passed on 1 September 2026.
 
 ## Publication approval
 
-Legal review does not itself publish the website. After legal approval and correction verification, the repository owner must separately approve the exact saved website version for public access and the `onelegalpro.com` custom-domain change.
+Legal review does not itself publish the website. On 1 September 2026, after
+legal approval and correction verification, the repository owner authorized
+public launch of exact Sites version 3 by stating "ok launch" in direct response
+to the recorded operational plan. That approval does not authorize the
+`onelegalpro.com` custom-domain change, which remains separately gated.
 
 This record makes no certification or general compliance conclusion and does not satisfy the separate production-access gates for the OneLegalPro Matter Desk.
