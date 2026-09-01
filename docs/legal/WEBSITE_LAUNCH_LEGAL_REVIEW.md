@@ -1,6 +1,6 @@
 # OneLegalPro Website Launch — Thai-Qualified Legal Review Record
 
-**Status:** Approved subject to correction verification
+**Status:** Legal review complete — separate publication approval pending
 
 **Proposed launch:** 15 September 2026
 
@@ -67,8 +67,16 @@ executed.
 
 ### Verification of corrections
 
-Pending verification of the exact final commit after all corrections and
-technical validation are complete.
+Verified on 1 September 2026 against website correction commit
+`1bcfcde90d65a393d7021b8395bae08f57d0f44d`. Every required correction listed
+above is applied. The corrected version passed source linting, the production
+build and rendered-route assertions, browser-response security-header
+assertions, the production dependency audit with no reported vulnerability,
+and `git diff --check`.
+
+This completes the legal correction review. It does not provide the separate
+publication approval required below and does not authorize public access or a
+custom-domain change.
 
 ## Publication approval
 
