@@ -1,6 +1,6 @@
 # OneLegalPro Website Launch — Thai-Qualified Legal Review Record
 
-**Status:** Draft for human review
+**Status:** Approved subject to correction verification
 
 **Proposed launch:** 15 September 2026
 
@@ -37,16 +37,38 @@ The reviewer must record a determination for every item before publication:
 Choose and complete one:
 
 - [ ] **Approved for publication without correction.**
-- [ ] **Approved subject to the corrections listed below.**
+- [x] **Approved subject to the corrections listed below.**
 - [ ] **Not approved for publication.**
 
 ### Required corrections, qualifications, or reservations
 
-_To be completed by the reviewer._
+On 1 September 2026, the reviewer confirmed the operator identity, registered
+address, and public contact details and approved the following corrections:
+
+- state the purpose-specific pre-contractual-steps, legitimate-interests, and
+  legal-obligation processing bases; make clear that an inquiry does not enrol
+  the sender in marketing;
+- apply a 24-month ordinary inquiry-retention period after the last substantive
+  contact, subject to longer retention required for an agreement, dispute, or
+  legal obligation;
+- disclose OpenAI Sites, its Cloudflare-compatible infrastructure, and the
+  operator's email provider, with cross-border processing subject to approved
+  safeguards;
+- select Thai governing law, the exclusive jurisdiction of Thai courts subject
+  to non-excludable mandatory rights, English-language precedence, and
+  `info@onelegalpro.com` for notices; and
+- limit the website liability provision to the maximum extent permitted by Thai
+  law without excluding liability that cannot lawfully be excluded.
+
+The reviewer also confirmed that the inquiry flow does not provide marketing
+consent or mailing-list enrolment. The website and four mandatory pilot
+absences remain subject to the separate pilot agreement before any pilot is
+executed.
 
 ### Verification of corrections
 
-_Record the exact final commit, the date verified, and whether every required correction was applied._
+Pending verification of the exact final commit after all corrections and
+technical validation are complete.
 
 ## Publication approval
 

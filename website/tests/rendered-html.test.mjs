@@ -12,6 +12,12 @@ test("server-renders the OneLegalPro launch page and approved boundaries", async
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
+  assert.equal(response.headers.get("permissions-policy"), "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
+  assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000; includeSubDomains");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
   const html = await response.text();
   assert.match(html, /<title>OneLegalPro — Matter Desk for Thai law firms<\/title>/i);
   assert.match(html, /A calmer way to run the matters that matter\./);
@@ -34,8 +40,14 @@ test("server-renders distinct privacy and terms pages", async () => {
   const termsHtml = await terms.text();
   assert.match(privacyHtml, /<title>Privacy Notice — OneLegalPro<\/title>/i);
   assert.match(privacyHtml, /The website does not persist the form contents/);
+  assert.match(privacyHtml, /24 months after the last substantive contact/);
+  assert.match(privacyHtml, /does not enrol you in marketing or a mailing list/);
+  assert.doesNotMatch(privacyHtml, /Draft for owner legal review|must be completed and approved before publication/);
   assert.match(termsHtml, /<title>Website Terms — OneLegalPro<\/title>/i);
   assert.match(termsHtml, /does not create a lawyer-client/);
+  assert.match(termsHtml, /governed by Thai law/);
+  assert.match(termsHtml, /English is the controlling language/);
+  assert.doesNotMatch(termsHtml, /Draft for owner legal review|intentionally left for the owner/);
   assert.doesNotMatch(privacyHtml, /https:\/\/onelegalpro\.com\/og\.png/);
   assert.doesNotMatch(termsHtml, /https:\/\/onelegalpro\.com\/og\.png/);
 });
