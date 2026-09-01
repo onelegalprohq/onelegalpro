@@ -1,7 +1,13 @@
 # ADR-027 — Public Website Hosting and Launch Operations
 
-**Status:** Proposed — pending explicit repository-owner procurement and architecture approval
-**Decision date:** Not yet approved
+**Status:** Accepted
+**Decision date:** 1 September 2026
+
+**Approval record:** On 1 September 2026, the repository owner explicitly
+approved ADR-027 for hosting the public OneLegalPro operator website through
+OpenAI Sites on Cloudflare-compatible infrastructure. The approval is limited
+to the public website and does not authorize public access, DNS changes, or
+Matter Desk production infrastructure.
 
 ## Context
 
