@@ -86,8 +86,10 @@ the same date: disclose that cookie and permit strictly necessary hosting and
 security cookies, while continuing to prohibit application, advertising,
 analytics, and preference cookies. The correction does not authorize optional
 tracking, a consent exemption for any future optional technology, public
-access, or a custom-domain change. Verification of its exact correction commit
-is recorded after implementation and validation.
+access, or a custom-domain change. The correction is verified against exact
+commit `c0a2eda79924532ee17e5d0c8ce9285ad86450a4`: source linting, the production
+build, rendered-route and cookie-disclosure assertions, and `git diff --check`
+all passed on 1 September 2026.
 
 ## Publication approval
 
