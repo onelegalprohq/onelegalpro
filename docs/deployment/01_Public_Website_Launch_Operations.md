@@ -1,6 +1,6 @@
 # Public Website Launch Operations
 
-**Status:** Public launch authorized on 1 September 2026
+**Status:** Public launch completed and verified on 1 September 2026
 
 **Scope:** The OneLegalPro public operator website only. This record does not
 authorize or describe Matter Desk production infrastructure, access, data, or
@@ -25,6 +25,12 @@ covers public access to the exact version above and the monitoring, incident,
 and rollback plan below. It does **not** authorize connecting `onelegalpro.com`
 or making any DNS change.
 
+Public access was enabled on 1 September 2026. The published URL is
+`https://onelegalpro-launch-review.jandandco.chatgpt.site`. A post-launch
+request returned HTTPS 200, the approved OneLegalPro and founding-firm pilot
+content, the required security headers, and the disclosed `__cf_bm` hosting
+cookie. `onelegalpro.com` remains unconnected.
+
 ## Incident ownership
 
 Michael Jand is the initial public-website incident owner. An availability,
@@ -37,8 +43,11 @@ authorizes weakening a security, privacy, or legal boundary.
 - An automated availability check runs every 15 minutes against the published
   Sites URL. It verifies an HTTPS success response and recognizable
   OneLegalPro content and reports a failure to the incident owner.
-- An automated TLS certificate check runs daily against the published Sites
-  URL and reports an invalid, mismatched, or near-expiry certificate.
+- The same automated check validates the presented TLS certificate on each run
+  and reports an invalid, mismatched, expired, or near-expiry certificate.
+- The active thread heartbeat is named
+  `Monitor OneLegalPro website and TLS` and has automation identifier
+  `monitor-onelegalpro-website`.
 - Monitoring records operational reachability only. It is not an availability
   guarantee, security certification, or proof that every visitor path works.
 - The custom domain is not monitored until it is separately authorized and
