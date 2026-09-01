@@ -42,6 +42,8 @@ test("server-renders distinct privacy and terms pages", async () => {
   assert.match(privacyHtml, /The website does not persist the form contents/);
   assert.match(privacyHtml, /24 months after the last substantive contact/);
   assert.match(privacyHtml, /does not enrol you in marketing or a mailing list/);
+  assert.match(privacyHtml, /__cf_bm/);
+  assert.match(privacyHtml, /does not set application, advertising, analytics, or preference cookies/);
   assert.doesNotMatch(privacyHtml, /Draft for owner legal review|must be completed and approved before publication/);
   assert.match(termsHtml, /<title>Website Terms — OneLegalPro<\/title>/i);
   assert.match(termsHtml, /does not create a lawyer-client/);

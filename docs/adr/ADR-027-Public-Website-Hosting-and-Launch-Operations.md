@@ -20,7 +20,13 @@ The approved deployment architecture deliberately selected no vendor and require
 1. Host the static operator website through OpenAI Sites on Cloudflare-compatible infrastructure, using a private owner-only deployment for review and an explicit separate approval for public access.
 2. Use `onelegalpro.com` as the canonical public hostname. DNS changes and custom-domain activation require separate explicit authorization after the final private version passes review.
 3. Keep the operator site physically and logically separate under `website/`; it owns no domain data and imports no Laravel application or bounded-context model.
-4. Launch without accounts, authentication, cookies, behavioural advertising, AI, chat, uploads, payment, portal access, or persistent website storage.
+4. Launch without accounts, authentication, application cookies, behavioural
+   advertising, analytics cookies, preference cookies, AI, chat, uploads,
+   payment, portal access, or persistent website storage. Strictly necessary
+   hosting and security cookies are permitted only when imposed by the approved
+   hosting boundary, disclosed in the Privacy Notice, and not used by the
+   OneLegalPro application for advertising, analytics, preference storage, or
+   cross-site tracking.
 5. The inquiry form prepares an email in the visitor's own email application. The website does not persist the form values. Email processing remains subject to the approved email-provider and legal-review decisions.
 6. Publish no price. Pilot availability, fit, terms, and timing are confirmed individually.
 7. Public copy states the four absent pilot capabilities and labels every interface preview illustrative.
@@ -41,3 +47,13 @@ The marketing surface can be reviewed and launched independently of the Laravel 
 ## Approval required
 
 Approval of this ADR authorizes only the named website-hosting procurement decision. It authorizes no Matter Desk production infrastructure, AWS expenditure, credential, production database, deployment, or production access.
+
+## Amendment record
+
+On 1 September 2026, live-host validation found that the approved hosting
+boundary sets Cloudflare's strictly necessary `__cf_bm` bot-protection cookie.
+The repository owner approved the narrow correction to Decision 4 above: the
+site continues to prohibit application, advertising, analytics, and preference
+cookies while permitting disclosed, strictly necessary hosting and security
+cookies. This amendment authorizes no additional product capability, tracking,
+public access, or DNS change.

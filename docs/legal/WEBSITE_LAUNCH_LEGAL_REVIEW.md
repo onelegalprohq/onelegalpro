@@ -78,6 +78,17 @@ This completes the legal correction review. It does not provide the separate
 publication approval required below and does not authorize public access or a
 custom-domain change.
 
+### Hosting-cookie correction
+
+Live-host validation on 1 September 2026 found Cloudflare's strictly necessary
+`__cf_bm` bot-protection cookie. The reviewer approved a narrow correction on
+the same date: disclose that cookie and permit strictly necessary hosting and
+security cookies, while continuing to prohibit application, advertising,
+analytics, and preference cookies. The correction does not authorize optional
+tracking, a consent exemption for any future optional technology, public
+access, or a custom-domain change. Verification of its exact correction commit
+is recorded after implementation and validation.
+
 ## Publication approval
 
 Legal review does not itself publish the website. After legal approval and correction verification, the repository owner must separately approve the exact saved website version for public access and the `onelegalpro.com` custom-domain change.
