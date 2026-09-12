@@ -53,7 +53,7 @@ Foundation primitives are **consumed unchanged, never duplicated**: `PF-040` `Ag
 
 **None of the following exists in this repository, and none of it is stubbed, approximated, simulated, partially implemented, or renamed:**
 
-- **No registry.** The Firm registry relation — its schema, migration, privileges, access posture, and narrow query — does not exist. It is `PA-007`, whose contract is recorded but whose Definition of Ready is not met. The concrete `CandidateFirmDirectory` adapter is neither `PA-001`'s nor `PA-007`'s — it is **`PA-008`**, which follows `PF-081`.
+- **No resolver or registry writer.** `PA-007` supplies only the class-(b) Firm registry relation and exact-ID lifecycle read. The concrete `CandidateFirmDirectory` adapter is neither `PA-001`'s nor `PA-007`'s — it is **`PA-008`**, which follows `PF-081`.
 - **No persistence of any kind.** No schema, migration, Eloquent record, repository contract, query contract, adapter, cast, DTO, or serialization.
 - **No authorization.** No role, capability, permission, deny rule, authorization cache, or composed decision.
 - **No provisioning.** No `FirmProvisioning`, no lifecycle transition, no activation path, and no self-service signup.
