@@ -32,6 +32,8 @@ final class PostgreSqlRoleSeparationTest extends TestCase
         'sessions',
     ];
 
+    private const FIRM_REGISTRY_TABLE = 'platform_administration_firm_registry';
+
     /** @var list<string> */
     private const ACCEPTED_RUNTIME_TABLE_PRIVILEGES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'];
 
@@ -108,7 +110,15 @@ final class PostgreSqlRoleSeparationTest extends TestCase
         $this->assertTrue((bool) $runtimeConnection->scalar("select has_schema_privilege(current_user, 'public', 'USAGE')"));
         $this->assertFalse((bool) $runtimeConnection->scalar("select has_schema_privilege(current_user, 'public', 'CREATE')"));
         $catalogue = DB::connection('pgsql_migration');
-        $this->assertSame(0, (int) $catalogue->scalar("select coalesce(sum(case when c.relkind in ('r','p','v','m') and has_table_privilege(?, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then 1 else 0 end), 0) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'", [$outbox]));
+        $outboxReachable = array_map(
+            static fn (object $row): string => (string) $row->relname,
+            $catalogue->select("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and case when c.relkind in ('r','p','v','m') then has_table_privilege(?, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') else false end order by c.relname", [$outbox]),
+        );
+        $this->assertSame([self::FIRM_REGISTRY_TABLE], $outboxReachable);
+        $this->assertTrue((bool) $catalogue->scalar('select has_table_privilege(?, ?, ?)', [$outbox, 'public.'.self::FIRM_REGISTRY_TABLE, 'SELECT']));
+        foreach (['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] as $privilege) {
+            $this->assertFalse((bool) $catalogue->scalar('select has_table_privilege(?, ?, ?)', [$outbox, 'public.'.self::FIRM_REGISTRY_TABLE, $privilege]));
+        }
         $this->assertSame(0, (int) $catalogue->scalar("select coalesce(sum(case when c.relkind='S' and has_sequence_privilege(?, c.oid, 'USAGE,SELECT,UPDATE') then 1 else 0 end), 0) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'", [$outbox]));
         $this->assertSame(0, (int) $catalogue->scalar("select coalesce(sum(case when c.relkind in ('r','p','v','m') and has_table_privilege(?, c.oid, 'TRUNCATE,REFERENCES,TRIGGER') then 1 else 0 end), 0) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'", [$runtime]));
     }
@@ -155,6 +165,16 @@ final class PostgreSqlRoleSeparationTest extends TestCase
                     "runtime role must not hold {$privilege} on {$table}",
                 );
             }
+        }
+
+        foreach (['id', 'lifecycle_state'] as $column) {
+            $this->assertTrue((bool) $catalogue->scalar('select has_column_privilege(?, ?, ?, ?)', [$runtime, 'public.'.self::FIRM_REGISTRY_TABLE, $column, 'SELECT']));
+        }
+        foreach (['canonical_name', 'jurisdiction_reference', 'created_at', 'updated_at'] as $column) {
+            $this->assertFalse((bool) $catalogue->scalar('select has_column_privilege(?, ?, ?, ?)', [$runtime, 'public.'.self::FIRM_REGISTRY_TABLE, $column, 'SELECT']));
+        }
+        foreach (['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] as $privilege) {
+            $this->assertFalse((bool) $catalogue->scalar('select has_table_privilege(?, ?, ?)', [$runtime, 'public.'.self::FIRM_REGISTRY_TABLE, $privilege]));
         }
     }
 

@@ -9,12 +9,16 @@ use App\Foundation\Domain\Identity\BusinessIdentifier;
 use App\Foundation\Domain\Model\AggregateRoot;
 use App\Foundation\Domain\Model\Entity;
 use App\Foundation\Domain\Model\ValueObject;
+use App\Modules\PlatformAdministration\Application\Queries\FindFirmRegistryEntry;
+use App\Modules\PlatformAdministration\Application\Queries\FirmRegistryEntry;
+use App\Modules\PlatformAdministration\Application\Queries\FirmRegistryUnavailable;
 use App\Modules\PlatformAdministration\Domain\Aggregates\Firm;
 use App\Modules\PlatformAdministration\Domain\Events\FirmCreated;
 use App\Modules\PlatformAdministration\Domain\ValueObjects\FirmId;
 use App\Modules\PlatformAdministration\Domain\ValueObjects\FirmJurisdiction;
 use App\Modules\PlatformAdministration\Domain\ValueObjects\FirmLifecycleState;
 use App\Modules\PlatformAdministration\Domain\ValueObjects\FirmName;
+use App\Modules\PlatformAdministration\Infrastructure\Persistence\PostgreSqlFirmRegistry;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -51,6 +55,10 @@ final class PlatformAdministrationContractShapeTest extends TestCase
         'PlatformAdministration/Domain/ValueObjects/FirmJurisdiction.php' => FirmJurisdiction::class,
         'PlatformAdministration/Domain/ValueObjects/FirmLifecycleState.php' => FirmLifecycleState::class,
         'PlatformAdministration/Domain/ValueObjects/FirmName.php' => FirmName::class,
+        'PlatformAdministration/Application/Queries/FindFirmRegistryEntry.php' => FindFirmRegistryEntry::class,
+        'PlatformAdministration/Application/Queries/FirmRegistryEntry.php' => FirmRegistryEntry::class,
+        'PlatformAdministration/Application/Queries/FirmRegistryUnavailable.php' => FirmRegistryUnavailable::class,
+        'PlatformAdministration/Infrastructure/Persistence/PostgreSqlFirmRegistry.php' => PostgreSqlFirmRegistry::class,
     ];
 
     /**
@@ -123,8 +131,11 @@ final class PlatformAdministrationContractShapeTest extends TestCase
 
     public function test_app_modules_contains_exactly_the_approved_source_files(): void
     {
+        $approved = array_keys(self::APPROVED_SOURCE_FILES);
+        sort($approved);
+
         $this->assertSame(
-            array_keys(self::APPROVED_SOURCE_FILES),
+            $approved,
             array_keys($this->moduleSourceFiles()),
             'app/Modules must contain exactly the six approved PA-001 source files.',
         );
@@ -149,7 +160,7 @@ final class PlatformAdministrationContractShapeTest extends TestCase
     {
         $module = $this->modulesRoot().'/PlatformAdministration';
 
-        foreach (['Application', 'Infrastructure', 'Interface', 'Database', 'Routes', 'Config', 'Tests'] as $directory) {
+        foreach (['Interface', 'Routes', 'Config', 'Tests'] as $directory) {
             $this->assertDirectoryDoesNotExist($module.'/'.$directory, $directory.' is not PA-001\'s to create.');
         }
 
@@ -206,6 +217,10 @@ final class PlatformAdministrationContractShapeTest extends TestCase
     public function test_no_module_source_file_references_a_framework_namespace(): void
     {
         foreach ($this->moduleSourceFiles() as $relativePath => $source) {
+            if (str_starts_with($relativePath, 'PlatformAdministration/Infrastructure/')) {
+                continue;
+            }
+
             foreach (self::FORBIDDEN_NAMESPACE_PREFIXES as $prefix) {
                 $this->assertDoesNotMatchRegularExpression(
                     '/(?<![A-Za-z0-9_])\\\\?'.preg_quote($prefix, '/').'/',
@@ -219,6 +234,10 @@ final class PlatformAdministrationContractShapeTest extends TestCase
     public function test_no_module_source_file_calls_a_laravel_global_helper(): void
     {
         foreach ($this->moduleSourceFiles() as $relativePath => $source) {
+            if (str_starts_with($relativePath, 'PlatformAdministration/Infrastructure/')) {
+                continue;
+            }
+
             $this->assertSame(
                 [],
                 $this->globalHelperCalls($source),
@@ -678,6 +697,10 @@ final class PlatformAdministrationContractShapeTest extends TestCase
             \assert($file instanceof \SplFileInfo);
 
             if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            if (str_contains($file->getPathname(), '/Database/Migrations/')) {
                 continue;
             }
 

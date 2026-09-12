@@ -150,6 +150,14 @@ JOIN pg_depend d ON d.refobjid = t.oid
     AND d.deptype IN ('a', 'i')
 JOIN pg_class s ON s.oid = d.objid AND s.relkind = 'S'
 JOIN pg_namespace n ON n.oid = s.relnamespace \gexec
+
+-- PA-007 is the sole approved class-(b) pre-FirmContext registry relation.
+-- It is created by its own module migration and carries its own exact grants;
+-- this reconciliation repeats those grants after revoking the global default.
+SELECT format('GRANT SELECT (id, lifecycle_state) ON TABLE public.%I TO %I', 'platform_administration_firm_registry', :'runtime_role')
+WHERE to_regclass('public.platform_administration_firm_registry') IS NOT NULL \gexec
+SELECT format('GRANT SELECT ON TABLE public.%I TO %I', 'platform_administration_firm_registry', :'outbox_role')
+WHERE to_regclass('public.platform_administration_firm_registry') IS NOT NULL \gexec
 SQL
 }
 
