@@ -129,7 +129,7 @@ final class PlatformAdministrationContractShapeTest extends TestCase
 
     // ---------------------------------------------------------------- inventory
 
-    public function test_app_modules_contains_exactly_the_approved_source_files(): void
+    public function test_platform_administration_contains_exactly_the_approved_source_files(): void
     {
         $approved = array_keys(self::APPROVED_SOURCE_FILES);
         sort($approved);
@@ -137,7 +137,7 @@ final class PlatformAdministrationContractShapeTest extends TestCase
         $this->assertSame(
             $approved,
             array_keys($this->moduleSourceFiles()),
-            'app/Modules must contain exactly the six approved PA-001 source files.',
+            'PlatformAdministration must contain exactly its approved source files.',
         );
     }
 
@@ -167,16 +167,16 @@ final class PlatformAdministrationContractShapeTest extends TestCase
         $this->assertFileDoesNotExist($module.'/ModuleServiceProvider.php', 'PA-001 registers nothing.');
     }
 
-    public function test_app_modules_contains_exactly_the_platform_administration_module(): void
+    public function test_platform_administration_module_remains_present_without_owning_the_repository_module_inventory(): void
     {
         $entries = scandir($this->modulesRoot());
 
         $this->assertIsArray($entries);
 
-        $this->assertSame(
-            ['PlatformAdministration'],
+        $this->assertContains(
+            'PlatformAdministration',
             array_values(array_diff($entries, ['.', '..'])),
-            'PA-001 creates exactly one module and no other business module.',
+            'PA-001 protects its own module inventory but must not prohibit separately approved modules.',
         );
     }
 
@@ -676,8 +676,8 @@ final class PlatformAdministrationContractShapeTest extends TestCase
     // ------------------------------------------------------------- utilities
 
     /**
-     * Every PHP source file under `app/Modules`, keyed by its path relative to
-     * that directory, mapped to its contents.
+     * Every PHP source file under PlatformAdministration, keyed relative to
+     * `app/Modules`, mapped to its contents.
      *
      * @return array<string, string>
      */
@@ -688,7 +688,7 @@ final class PlatformAdministrationContractShapeTest extends TestCase
         $this->assertDirectoryExists($root);
 
         $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            new \RecursiveDirectoryIterator($root.'/PlatformAdministration', \FilesystemIterator::SKIP_DOTS),
         );
 
         $files = [];

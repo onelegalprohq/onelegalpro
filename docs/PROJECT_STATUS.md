@@ -1,6 +1,6 @@
 # OneLegalPro Project Status
 
-**Last updated:** 2026-08-14
+**Last updated:** 2026-09-13
 **Phase:** Platform Foundation
 
 > This repository is **not production-ready**. There is no production deployment, environment, or pipeline.
@@ -16,6 +16,10 @@
 EPIC-001 — Platform Foundation (repository implementation track). EPIC-002 — Legal Intelligence, EPIC-003 — White-Label Platform, EPIC-004 — Communications Hub, EPIC-005 — Digital Presence Platform, EPIC-006 — Practice Management Core, EPIC-007 — Documents & Knowledge Management, EPIC-008 — Billing, Trust Accounting & Finance, EPIC-009 — Identity, Security & Access Control, EPIC-010 — API & Integration Platform, and EPIC-011 — AI Copilot & Workflow Automation are proposed at the architecture level only; see `docs/architecture/08_Roadmap.md`.
 
 ## Current work (repository implementation track)
+
+**Release-tracking reconciliation (13 September 2026).** `PF-064` and `PF-074` are `Done` on `main` (PRs #62 and #61). `PA-007` — Firm Registry Relation and Narrow Registry Query — is now **Done**: PR #86 merged to `main` as `fe266fc0b75884821ee2fa7dd81d0412bf904ee0` after all four required checks passed. The merged release was revalidated locally against PostgreSQL 16: 670 tests / 2,603 assertions, Pint, PHPStan, strict Composer validation, Composer and npm audits, frontend production build, and clean diff all passed. This clears the registry half of `PF-081` blocker B1; it does **not** clear IdentityAccess blockers B2 (`IA-001`) or B3 (`IA-002`), create the later `PA-008` adapter, or make a production deployment/readiness claim.
+
+**IA-001 implementation (13 September 2026).** The accepted Principal, Actor Reference, and Firm Security Realm Foundation contract is in progress under its exact pure-domain allowlist. It establishes no authentication, persistence, membership, session, authorization, tenant resolver, middleware, or deployment claim; `IA-002` and `PF-081` remain blocked until IA-001 is completed, reviewed, merged, and tracked.
 
 **`PF-033` — PostgreSQL Continuous Integration, Done.** Its story contract and independent review were approved through PR #33; ARCH-012 was accepted through PR #34, satisfying the last readiness dependency. Independent implementation review identified three P2 corrections; all were applied and verified. The branch was reconciled with current `main` and the dependency-security hotfix, all four required `Protect main` checks passed, the required human approval comment was recorded, and PR #44 merged to `main` as `40e7b0d` on 10 August 2026; the implementation branch and worktree were then deleted locally and remotely. The required `Application Tests` job now uses an ephemeral PostgreSQL 16 service, a disposable non-superuser test role/database, migrations, and a fail-closed PostgreSQL engine/role guard. The four required check names remain unchanged. No production database, credential, schema redesign, tenant policy, backup, deployment, Redis, queue worker, or business module was introduced.
 
