@@ -6,10 +6,15 @@ namespace Tests\Unit\Modules\IdentityAccess\Domain;
 
 use App\Foundation\Domain\Identity\BusinessIdentifier;
 use App\Foundation\Domain\Model\AggregateRoot;
+use App\Modules\IdentityAccess\Domain\Aggregates\FirmMembership;
 use App\Modules\IdentityAccess\Domain\Aggregates\Principal;
+use App\Modules\IdentityAccess\Domain\ValueObjects\ActiveVerifiedFirmMembership;
 use App\Modules\IdentityAccess\Domain\ValueObjects\ActorCategory;
 use App\Modules\IdentityAccess\Domain\ValueObjects\ActorReference;
+use App\Modules\IdentityAccess\Domain\ValueObjects\FirmMembershipId;
+use App\Modules\IdentityAccess\Domain\ValueObjects\FirmMembershipLifecycleState;
 use App\Modules\IdentityAccess\Domain\ValueObjects\IdentityRealm;
+use App\Modules\IdentityAccess\Domain\ValueObjects\MembershipVerification;
 use App\Modules\IdentityAccess\Domain\ValueObjects\PrincipalId;
 use PHPUnit\Framework\TestCase;
 
@@ -18,10 +23,15 @@ final class IdentityAccessContractShapeTest extends TestCase
 {
     /** @var array<string, class-string> */
     private const APPROVED_SOURCE_FILES = [
+        'IdentityAccess/Domain/Aggregates/FirmMembership.php' => FirmMembership::class,
         'IdentityAccess/Domain/Aggregates/Principal.php' => Principal::class,
         'IdentityAccess/Domain/ValueObjects/ActorCategory.php' => ActorCategory::class,
         'IdentityAccess/Domain/ValueObjects/ActorReference.php' => ActorReference::class,
+        'IdentityAccess/Domain/ValueObjects/ActiveVerifiedFirmMembership.php' => ActiveVerifiedFirmMembership::class,
+        'IdentityAccess/Domain/ValueObjects/FirmMembershipId.php' => FirmMembershipId::class,
+        'IdentityAccess/Domain/ValueObjects/FirmMembershipLifecycleState.php' => FirmMembershipLifecycleState::class,
         'IdentityAccess/Domain/ValueObjects/IdentityRealm.php' => IdentityRealm::class,
+        'IdentityAccess/Domain/ValueObjects/MembershipVerification.php' => MembershipVerification::class,
         'IdentityAccess/Domain/ValueObjects/PrincipalId.php' => PrincipalId::class,
     ];
 
@@ -67,7 +77,7 @@ final class IdentityAccessContractShapeTest extends TestCase
         foreach ($this->moduleSourceFiles() as $relativePath => $source) {
             $this->assertMatchesRegularExpression('/^<\?php\s+declare\(strict_types=1\);/', $source);
 
-            foreach (['Illuminate\\', 'Laravel\\', 'Eloquent', 'Credential', 'Session', 'Membership', 'Authorization', 'Http\\', 'Carbon\\'] as $forbidden) {
+            foreach (['Illuminate\\', 'Laravel\\', 'Eloquent', 'Credential', 'Session', 'Authorization', 'Http\\', 'Carbon\\'] as $forbidden) {
                 $this->assertStringNotContainsString($forbidden, $this->withoutComments($source), $relativePath.' exceeds IA-001 scope.');
             }
         }
