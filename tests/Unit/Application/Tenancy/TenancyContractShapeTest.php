@@ -8,6 +8,7 @@ use App\Application\Tenancy\ActiveFirmMembershipAssertion;
 use App\Application\Tenancy\AuthenticatedActor;
 use App\Application\Tenancy\CandidateFirmDirectory;
 use App\Application\Tenancy\CandidateFirmReference;
+use App\Application\Tenancy\CandidateFirmSourceKind;
 use App\Application\Tenancy\FirmMembershipVerifier;
 use App\Application\Tenancy\FirmResolutionDenied;
 use App\Application\Tenancy\VerifiedFirmContextResolver;
@@ -50,9 +51,44 @@ final class TenancyContractShapeTest extends TestCase
         self::assertSame(\RuntimeException::class, $denial->getParentClass()?->getName());
         self::assertTrue($denial->getConstructor()?->isPrivate());
         self::assertSame(['denied'], $this->declaredPublicMethodNames(FirmResolutionDenied::class));
+        self::assertSame(
+            [
+                'SubmittedOpaqueFirmIdentifier',
+                'Hostname',
+                'CustomDomain',
+                'RoutePath',
+                'RequestParameter',
+                'RequestHeader',
+                'Cookie',
+                'RequestBody',
+                'SubmittedEmailDomain',
+            ],
+            array_map(static fn (CandidateFirmSourceKind $case): string => $case->name, CandidateFirmSourceKind::cases()),
+        );
     }
 
-    public function test_no_port_has_a_production_implementation(): void
+    public function test_only_the_approved_candidate_directory_has_a_production_implementation(): void
+    {
+        $root = dirname(__DIR__, 4).'/app';
+        $implementations = [];
+
+        foreach ($this->phpFiles($root) as $path) {
+            $source = file_get_contents($path) ?: '';
+
+            if (str_contains($source, 'implements CandidateFirmDirectory')) {
+                $implementations[] = substr($path, strlen($root) + 1);
+            }
+        }
+
+        sort($implementations);
+
+        self::assertSame(
+            ['Modules/PlatformAdministration/Application/Tenancy/OpaqueFirmIdentifierCandidateDirectory.php'],
+            $implementations,
+        );
+    }
+
+    public function test_no_other_tenancy_port_has_a_production_implementation(): void
     {
         $root = dirname(__DIR__, 4).'/app';
         $source = implode("\n", array_map(static fn (string $path): string => file_get_contents($path) ?: '', $this->phpFiles($root)));
@@ -60,7 +96,6 @@ final class TenancyContractShapeTest extends TestCase
         self::assertStringNotContainsString('implements FirmMembershipVerifier', $source);
         self::assertStringNotContainsString('implements AuthenticatedActor', $source);
         self::assertStringNotContainsString('implements ActiveFirmMembershipAssertion', $source);
-        self::assertStringNotContainsString('implements CandidateFirmDirectory', $source);
     }
 
     /** @return list<string> */
