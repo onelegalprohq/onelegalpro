@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Modules\PlatformAdministration\Domain;
 
+use App\Application\Tenancy\CandidateFirmDirectory;
+use App\Application\Tenancy\CandidateFirmReference;
+use App\Application\Tenancy\CandidateFirmSourceKind;
 use App\Foundation\Domain\Event\DomainEvent;
 use App\Foundation\Domain\Identity\BusinessIdentifier;
 use App\Foundation\Domain\Model\AggregateRoot;
@@ -12,6 +15,7 @@ use App\Foundation\Domain\Model\ValueObject;
 use App\Modules\PlatformAdministration\Application\Queries\FindFirmRegistryEntry;
 use App\Modules\PlatformAdministration\Application\Queries\FirmRegistryEntry;
 use App\Modules\PlatformAdministration\Application\Queries\FirmRegistryUnavailable;
+use App\Modules\PlatformAdministration\Application\Tenancy\OpaqueFirmIdentifierCandidateDirectory;
 use App\Modules\PlatformAdministration\Domain\Aggregates\Firm;
 use App\Modules\PlatformAdministration\Domain\Events\FirmCreated;
 use App\Modules\PlatformAdministration\Domain\ValueObjects\FirmId;
@@ -58,6 +62,7 @@ final class PlatformAdministrationContractShapeTest extends TestCase
         'PlatformAdministration/Application/Queries/FindFirmRegistryEntry.php' => FindFirmRegistryEntry::class,
         'PlatformAdministration/Application/Queries/FirmRegistryEntry.php' => FirmRegistryEntry::class,
         'PlatformAdministration/Application/Queries/FirmRegistryUnavailable.php' => FirmRegistryUnavailable::class,
+        'PlatformAdministration/Application/Tenancy/OpaqueFirmIdentifierCandidateDirectory.php' => OpaqueFirmIdentifierCandidateDirectory::class,
         'PlatformAdministration/Infrastructure/Persistence/PostgreSqlFirmRegistry.php' => PostgreSqlFirmRegistry::class,
     ];
 
@@ -109,11 +114,8 @@ final class PlatformAdministrationContractShapeTest extends TestCase
      */
     private const FORBIDDEN_SYMBOLS = [
         'FirmContext',
-        'App\\Application\\Tenancy',
         'FirmTransactionManager',
         'onelegalpro.firm_id',
-        'CandidateFirmDirectory',
-        'CandidateFirmReference',
         'Eloquent',
         'Repository',
         'ServiceProvider',
@@ -259,6 +261,43 @@ final class PlatformAdministrationContractShapeTest extends TestCase
                 );
             }
         }
+    }
+
+    public function test_only_the_approved_adapter_references_the_pf081_candidate_contract(): void
+    {
+        $allowedPath = 'PlatformAdministration/Application/Tenancy/OpaqueFirmIdentifierCandidateDirectory.php';
+        $candidateSymbols = [
+            CandidateFirmDirectory::class,
+            CandidateFirmReference::class,
+            CandidateFirmSourceKind::class,
+        ];
+
+        foreach ($this->moduleSourceFiles() as $relativePath => $source) {
+            if ($relativePath === $allowedPath) {
+                continue;
+            }
+
+            foreach ($candidateSymbols as $symbol) {
+                $this->assertStringNotContainsString(
+                    $symbol,
+                    $this->withoutComments($source),
+                    $relativePath.' must not reference '.$symbol.'.',
+                );
+            }
+        }
+    }
+
+    public function test_the_approved_candidate_adapter_has_the_exact_port_shape(): void
+    {
+        $reflection = new \ReflectionClass(OpaqueFirmIdentifierCandidateDirectory::class);
+        $constructor = $reflection->getConstructor();
+
+        $this->assertTrue($reflection->isFinal());
+        $this->assertTrue($reflection->isReadOnly());
+        $this->assertSame([CandidateFirmDirectory::class], $reflection->getInterfaceNames());
+        $this->assertCount(1, $constructor?->getParameters() ?? []);
+        $this->assertSame(FindFirmRegistryEntry::class, $constructor?->getParameters()[0]->getType()?->getName());
+        $this->assertSame(['__construct', 'findCandidateFirmId'], $this->publicMethodNames($reflection));
     }
 
     /**

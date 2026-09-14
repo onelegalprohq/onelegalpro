@@ -6,6 +6,7 @@ namespace App\Application\Tenancy;
 
 enum CandidateFirmSourceKind
 {
+    case SubmittedOpaqueFirmIdentifier;
     case Hostname;
     case CustomDomain;
     case RoutePath;
